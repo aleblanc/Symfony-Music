@@ -1,0 +1,57 @@
+security:
+    # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+
+    # Load users from the Doctrine `users` table by their email address.
+    providers:
+        app_user_provider:
+            entity:
+                class: App\Entity\User
+                property: email
+
+    firewalls:
+        dev:
+            # Ensure dev tools and static assets are always allowed
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+        main:
+            lazy: true
+            provider: app_user_provider
+            # Single-user mode: every request is authenticated as one fixed
+            # account (see AutoLoginAuthenticator). The login form is bypassed.
+            custom_authenticators:
+                - App\Security\AutoLoginAuthenticator
+            logout:
+                path: app_logout
+                target: app_home
+            # Login form / remember-me kept for reference but unused while the
+            # auto-login authenticator is active.
+            # form_login:
+            #     login_path: app_login
+            #     check_path: app_login
+            #     enable_csrf: true
+            #     default_target_path: app_home
+            # remember_me:
+            #     secret: '%kernel.secret%'
+            #     lifetime: 31536000 # 1 year, matching the legacy long-lived sessions
+
+    # Note: Only the *first* matching rule is applied
+    access_control:
+        - { path: ^/login, roles: PUBLIC_ACCESS }
+        - { path: ^/register, roles: PUBLIC_ACCESS }
+        - { path: ^/favorites, roles: ROLE_USER }
+        - { path: ^/playlists, roles: ROLE_USER }
+        # Everything else (library browsing, streaming) is public, matching
+        # the legacy app's guest-readable behaviour.
+
+when@test:
+    security:
+        password_hashers:
+            # Password hashers are resource-intensive by design to ensure security.
+            # In tests, it's safe to reduce their cost to improve performance.
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4 # Lowest possible value for bcrypt
+                time_cost: 3 # Lowest possible value for argon
+                memory_cost: 10 # Lowest possible value for argon

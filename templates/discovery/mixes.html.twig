@@ -1,0 +1,47 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mixes · PHP Music{% endblock %}
+
+{% block body %}
+    <h1>Mixes</h1>
+    <form class="toolbar" method="get" action="{{ path('app_discover_mixes') }}">
+        <input class="field search" type="search" name="q" value="{{ query }}" placeholder="Search mixes…">
+        <button class="btn" type="submit">Search</button>
+        {% if query %}<a class="btn btn-ghost" href="{{ path('app_discover_mixes') }}">Clear</a>{% endif %}
+    </form>
+
+    <p class="section-sub">{{ total }} mix{{ total == 1 ? '' : 'es' }}{{ query ? ' for “' ~ query ~ '”' }}</p>
+
+    <nav class="sort-bar" aria-label="Sort">
+        <span class="muted">Sort by:</span>
+        <a href="{{ path('app_discover_mixes', {q: query, sort: 'newest'}) }}" class="{{ sort == 'newest' ? 'active' }}">Newest</a>
+        <a href="{{ path('app_discover_mixes', {q: query, sort: 'oldest'}) }}" class="{{ sort == 'oldest' ? 'active' }}">Oldest</a>
+        <a href="{{ path('app_discover_mixes', {q: query, sort: 'name_asc'}) }}" class="{{ sort == 'name_asc' ? 'active' }}">Name ↑</a>
+        <a href="{{ path('app_discover_mixes', {q: query, sort: 'name_desc'}) }}" class="{{ sort == 'name_desc' ? 'active' }}">Name ↓</a>
+    </nav>
+
+    {% if mixes is empty %}
+        <p class="muted">No mixes yet — scan some music into the library first.</p>
+    {% else %}
+        <div class="card-grid">
+            {% for mix in mixes %}
+                <a class="card" href="{{ path('app_mix_show', {publicId: mix.publicId}) }}">
+                    {% if mix.imageId %}
+                        <img src="{{ path('app_cover', {id: mix.imageId}) }}" alt="" loading="lazy"
+                             style="aspect-ratio:1;border-radius:8px;object-fit:cover;">
+                    {% endif %}
+                    <div class="card-title">{{ mix.name }}</div>
+                    <div class="card-sub">{{ songCounts[mix.id] }} track{{ songCounts[mix.id] == 1 ? '' : 's' }}</div>
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if pages > 1 %}
+        <div class="pagination">
+            {% if page > 1 %}<a href="{{ path('app_discover_mixes', {q: query, sort: sort, page: page - 1}) }}">← Prev</a>{% endif %}
+            <span class="current">{{ page }} / {{ pages }}</span>
+            {% if page < pages %}<a href="{{ path('app_discover_mixes', {q: query, sort: sort, page: page + 1}) }}">Next →</a>{% endif %}
+        </div>
+    {% endif %}
+{% endblock %}

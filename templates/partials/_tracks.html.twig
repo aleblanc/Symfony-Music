@@ -1,0 +1,68 @@
+{#
+ # Reusable track-list rendering. Each row exposes data-* attributes consumed
+ # by assets/player.js (queue building + the per-track "⋮" context menu).
+ #}
+{% macro track_row(song, i, favoriteIds, listenLaterIds = [], offlineIds = []) %}
+    {% set isFav = song.id in favoriteIds %}
+    {% set canEdit = app.user and ((song.owner and app.user.id == song.owner.id) or is_granted('ROLE_ADMIN')) %}
+    <div class="track" data-track
+         data-track-id="{{ song.id }}"
+         data-track-title="{{ song.displayTitle }}"
+         data-track-artist="{{ song.artist }}"
+         data-track-stream="{{ path('app_stream', {id: song.id}) }}"
+         data-track-cover="{{ path('app_cover', {id: song.id}) }}">
+        <div class="track-lead">
+            <span class="track-idx">{{ i }}</span>
+            <button class="track-play" data-play title="Play" aria-label="Play">
+                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+        </div>
+        <img class="track-art" src="{{ path('app_cover', {id: song.id}) }}" alt="" loading="lazy">
+        <div class="track-main">
+            <a class="track-title" href="#" data-play>{{ song.displayTitle }}</a>
+            <div class="track-sub">
+                {% if song.artist %}<a href="{{ path('app_artist', {name: song.artist}) }}">{{ song.artist }}</a>{% endif %}
+            </div>
+        </div>
+        <div class="track-album">
+            {% if song.album %}<a href="{{ path('app_album', {name: song.album}) }}">{{ song.album }}</a>{% endif %}
+        </div>
+        <div class="track-dur">{{ song.duration ? '%d:%02d'|format(song.duration // 60, song.duration % 60) : '' }}</div>
+        <div class="track-actions">
+            {% if app.user %}
+                <button class="icon-btn track-fav {{ isFav ? 'fav-on' }}" data-fav-toggle
+                        data-fav-url="{{ path('app_favorite_toggle', {id: song.id}) }}"
+                        title="Favorite" aria-label="Favorite">
+                    <svg viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.33-8.24C.9 10.06 1.4 6.5 4.2 5.2 6.2 4.3 8.6 5 12 8.5 15.4 5 17.8 4.3 19.8 5.2c2.8 1.3 3.3 4.86 1.53 7.56C18.7 16.65 12 21 12 21z"/></svg>
+                </button>
+            {% endif %}
+            <button class="icon-btn track-kebab" data-menu title="More" aria-label="More options"
+                    data-id="{{ song.id }}"
+                    data-title="{{ song.displayTitle }}"
+                    data-artist="{{ song.artist }}"
+                    data-song-url="{{ path('app_song', {id: song.id}) }}"
+                    {% if song.artist %}data-artist-url="{{ path('app_artist', {name: song.artist}) }}"{% endif %}
+                    {% if song.album %}data-album-url="{{ path('app_album', {name: song.album}) }}"{% endif %}
+                    data-download-url="{{ path('app_stream', {id: song.id}) }}?dl=1"
+                    {% if canEdit %}data-edit-url="{{ path('app_metadata_edit', {id: song.id}) }}"{% endif %}
+                    {% if app.user %}data-user="1"{% endif %}
+                    {% if song.id in listenLaterIds %}data-ll-on="1"{% endif %}
+                    {% if song.id in offlineIds %}data-off-on="1"{% endif %}>
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+            </button>
+        </div>
+    </div>
+{% endmacro %}
+
+{% macro track_list(songs, favoriteIds, listenLaterIds = [], offlineIds = []) %}
+    {% import _self as self %}
+    {% if songs is empty %}
+        <p class="muted">No tracks here yet.</p>
+    {% else %}
+        <div class="track-list">
+            {% for song in songs %}
+                {{ self.track_row(song, loop.index, favoriteIds, listenLaterIds, offlineIds) }}
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endmacro %}

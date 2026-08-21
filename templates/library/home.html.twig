@@ -1,0 +1,31 @@
+{% extends 'base.html.twig' %}
+{% import 'partials/_tracks.html.twig' as tracks %}
+
+{% block title %}Home · PHP Music{% endblock %}
+
+{% block body %}
+    <h1>Welcome{{ app.user ? ', ' ~ app.user.artist }}</h1>
+    <p class="section-sub">{{ total }} tracks in the library.</p>
+
+    {% if not app.user %}
+        <p class="muted">Browse and play everything as a guest, or
+            <a href="{{ path('app_login') }}">log in</a> to keep favorites, playlists and history.</p>
+    {% endif %}
+
+    {% if recent is not empty %}
+        <h2>Recently played</h2>
+        {{ tracks.track_list(recent, favoriteIds, listenLaterIds, offlineIds) }}
+    {% endif %}
+
+    {% if topSongs is not empty %}
+        <h2>Your top tracks</h2>
+        {{ tracks.track_list(topSongs, favoriteIds, listenLaterIds, offlineIds) }}
+    {% endif %}
+
+    {% if recent is empty and topSongs is empty %}
+        <h2>Get started</h2>
+        <p class="muted">Point <code>MUSIC_DIR</code> at your library and run
+            <code>php bin/console app:scan</code>, then browse the
+            <a href="{{ path('app_library') }}">Library</a>.</p>
+    {% endif %}
+{% endblock %}

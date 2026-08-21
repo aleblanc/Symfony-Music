@@ -1,0 +1,50 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Collaborators · {{ playlist.name }}{% endblock %}
+
+{% block body %}
+    <div class="toolbar" style="justify-content:space-between;">
+        <h1 style="margin:0;">Collaborators · {{ playlist.name }}</h1>
+        <a class="btn btn-ghost" href="{{ path('app_playlist_show', {id: playlist.id}) }}">Back to playlist</a>
+    </div>
+
+    {% if not playlist.isCollaborative %}
+        <p class="muted">This playlist is not collaborative yet. Turn on collaboration from the playlist page before inviting anyone.</p>
+    {% endif %}
+
+    <h2>Current collaborators</h2>
+    {% if collaborators is empty %}
+        <p class="muted">No collaborators yet.</p>
+    {% else %}
+        <div class="track-list">
+            {% for c in collaborators %}
+                <div class="list-row">
+                    <div class="lr-main">{{ c.user.artist }} <span class="lr-sub">({{ c.user.email }})</span></div>
+                    <form method="post" action="{{ path('app_playlist_collaborator_remove', {id: playlist.id, userId: c.user.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('playlist_collaborators_' ~ playlist.id) }}">
+                        <button class="btn btn-ghost" type="submit">Remove</button>
+                    </form>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <h2 style="margin-top:24px;">Add a collaborator</h2>
+    <form method="post" action="{{ path('app_playlist_collaborator_add', {id: playlist.id}) }}" style="max-width:420px;">
+        <input type="hidden" name="_token" value="{{ csrf_token('playlist_collaborators_' ~ playlist.id) }}">
+        <div class="field">
+            <label for="pl-collab-target">Email or display name</label>
+            <input type="text" id="pl-collab-target" name="target" required>
+        </div>
+        <button class="btn" type="submit">Add</button>
+    </form>
+
+    <h2 style="margin-top:24px;">Generate an invite link</h2>
+    <p class="section-sub">Anyone who opens the link can join as a collaborator (until it expires, if you set an expiry).</p>
+    <form method="post" action="{{ path('app_playlist_invite_create', {id: playlist.id}) }}" class="toolbar">
+        <input type="hidden" name="_token" value="{{ csrf_token('playlist_collaborators_' ~ playlist.id) }}">
+        <label for="pl-invite-expire" class="muted">Expires in (minutes, optional):</label>
+        <input type="number" id="pl-invite-expire" name="expire" min="1" style="width:120px;">
+        <button class="btn btn-ghost" type="submit">Generate link</button>
+    </form>
+{% endblock %}

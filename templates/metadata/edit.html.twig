@@ -1,0 +1,65 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Edit metadata · {{ song.displayTitle }}{% endblock %}
+
+{% block body %}
+    <h1>Edit metadata</h1>
+    <p class="section-sub">
+        <a href="{{ path('app_song', {id: song.id}) }}">← Back to track</a>
+    </p>
+
+    <div style="display:flex;gap:24px;align-items:flex-start;">
+        <img src="{{ path('app_cover', {id: song.id}) }}" alt="" width="140" height="140" style="border-radius:8px;">
+
+        <form method="post" action="{{ path('app_metadata_save', {id: song.id}) }}" enctype="multipart/form-data" style="flex:1;">
+            <input type="hidden" name="_token" value="{{ csrf_token('metadata_edit_' ~ song.id) }}">
+
+            <div class="field">
+                <label for="title">Title</label>
+                <input type="text" id="title" name="title" value="{{ song.title }}" maxlength="512">
+            </div>
+
+            <div class="field">
+                <label for="artist">Artist</label>
+                <input type="text" id="artist" name="artist" value="{{ song.artist }}" maxlength="512">
+            </div>
+
+            <div class="field">
+                <label for="album">Album</label>
+                <input type="text" id="album" name="album" value="{{ song.album }}" maxlength="512">
+            </div>
+
+            <div class="field">
+                <label for="genre">Genre</label>
+                <input type="text" id="genre" name="genre" value="{{ song.genre }}" maxlength="255">
+            </div>
+
+            <div class="field">
+                <label for="lyrics">Lyrics</label>
+                <textarea id="lyrics" name="lyrics" rows="8">{{ song.lyrics }}</textarea>
+            </div>
+
+            <div class="field">
+                <label for="cover_image">Cover image (optional)</label>
+                <input type="file" id="cover_image" name="cover_image" accept="image/jpeg,image/png,image/webp,image/gif">
+            </div>
+
+            <div class="field">
+                <label><input type="checkbox" name="is_private" value="1" {{ song.isPrivate ? 'checked' }}> Private (only visible to me)</label>
+            </div>
+
+            <button class="btn" type="submit">Save changes</button>
+        </form>
+    </div>
+
+    <h2>Raw file metadata (read-only)</h2>
+    <p class="muted">Everything getID3 can read from the physical file — useful to check whether a rating (Windows Media Player POPM / WM/SharedUserRating) is embedded in the file. Cover-art bytes are omitted.</p>
+    <textarea readonly rows="20" style="width:100%;font-family:monospace;white-space:pre;" onclick="this.select();">{{ rawMetadata }}</textarea>
+
+    <h2>Danger zone</h2>
+    <form method="post" action="{{ path('app_metadata_delete', {id: song.id}) }}"
+          onsubmit="return confirm('Delete this song permanently? This cannot be undone.');">
+        <input type="hidden" name="_token" value="{{ csrf_token('metadata_delete_' ~ song.id) }}">
+        <button class="btn btn-ghost" type="submit">Delete song</button>
+    </form>
+{% endblock %}

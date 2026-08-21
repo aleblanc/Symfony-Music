@@ -1,0 +1,741 @@
+<!--
+  Rhythm Game markup, extracted VERBATIM from legacy/php_music.php.
+
+  PART 1 (this file, top): the JS view-renderer's HTML template
+  literal for the 'rhythm_game' view (lines 54922-55429) — the hub
+  screen (#rg-screen-hub: song browser / favorites / leaderboard /
+  artist-detail tabs) and the fullscreen game screen
+  (#rg-screen-game). This is built as a JS template string and
+  injected into the SPA's content area, NOT a server-rendered Twig
+  template in the legacy — in the Symfony port this becomes real
+  Twig templates (song list from Twig loop, game screen mostly
+  empty DOM hooks that frontend-game-engine.js fills in via canvas/
+  DOM manipulation, same as the legacy's own approach).
+
+  PART 2 (further down): three modal dialogs (lines 43853-44059) —
+  chart density config, player stats history, and the 'How to Play'
+  guide (explains Tap/Hold/Swipe note types with inline SVG legends
+  — genuinely useful design reference for the game's core mechanics
+  regardless of how the backend ends up generating charts).
+-->
+
+<!-- ==================== PART 1: HUB + GAME SCREEN ==================== -->
+
+            case "rhythm_game":
+              updateContentTitle("Rhythm Game", !!currentUser);
+              if (currentUser) {
+                if (currentUser.rhythm_strikes > 0) {
+                  contentArea.innerHTML = `<div class="text-center p-5 text-danger"><i class="bi bi-exclamation-triangle-fill d-block fs-1 mb-3"></i><h4>Game Access Suspended</h4><p class="text-secondary mt-2">You have been banned from the Rhythm Game for suspicious activity (Strike ${currentUser.rhythm_strikes}/3).<br>Submit an appeal in Settings to restore access.</p></div>`;
+                  allContentloaded = true;
+                  break;
+                }
+                contentArea.innerHTML = `
+                        <div class="rg-app">
+                          <div id="rg-screen-hub" class="rg-screen">
+                            <div class="rg-tab-container">
+                              <div id="rg-tab-songs" class="rg-tab-content">
+                                <div class="rg-search-bar" style="display: flex; gap: 8px;">
+                                  <input type="text" id="rg-search-songs" class="rg-search-input" placeholder="Search tracks..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                  <select id="rg-sort-songs" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
+                                    <option value="random">Random</option>
+                                    <option value="trending">Trending</option>
+                                    <option value="id_desc">Newest</option>
+                                    <option value="title_asc">Title (A-Z)</option>
+                                    <option value="artist_asc">Artist (A-Z)</option>
+                                  </select>
+                                </div>
+                                <div class="rg-list-container" id="rg-list-songs">
+                                  <div style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; min-height: 250px; width: 100%;">
+                                    <div class="spinner-border text-danger" style="width: 3rem; height: 3rem; border-width: 0.3em;"></div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div id="rg-tab-favorites" class="rg-tab-content rg-hidden">
+                                <div class="rg-search-bar" style="display: flex; gap: 8px;">
+                                  <input type="text" id="rg-search-favs" class="rg-search-input" placeholder="Search favorites..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                  <select id="rg-sort-favs" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
+                                    <option value="manual_order">My Order</option>
+                                    <option value="random">Random</option>
+                                    <option value="trending">Trending</option>
+                                    <option value="id_desc">Newest</option>
+                                    <option value="title_asc">Title (A-Z)</option>
+                                    <option value="artist_asc">Artist (A-Z)</option>
+                                  </select>
+                                </div>
+                                <div class="rg-list-container" id="rg-list-favs"></div>
+                              </div>
+                              <div id="rg-tab-leaderboard" class="rg-tab-content rg-hidden">
+                                <div class="rg-list-container" id="rg-list-leaderboard"></div>
+                              </div>
+                              <!-- Artist Detail Profile Page (Keeps bottom bar active) -->
+                              <div id="rg-tab-artist-detail" class="rg-tab-content rg-hidden">
+                                <div class="rg-artist-layout modern-custom-scroll">
+                                  <!-- Left Sidebar: Profile Header, Tabs & Active Left Panes -->
+                                  <div class="rg-artist-left">
+                                    <!-- Profile Header (Populated dynamically) -->
+                                    <div id="rg-artist-detail-header" class="p-3 rounded-4" style="background: linear-gradient(135deg, rgba(255,59,48,0.15) 0%, rgba(0,0,0,0.4) 100%); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 16px;"></div>
+    
+                                    <!-- Sub Navigation Tabs -->
+                                    <ul class="nav nav-tabs border-secondary border-0 d-flex gap-2 w-100" id="rg-artist-detail-tabs" style="margin-bottom: 8px; flex-wrap: nowrap !important; overflow-x: auto !important; flex-shrink: 0 !important; scrollbar-width: none; max-width: 100%;">
+                                      <li class="nav-item"><button class="nav-link active" id="rg-art-tab-tracks" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">Tracks</button></li>
+                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-history" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">History</button></li>
+                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-playlists" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">Playlists</button></li>
+                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-favs" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">Favorites</button></li>
+                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-following" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">Following</button></li>
+                                    </ul>
+    
+                                    <!-- History Pane -->
+                                    <div id="rg-art-pane-history" class="d-none flex-column gap-2 w-100">
+                                      <div id="rg-list-artist-history" class="d-flex flex-column gap-3"></div>
+                                    </div>
+    
+                                    <!-- Favorites Pane -->
+                                    <div id="rg-art-pane-favs" class="d-none flex-column gap-2 w-100">
+                                      <div class="rg-search-bar p-0 mb-2" style="display: flex; gap: 8px;">
+                                        <input type="text" id="rg-search-artist-favs" class="rg-search-input" placeholder="Search favorites..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                        <select id="rg-sort-artist-favs" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
+                                          <option value="manual_order">My Order</option>
+                                          <option value="random">Random</option>
+                                          <option value="trending">Trending</option>
+                                          <option value="id_desc">Newest</option>
+                                          <option value="title_asc">Title (A-Z)</option>
+                                          <option value="artist_asc">Artist (A-Z)</option>
+                                        </select>
+                                      </div>
+                                      <div id="rg-list-artist-favs" class="d-flex flex-column gap-2"></div>
+                                    </div>
+    
+                                    <!-- Following Pane -->
+                                    <div id="rg-art-pane-following" class="d-none flex-column gap-2 w-100">
+                                      <div class="rg-search-bar p-0 mb-2" style="display: flex; gap: 8px;">
+                                        <input type="text" id="rg-search-artist-following" class="rg-search-input" placeholder="Search following..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                        <select id="rg-sort-artist-following" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
+                                          <option value="name_asc">Name (A-Z)</option>
+                                          <option value="name_desc">Name (Z-A)</option>
+                                          <option value="count_desc">Most Tracks</option>
+                                          <option value="followers_desc">Most Followers</option>
+                                          <option value="score_desc">Most Scores</option>
+                                          <option value="rank_desc">Most Ranks</option>
+                                          <option value="random">Random</option>
+                                        </select>
+                                      </div>
+                                      <div id="rg-list-artist-following" class="d-flex flex-column gap-2"></div>
+                                    </div>
+    
+                                    <!-- Playlists Pane -->
+                                    <div id="rg-art-pane-playlists" class="d-none flex-column gap-2 w-100">
+                                      <div id="rg-list-artist-playlists" class="d-flex flex-column gap-2 overflow-auto modern-custom-scroll" style="flex-grow: 1; min-height: 0; padding-right: 4px;"></div>
+                                    </div>
+                                  </div>
+    
+                                  <!-- Right Sidebar: Tracks Pane -->
+                                  <div class="rg-artist-right">
+                                    <!-- Tracks Pane -->
+                                    <div id="rg-art-pane-tracks" class="d-flex flex-column gap-2 w-100">
+                                      <div class="rg-search-bar p-0 mb-2" style="display: flex; gap: 8px;">
+                                        <input type="text" id="rg-search-artist-songs" class="rg-search-input" placeholder="Search tracks..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                        <select id="rg-sort-artist-songs" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
+                                          <option value="random">Random</option>
+                                          <option value="trending">Trending</option>
+                                          <option value="id_desc">Newest</option>
+                                          <option value="title_asc">Title (A-Z)</option>
+                                          <option value="album_asc">Album (A-Z)</option>
+                                        </select>
+                                      </div>
+                                      <div id="rg-list-artist-songs" class="d-flex flex-column gap-2"></div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              <!-- Artists Tab List -->
+                              <div id="rg-tab-artists" class="rg-tab-content rg-hidden">
+                                <div class="rg-search-bar" style="display: flex; gap: 8px;">
+                                  <input type="text" id="rg-search-artists" class="rg-search-input" placeholder="Search artists..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                  <select id="rg-sort-artists" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
+                                    <option value="name_asc">Name (A-Z)</option>
+                                    <option value="name_desc">Name (Z-A)</option>
+                                    <option value="count_desc">Most Tracks</option>
+                                    <option value="followers_desc">Most Followers</option>
+                                    <option value="score_desc">Most Scores</option>
+                                    <option value="rank_desc">Most Ranks</option>
+                                    <option value="random">Random</option>
+                                  </select>
+                                </div>
+                                <div class="rg-list-container" id="rg-list-artists"></div>
+                              </div>
+    
+                              <div id="rg-tab-settings" class="rg-tab-content rg-hidden">
+                                <div class="modern-custom-scroll" style="flex: 1; overflow-y: auto; padding: 24px 16px;">
+                                  <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; width: 100%;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid rgba(255,255,255,0.1);">
+                                      <div style="display: flex; align-items: center; gap: 12px;">
+                                        <i class="bi bi-sliders" style="font-size: 1.8rem; color: #fff;"></i>
+                                        <h2 style="color: #fff; font-weight: 800; text-transform: uppercase; font-size: 1.6rem; margin: 0; letter-spacing: 1px;">Settings</h2>
+                                      </div>
+                                      <button class="btn btn-outline-light rounded-pill fw-bold d-flex align-items-center gap-2 share-view-btn" data-share-type="game" data-share-name="PHP Music Rhythm Game" data-image-url="?action=get_app_icon&size=512" style="font-size: 0.85rem;">
+                                        <i class="bi bi-share-fill"></i> Share
+                                      </button>
+                                    </div>
+    
+                                    <!-- Keybindings Card -->
+                                    <div style="background-color: #1a1a1a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 24px; margin-bottom: 20px;">
+                                      <div style="font-size: 0.95rem; font-weight: 700; color: #fff; text-transform: uppercase; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; letter-spacing: 1px;"><i class="bi bi-keyboard fs-5 text-secondary"></i> Lane Keybindings</div>
+                                      <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;">
+                                        <button class="rg-key-btn" data-lane="0">A</button>
+                                        <button class="rg-key-btn" data-lane="1">S</button>
+                                        <button class="rg-key-btn" data-lane="2">D</button>
+                                        <button class="rg-key-btn" data-lane="3">F</button>
+                                        <button class="rg-key-btn" data-lane="4">G</button>
+                                        <button class="rg-key-btn" data-lane="5">H</button>
+                                        <button class="rg-key-btn" data-lane="6">J</button>
+                                        <button class="rg-key-btn" data-lane="7">K</button>
+                                        <button class="rg-key-btn" data-lane="8">L</button>
+                                        <button class="rg-key-btn" data-lane="9">;</button>
+                                      </div>
+                                      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 16px; gap: 16px; flex-wrap: wrap;">
+                                        <div style="font-size: 0.8rem; color: #888; font-weight: 500;"><i class="bi bi-info-circle me-1"></i>Tap a key to rebind. Easy/Med uses 4 keys (D,F,J,K), Hard-Master uses 6 keys (S,D,F,J,K,L), Demon uses all 10 lanes!</div>
+                                        <button class="btn btn-info text-dark rounded-pill fw-bold d-flex align-items-center gap-2 flex-shrink-0" data-bs-toggle="modal" data-bs-target="#rg-how-to-play-modal" style="font-size: 0.85rem;">
+                                          <i class="bi bi-info-circle-fill"></i> How to Play
+                                        </button>
+                                      </div>
+                                    </div>
+    
+                                    <!-- Gameplay Sliders Card -->
+                                    <div style="background-color: #1a1a1a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 24px; margin-bottom: 20px;">
+                                      <div style="font-size: 0.95rem; font-weight: 700; color: #fff; text-transform: uppercase; margin-bottom: 28px; display: flex; align-items: center; gap: 8px; letter-spacing: 1px;"><i class="bi bi-sliders fs-5 text-secondary"></i> Gameplay Options</div>
+    
+                                      <div style="margin-bottom: 28px;">
+                                        <div style="font-size: 0.85rem; font-weight: 700; color: #ccc; text-transform: uppercase; display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                          <span>Audio Latency Offset</span>
+                                          <span id="rg-offset-display" style="color: #fff; font-family: monospace; font-size: 1rem; background: #333; padding: 2px 8px; border-radius: 4px;">0ms</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+                                          <button type="button" id="rg-offset-minus" class="btn btn-sm btn-outline-light rounded-circle" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; border-color: rgba(255,255,255,0.2); background: transparent; color: #fff;">-</button>
+                                          <input type="range" id="rg-offset-slider" min="-250" max="250" value="0" step="5" style="flex-grow: 1; height: 6px; border-radius: 3px; background: #333; outline: none; -webkit-appearance: none; accent-color: var(--rg-primary);">
+                                          <button type="button" id="rg-offset-plus" class="btn btn-sm btn-outline-light rounded-circle" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; border-color: rgba(255,255,255,0.2); background: transparent; color: #fff;">+</button>
+                                        </div>
+                                      </div>
+    
+                                      <div style="margin-bottom: 28px;">
+                                        <div style="font-size: 0.85rem; font-weight: 700; color: #ccc; text-transform: uppercase; display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                          <span>Note Speed (Tick)</span>
+                                          <span id="rg-speed-display" style="color: #fff; font-family: monospace; font-size: 1rem; background: #333; padding: 2px 8px; border-radius: 4px;">1.0x</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+                                          <button type="button" id="rg-speed-minus" class="btn btn-sm btn-outline-light rounded-circle" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; border-color: rgba(255,255,255,0.2); background: transparent; color: #fff;">-</button>
+                                          <input type="range" id="rg-speed-slider" min="0.5" max="20" value="1.0" step="0.1" style="flex-grow: 1; height: 6px; border-radius: 3px; background: #333; outline: none; -webkit-appearance: none; accent-color: var(--rg-primary);">
+                                          <button type="button" id="rg-speed-plus" class="btn btn-sm btn-outline-light rounded-circle" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; border-color: rgba(255,255,255,0.2); background: transparent; color: #fff;">+</button>
+                                        </div>
+                                      </div>
+    
+                                      <div>
+                                        <div style="font-size: 0.85rem; font-weight: 700; color: #ccc; text-transform: uppercase; display: flex; justify-content: space-between; margin-bottom: 12px;">
+                                          <span>Hit SFX Volume</span>
+                                          <span id="rg-sfx-display" style="color: #fff; font-family: monospace; font-size: 1rem; background: #333; padding: 2px 8px; border-radius: 4px;">30%</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+                                          <button type="button" id="rg-sfx-minus" class="btn btn-sm btn-outline-light rounded-circle" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; border-color: rgba(255,255,255,0.2); background: transparent; color: #fff;">-</button>
+                                          <input type="range" id="rg-sfx-slider" min="0" max="1" value="0.3" step="0.05" style="flex-grow: 1; height: 6px; border-radius: 3px; background: #333; outline: none; -webkit-appearance: none; accent-color: var(--rg-primary);">
+                                          <button type="button" id="rg-sfx-plus" class="btn btn-sm btn-outline-light rounded-circle" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; border-color: rgba(255,255,255,0.2); background: transparent; color: #fff;">+</button>
+                                        </div>
+                                      </div>
+    
+                                      <div style="display: flex; justify-content: flex-end; margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                        <button id="rg-btn-reset-options" class="btn btn-outline-danger btn-sm rounded-pill fw-bold px-3 py-1"><i class="bi bi-arrow-counterclockwise"></i> Reset Options</button>
+                                      </div>
+                                    </div>
+    
+                                    <!-- Calibration Card -->
+                                    <div style="background-color: #1a1a1a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 24px;">
+                                      <div style="font-size: 0.95rem; font-weight: 700; color: #fff; text-transform: uppercase; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; letter-spacing: 1px;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><i class="bi bi-crosshair fs-5 text-secondary"></i> Calibration Tool</div>
+                                        <button id="rg-btn-cal-test" style="background: var(--rg-primary); color: #fff; border: none; border-radius: 4px; padding: 6px 16px; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; transition: opacity 0.2s; cursor: pointer;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Start Test</button>
+                                      </div>
+                                      <div style="position: relative; width: 100%; height: 160px; border-radius: 8px; overflow: hidden; display: none; margin-bottom: 16px; border: 1px solid #333;" id="rg-cal-test-area">
+                                        <canvas id="rg-cal-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0a0a0a;"></canvas>
+                                        <div id="rg-cal-feedback" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'Roboto', sans-serif; font-weight: 900; font-size: 1.2rem; color: #fff; pointer-events: none; white-space: nowrap; transition: transform 0.05s ease-out;">Tap Key to Calibrate</div>
+                                      </div>
+                                      <div style="font-size: 0.8rem; color: #888; font-weight: 500; line-height: 1.5;"><i class="bi bi-info-circle me-1"></i>Test your latency offset and note speed in real-time. Hit your bound keys as the falling lines cross the red target!</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+    
+                              <div id="rg-tab-offline" class="rg-tab-content rg-hidden">
+                                <div class="rg-search-bar" style="display: flex; gap: 8px;">
+                                  <input type="text" id="rg-search-offline" class="rg-search-input" placeholder="Search offline tracks..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                  <select id="rg-sort-offline" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
+                                    <option value="manual_order">My Order</option>
+                                    <option value="random">Random</option>
+                                    <option value="trending">Trending</option>
+                                    <option value="added_newest">Newest</option>
+                                    <option value="title_asc">Title (A-Z)</option>
+                                    <option value="artist_asc">Artist (A-Z)</option>
+                                  </select>
+                                </div>
+                                <div class="rg-list-container" id="rg-list-offline"></div>
+                              </div>
+                            </div>
+                            <div class="rg-bottom-nav">
+                              <div class="rg-nav-item active" data-target="songs"><i class="bi bi-music-note-list fs-4"></i><div class="rg-nav-label">Songs</div></div>
+                              <div class="rg-nav-item" data-target="artists"><i class="bi bi-people-fill fs-4"></i><div class="rg-nav-label">Artists</div></div>
+                              <div class="rg-nav-item" data-target="favorites"><i class="bi bi-heart-fill fs-4"></i><div class="rg-nav-label">Favorites</div></div>
+                              <div class="rg-nav-item" data-target="leaderboard"><i class="bi bi-trophy-fill fs-4"></i><div class="rg-nav-label">Ranks</div></div>
+                              <div class="rg-nav-item" id="rg-nav-my-profile"><i class="bi bi-person-fill fs-4"></i><div class="rg-nav-label">Profile</div></div>
+                              <div class="rg-nav-item" data-target="offline"><i class="bi bi-cloud-check-fill fs-4"></i><div class="rg-nav-label">Offline</div></div>
+                              <div class="rg-nav-item" data-target="settings"><i class="bi bi-sliders fs-4"></i><div class="rg-nav-label">Settings</div></div>
+                            </div>
+                          </div>
+    
+                          <div id="rg-dialog-play" class="rg-screen rg-hidden" style="z-index: 55; background-color: rgba(0,0,0,0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex;">
+    
+                            <div class="rg-play-menu-container">
+                              <!-- LEFT COLUMN: Track Details & Controls -->
+                              <div class="rg-play-menu-left d-flex flex-column align-items-center text-center modern-custom-scroll">
+    
+                                <img id="rg-dialog-cover" src="" style="width: 240px; height: 240px; object-fit: cover; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 12px 32px rgba(0,0,0,0.6); margin-bottom: 24px; flex-shrink: 0; margin-top: auto;">
+    
+                                <div class="rg-dialog-title w-100 text-truncate" id="rg-dialog-song-name" style="margin-bottom: 4px; font-size: 2.2rem; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.6);">Song Name</div>
+                                <div class="w-100 text-truncate fw-bold" id="rg-dialog-song-artist" style="margin-bottom: 24px; font-size: 1.1rem; color: #a1a1aa; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">Artist Name</div>
+    
+                                <!-- Share and Favorite Controls -->
+                                <div class="d-flex gap-3 mb-4" style="width: 100%; max-width: 400px; margin: 0 auto;">
+                                  <button type="button" class="btn btn-outline-light flex-grow-1 fw-bold py-2 rounded-pill d-flex align-items-center justify-content-center gap-2" id="rg-dialog-fav-btn" style="font-size: 0.95rem; border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #fff; transition: all 0.2s;">
+                                    <i class="bi bi-heart" id="rg-dialog-fav-icon"></i> <span id="rg-dialog-fav-text">Favorite</span>
+                                  </button>
+                                  <button type="button" class="btn btn-outline-light flex-grow-1 fw-bold py-2 rounded-pill d-flex align-items-center justify-content-center gap-2" id="rg-dialog-share-btn" style="font-size: 0.95rem; border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #fff; transition: all 0.2s;">
+                                    <i class="bi bi-share-fill"></i> <span>Share</span>
+                                  </button>
+                                </div>
+    
+                                <div style="width: 100%; max-width: 400px; margin: 0 auto; background: rgba(0,0,0,0.4); padding: 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+                                  <div style="font-size: 0.8rem; font-weight: 800; color: #888; margin-bottom: 16px; text-align: left; text-transform: uppercase; letter-spacing: 1px;">Select Difficulty</div>
+                                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                                    <button class="rg-diff-btn active" data-diff="easy"><div class="rg-diff-btn-inner">EASY <span class="lvl">LV.--</span></div></button>
+                                    <button class="rg-diff-btn" data-diff="medium"><div class="rg-diff-btn-inner">NORMAL <span class="lvl">LV.--</span></div></button>
+                                    <button class="rg-diff-btn" data-diff="hard"><div class="rg-diff-btn-inner">HARD <span class="lvl">LV.--</span></div></button>
+                                    <button class="rg-diff-btn" data-diff="expert"><div class="rg-diff-btn-inner">EXPERT <span class="lvl">LV.--</span></div></button>
+                                    <button class="rg-diff-btn" data-diff="master"><div class="rg-diff-btn-inner">MASTER <span class="lvl">LV.--</span></div></button>
+                                    <button class="rg-diff-btn" data-diff="demon"><div class="rg-diff-btn-inner">DEMON <span class="lvl">LV.--</span></div></button>
+                                  </div>
+    
+                                  <div id="rg-demon-warning" class="rounded-3 text-center" style="background-color: rgba(255, 59, 48, 0.15); border-color: #ff3b30; border-style: solid; max-height: 0; opacity: 0; margin-top: 0; padding: 0 0.5rem; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-width: 0;">
+                                    <i class="bi bi-phone-landscape text-danger fs-4 d-block mb-1 mt-1"></i>
+                                    <span class="text-danger fw-bold" style="font-size: 0.8rem; display: block; padding-bottom: 8px;">Demon mode uses 10 lanes!<br>Rotate device to landscape or use a desktop.</span>
+                                  </div>
+                                </div>
+    
+                                <div style="width: 100%; max-width: 400px; margin: 16px auto 0 auto; display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.4); padding: 12px 20px; border-radius: 100px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+                                  <div class="text-start" style="min-width: 0;">
+                                    <div style="font-size: 0.95rem; font-weight: 800; color: #fff;">Autoplay (Bot Mode)</div>
+                                    <div style="font-size: 0.75rem; color: #aaa; font-weight: 500;">Watch the bot play perfectly.</div>
+                                  </div>
+                                  <div class="form-check form-switch m-0 fs-4">
+                                    <input class="form-check-input" type="checkbox" id="rg-autoplay-toggle" style="cursor: pointer; accent-color: var(--ytm-accent); border-color: rgba(255,255,255,0.2);">
+                                  </div>
+                                </div>
+    
+                                <div style="width: 100%; max-width: 400px; margin: 16px auto 0 auto;">
+                                  <button id="rg-btn-view-chart" class="btn btn-outline-light w-100 fw-bold rounded-pill" style="font-size: 0.9rem; border-color: rgba(255,255,255,0.15);"><i class="bi bi-map me-1"></i> View Chart Map</button>
+                                </div>
+    
+                                <div style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 36px; margin-bottom: auto; width: 100%; max-width: 400px;">
+                                  <button class="btn btn-outline-secondary fw-bold rounded-pill" id="rg-btn-dialog-cancel" style="font-size: 1.1rem; width: 120px; border-color: rgba(255,255,255,0.1); color: #ccc;">Cancel</button>
+                                  <button class="btn btn-danger flex-grow-1 fw-bold fs-5 shadow-lg rounded-pill" id="rg-btn-dialog-play" style="padding: 10px;">Play</button>
+                                </div>
+                              </div>
+    
+                              <!-- RIGHT COLUMN: Leaderboard -->
+                              <div class="rg-play-menu-right">
+                                <div class="d-flex flex-column h-100 overflow-hidden w-100 rg-play-menu-right-inner">
+                                  <div class="p-3 border-bottom border-secondary d-flex align-items-center gap-2 flex-shrink-0" style="background-color: rgba(0, 0, 0, 0.25);">
+                                    <i class="bi bi-trophy-fill text-warning fs-5"></i>
+                                    <h5 class="m-0 text-white fw-bold text-uppercase" style="font-size: 1rem; letter-spacing: 1px;">Top Scores</h5>
+                                  </div>
+                                  <div id="rg-song-leaderboard" class="overflow-auto flex-grow-1 p-3 modern-custom-scroll">
+                                    <div class="text-center text-secondary small py-4">Loading scores...</div>
+                                  </div>
+                                </div>
+                              </div>
+    
+                            </div>
+                          </div>
+    
+                          <div id="rg-screen-loading" class="rg-screen rg-screen-center rg-hidden" style="justify-content: center; background-color: #000;">
+                            <div class="text-center w-100 px-4" style="max-width: 100%;">
+                              <img id="rg-loading-cover" src="" style="width: 250px; height: 250px; object-fit: cover; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.8); margin-bottom: 24px;">
+                              <h2 id="rg-loading-title" class="text-truncate" style="color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8); margin: 0 auto 4px auto; font-size: 1.8rem; font-weight: bold; text-align: center; max-width: 100%;">Song Title</h2>
+                              <div id="rg-loading-artist" class="text-truncate text-secondary fw-bold" style="text-shadow: 0 1px 3px rgba(0,0,0,0.8); margin: 0 auto 24px auto; font-size: 1.1rem; text-align: center; max-width: 100%;">Artist Name</div>
+                              <div class="d-flex align-items-center justify-content-center gap-3">
+                                <div class="spinner-border text-danger" style="width: 1.5rem; height: 1.5rem; border-width: 0.2em;"></div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--rg-primary);" id="rg-loading-text">Downloading 0%</div>
+                              </div>
+                            </div>
+                          </div>
+    
+                          <div id="rg-screen-game" class="rg-screen rg-hidden" style="background-color: #000;">
+                            <canvas id="rg-game-canvas" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1;"></canvas>
+                            <div id="rg-touch-layer" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:30; touch-action:none;"></div>
+                            <!-- Z-index 40 ensures the HUD buttons are clickable above the touch layer -->
+                            <div class="rg-hud" style="justify-content: center; position: relative; z-index: 40;">
+                              <div style="display:flex; flex-direction:column; align-items:center; text-align: center; width: 100%; max-width: 210px; margin: 0 auto;">
+                                <div class="rg-hud-title text-truncate" id="rg-in-game-title" style="max-width: 140px;">Title</div>
+    
+                                <!-- In-Game Score Progress Bar & Rank -->
+                                <div class="w-100 d-flex align-items-center gap-2 mb-1 mt-1" style="padding: 0 6px;">
+                                  <div id="rg-in-game-rank" style="font-size: 1.3rem; font-weight: 900; font-family: 'Arial Black', sans-serif; color: #7f1d1d; min-width: 28px; text-align: left; text-shadow: 0 0 8px currentColor; line-height: 1;">F</div>
+                                  <div class="flex-grow-1" style="min-width: 0;">
+                                    <div class="d-flex justify-content-between align-items-baseline" style="font-size: 0.6rem; color: #888; font-weight: bold; letter-spacing: 0.5px;">
+                                      <span>SCORE</span>
+                                      <span id="rg-in-game-score" style="font-family: monospace; font-size: 0.85rem; color: #fff;">000000000</span>
+                                    </div>
+                                    <div style="width: 100%; height: 4px; background-color: #222; border-radius: 2px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
+                                      <div id="rg-in-game-score-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #ff3b30, #ff9500); border-radius: 2px; transition: width 0.1s linear;"></div>
+                                    </div>
+                                  </div>
+                                </div>
+    
+                                <div class="rg-combo-box">
+                                  <div class="rg-combo-number" id="rg-in-game-combo">0</div>
+                                  <div class="rg-combo-text" id="rg-in-game-combo-lbl">COMBO</div>
+                                  <div id="rg-in-game-rating" style="font-size: 1.4rem; font-weight: 900; margin-top: 6px; text-transform: uppercase; min-height: 24px; transition: transform 0.05s ease-out; text-shadow: 0 2px 4px rgba(0,0,0,0.5);"></div>
+                                </div>
+                              </div>
+                              <div class="rg-hud-actions" style="position: absolute; right: 16px; top: 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                                <button class="rg-quit-btn" id="rg-btn-quit-game" style="padding: 0; width: 44px; height: 44px; border-radius: 50%; font-size: 1.5rem; display: flex; align-items: center; justify-content: center;"><i class="bi bi-pause-fill"></i></button>
+                                <div style="width: 80px; height: 6px; background-color: #222; border-radius: 3px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); margin-top: 2px;">
+                                  <div id="rg-in-game-hp" style="width: 100%; height: 100%; background-color: #27c93f; transition: width 0.1s, background-color: 0.1s;"></div>
+                                </div>
+                                <div id="rg-in-game-accuracy" style="font-family: monospace; font-size: 0.8rem; font-weight: bold; color: #aaa; text-shadow: 0 1px 2px rgba(0,0,0,0.8); line-height: 1;">100.00%</div>
+                                <div id="rg-in-game-fps" style="font-family: monospace; font-size: 0.7rem; font-weight: bold; color: #888; text-shadow: 0 1px 2px rgba(0,0,0,0.8); line-height: 1; margin-top: 4px;">-- FPS</div>
+                                <div id="rg-in-game-autoplay" style="font-size: 0.65rem; font-weight: 800; color: #00bcd4; text-transform: uppercase; margin-top: 2px; text-shadow: 0 0 6px rgba(0,188,212,0.4); display: none;">Autoplay</div>
+                              </div>
+                            </div>
+                          </div>
+    
+                          <div id="rg-dialog-chart-modal" class="rg-dialog-backdrop rg-hidden" style="z-index: 60;">
+                            <div class="rg-dialog-surface text-center" style="max-width: 95%; width: 100%; max-width: 600px; max-height: 80vh; padding: 0; overflow: hidden; gap: 0;">
+                              <div style="padding: 16px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background: var(--rg-surface-variant); flex-shrink: 0;">
+                                <h5 class="text-white m-0 fw-bold" style="font-size: 1.1rem;"><i class="bi bi-map text-danger me-2"></i> Chart Map</h5>
+                                <button class="btn-close btn-close-white" id="rg-btn-close-chart"></button>
+                              </div>
+                              <div id="rg-chart-modal-content" style="overflow-y: auto; overflow-x: auto; background: #000; padding: 16px; flex-grow: 1;">
+                                <!-- SVG injected here -->
+                              </div>
+                              <div style="padding: 16px; border-top: 1px solid #333; background: var(--rg-surface-variant); flex-shrink: 0;">
+                                <button id="rg-btn-dl-chart" class="btn btn-info w-100 fw-bold text-dark rounded-pill"><i class="bi bi-download me-1"></i> Download SVG</button>
+                              </div>
+                            </div>
+                          </div>
+    
+                          <div id="rg-dialog-pause" class="rg-dialog-backdrop rg-hidden" style="z-index: 50;">
+                            <div class="rg-dialog-surface text-center">
+                              <h3 class="text-white fw-bold mb-1">Game Paused</h3>
+                              <div class="text-secondary small fw-bold text-uppercase mb-4">Difficulty: <span id="rg-pause-diff-display" class="text-danger">Medium</span></div>
+                              <div class="d-flex flex-column gap-3 w-100">
+                                <button class="rg-primary-btn" id="rg-btn-resume" style="background-color: #ff3b30; color: #ffffff; border-radius: 12px; border: none; padding: 16px; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4);">Resume</button>
+                                <button class="rg-primary-btn" id="rg-btn-retry-pause" style="background-color: #8e1c1c; color: #ffffff; border-radius: 12px; border: none; padding: 16px;">Retry</button>
+                                <button class="rg-primary-btn" id="rg-btn-quit" style="background-color: #4a0000; color: #ffffff; border-radius: 12px; border: none; padding: 16px;">Quit to Menu</button>
+                              </div>
+                            </div>
+                          </div>
+    
+                          <div id="rg-screen-result" class="rg-screen rg-hidden" style="background-color: transparent; overflow-y: auto; overflow-x: hidden; display: block; width: 100%; max-width: 100%; box-sizing: border-box;">
+                            <div style="width: 100%; max-width: 600px; margin: 0 auto; padding: 48px 16px 120px 16px; position: relative; z-index: 1; box-sizing: border-box; overflow-x: hidden;">
+                              <h2 style="text-align: center; color: var(--rg-primary); margin-bottom: 24px; text-transform: uppercase; font-weight: 900; font-size: 2.2rem; letter-spacing: 2px; text-shadow: 0 4px 12px rgba(0,0,0,0.5);">Stage Cleared</h2>
+    
+                              <!-- Rank & Accuracy Card -->
+                              <div class="p-3 mb-4 d-flex align-items-center justify-content-between rounded-4" style="background: linear-gradient(135deg, rgba(255,59,48,0.15), rgba(0,0,0,0.4)); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+                                <div class="d-flex flex-column text-start">
+                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px;">Accuracy</span>
+                                  <span id="rg-res-acc" style="font-size: 2.2rem; font-weight: 900; font-family: monospace; color: #fff; line-height: 1.1;">100.00%</span>
+                                </div>
+                                <div class="d-flex flex-column align-items-end text-end">
+                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Rank</span>
+                                  <span id="rg-res-rank" style="font-size: 3.5rem; font-weight: 900; line-height: 0.8; font-family: 'Arial Black', sans-serif; text-shadow: 0 0 15px currentColor; transition: color 0.3s;">SS</span>
+                                </div>
+                              </div>
+    
+                              <!-- Score Progress Bar Container -->
+                              <div class="p-3 mb-4 rounded-4" style="background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
+                                <div class="d-flex justify-content-between align-items-end mb-2">
+                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px;">Total Score</span>
+                                  <span id="rg-res-score" style="font-size: 1.8rem; font-weight: 900; font-family: monospace; color: var(--rg-primary); line-height: 1;">000,000,000</span>
+                                </div>
+                                <div style="width: 100%; height: 10px; background-color: #111; border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
+                                  <div id="rg-res-score-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #ff3b30, #ff9500); border-radius: 5px; transition: width 0.8s cubic-bezier(0.1, 0.76, 0.55, 0.94);"></div>
+                                </div>
+                              </div>
+    
+                              <!-- Grid Judgment Stats -->
+                              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 32px;">
+                                <!-- Max Combo (Full Width) -->
+                                <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 12px 18px; border-radius: 12px;">
+                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px;">Max Combo</span>
+                                  <span id="rg-res-max-combo" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff;">0</span>
+                                </div>
+    
+                                <!-- Perfect -->
+                                <div style="background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 12px; display: flex; flex-direction: column; text-align: left;">
+                                  <span style="font-size: 0.7rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px;">Perfect</span>
+                                  <span id="rg-res-perfect" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff; margin-top: 2px;">0</span>
+                                </div>
+    
+                                <!-- Great -->
+                                <div style="background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 12px; display: flex; flex-direction: column; text-align: left;">
+                                  <span style="font-size: 0.7rem; font-weight: 700; color: #ff3b30; text-transform: uppercase; letter-spacing: 0.5px;">Great</span>
+                                  <span id="rg-res-great" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff; margin-top: 2px;">0</span>
+                                </div>
+    
+                                <!-- Good -->
+                                <div style="background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 12px; display: flex; flex-direction: column; text-align: left;">
+                                  <span style="font-size: 0.7rem; font-weight: 700; color: #ffa000; text-transform: uppercase; letter-spacing: 0.5px;">Good</span>
+                                  <span id="rg-res-good" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff; margin-top: 2px;">0</span>
+                                </div>
+    
+                                <!-- Bad -->
+                                <div style="background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 12px; display: flex; flex-direction: column; text-align: left;">
+                                  <span style="font-size: 0.7rem; font-weight: 700; color: #8e1c1c; text-transform: uppercase; letter-spacing: 0.5px;">Bad</span>
+                                  <span id="rg-res-bad" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff; margin-top: 2px;">0</span>
+                                </div>
+    
+                                <!-- Miss (Full Width) -->
+                                <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 12px 18px; border-radius: 12px;">
+                                  <span style="font-size: 0.75rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px;">Miss</span>
+                                  <span id="rg-res-miss" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff;">0</span>
+                                </div>
+                              </div>
+    
+                              <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                                <button class="rg-primary-btn" id="rg-btn-result-share" style="width: 100%; background-color: #1DB954; color: #fff; padding: 16px; border-radius: 16px; margin-bottom: 8px;"><i class="bi bi-share-fill"></i> Share Score</button>
+                                <div style="display: flex; gap: 12px; width: 100%; margin-bottom: 1em;">
+                                  <button class="rg-primary-btn" id="rg-btn-result-retry" style="flex: 1; background-color: #4a0000; color: var(--rg-primary); padding: 16px; border-radius: 16px;">Retry</button>
+                                  <button class="rg-primary-btn" id="rg-btn-result-back" style="flex: 1; padding: 16px; border-radius: 16px;">Menu</button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      `;
+                setTimeout(() => {
+                  if (!localRhythmGame) {
+                    localRhythmGame = new RhythmGameEngine();
+                  }
+                  localRhythmGame.initDOM();
+                }, 50);
+              } else {
+                contentArea.innerHTML = `<div class="text-center p-5 text-secondary">Log in to play the Rhythm Game.</div>`;
+              }
+              allContentloaded = true;
+              break;
+    
+
+<!-- ==================== PART 2: MODALS (density config / player stats / how-to-play) ==================== -->
+
+    <div class="modal fade" id="chart-config-modal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-sm">
+        <div class="modal-content" style="background-color: var(--ytm-surface); border: 1px solid #404040;">
+          <div class="modal-header border-0 pb-2" style="border-bottom: 1px solid var(--ytm-surface-2) !important;">
+            <h5 class="modal-title text-white fw-bold"><i class="bi bi-sliders text-danger me-2"></i> Adjust Chart Scan</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4 text-white">
+            <label class="form-label text-secondary small fw-bold mb-2">CHART DENSITY MODIFIER</label>
+            <div style="position: relative; display: flex; align-items: center; margin-bottom: 1.5rem;">
+              <select id="rhythm-global-density-select" class="form-control bg-dark text-white border-secondary" style="appearance: none; -webkit-appearance: none; padding-right: 48px; cursor: pointer; z-index: 1; height: 45px; font-weight: 500;">
+                <option value="0.5">0.5x (Very Sparse - Casual)</option>
+                <option value="0.8">0.8x (Sparse)</option>
+                <option value="1.0">1.0x (Neutral / Standard 3x)</option>
+                <option value="1.2">1.2x (Dense)</option>
+                <option value="1.5">1.5x (Very Dense)</option>
+                <option value="2.0">2.0x (Extreme / 6x)</option>
+              </select>
+              <i class="bi bi-chevron-down text-secondary" style="position: absolute; right: 16px; pointer-events: none; font-size: 1.2rem; z-index: 2;"></i>
+            </div>
+            <button type="button" class="btn btn-danger w-100 fw-bold mb-3" id="save-rhythm-global-density-btn" style="height: 45px;">Save Settings</button>
+            <hr class="border-secondary opacity-50 mb-3">
+            <button type="button" class="btn btn-outline-warning w-100 fw-bold" id="vacuum-database-btn" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#vacuum-modal" style="height: 45px;"><i class="bi bi-database-fill-gear me-1"></i> Optimize Storage</button>
+            <div class="text-secondary small mt-2 text-center" style="line-height: 1.4;">Frees up disk space by removing remnants of old replaced charts. Does not delete active data.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="vacuum-modal" tabindex="-1" data-bs-backdrop="static">
+      <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header border-0">
+            <h5 class="modal-title">Database Optimization Log</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-0">
+            <iframe id="vacuum-iframe" src="about:blank" style="width: 100%; height: 60vh; border: none; background-color: #030303;"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="rg-player-stats-modal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="background-color: #030303; border: 1px solid #333; border-radius: 16px;">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title text-white fw-bold"><i class="bi bi-controller text-danger me-2"></i> Player History</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-4" id="rg-player-stats-body">
+            <!-- Populated dynamically via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="rg-how-to-play-modal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-scrollable modal-fullscreen">
+        <div class="modal-content" style="background-color: var(--ytm-bg); border: none;">
+          <div class="modal-header border-0 pb-2 px-4" style="border-bottom: 1px solid var(--ytm-surface-2) !important; background-color: var(--ytm-surface);">
+            <h5 class="modal-title text-white fw-bold"><i class="bi bi-info-circle-fill text-info me-2"></i>How to Play: Rhythm Game</h5>
+            <button type="button" class="btn-close btn-close-white fs-5" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body text-light px-4 py-4 mx-auto" style="width: 100%;">
+            
+            <div class="text-center mb-5 mt-2">
+              <i class="bi bi-controller text-danger" style="font-size: 4rem;"></i>
+              <h2 class="fw-bold mt-3 text-white">Master the Beat</h2>
+              <p class="text-secondary">Learn the core mechanics, note types, and scoring system to climb the leaderboards.</p>
+            </div>
+
+            <div class="d-flex flex-column gap-3">
+              
+              <h5 class="text-white mt-2 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">Note Types</h5>
+              
+              <!-- Tap Notes -->
+              <div class="d-flex flex-column p-4 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
+                <div class="d-flex align-items-center gap-4 mb-3">
+                  <div class="d-flex align-items-center justify-content-center" style="width: 80px; height: 60px;">
+                    <svg width="60" height="20" viewBox="0 0 60 20" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="0" y="0" width="60" height="20" fill="#00d2ff" stroke="#ffffff" stroke-width="2" rx="4"/>
+                      <line x1="10" y1="10" x2="50" y2="10" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <span class="fw-bold text-white fs-4 d-block mb-1">Tap Notes (Cyan)</span>
+                    <span class="text-secondary" style="font-size: 0.9rem;">The standard note. Tap the corresponding lane key exactly when the note aligns with the red judgment line at the bottom.</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hold Notes -->
+              <div class="d-flex flex-column p-4 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
+                <div class="d-flex align-items-center gap-4 mb-3">
+                  <div class="d-flex align-items-center justify-content-center" style="width: 80px; height: 100px;">
+                    <svg width="60" height="90" viewBox="0 0 60 90" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="0" y="0" width="60" height="90" fill="rgba(46, 204, 113, 0.4)" stroke="#2ecc71" stroke-width="2" rx="4"/>
+                      <rect x="0" y="0" width="60" height="20" fill="#2ecc71" stroke="#ffffff" stroke-width="2" rx="4"/>
+                      <line x1="10" y1="10" x2="50" y2="10" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <span class="fw-bold text-white fs-4 d-block mb-1">Hold Notes (Green)</span>
+                    <span class="text-secondary" style="font-size: 0.9rem;">Press and hold the key when the bottom of the note reaches the line, and release it exactly when the top tail passes. Letting go too early breaks your combo.</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Swipe Notes -->
+              <div class="d-flex flex-column p-4 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
+                <div class="d-flex align-items-center gap-4 mb-3">
+                  <div class="d-flex align-items-center justify-content-center" style="width: 80px; height: 60px;">
+                    <svg width="60" height="20" viewBox="0 0 60 20" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="0" y="0" width="60" height="20" fill="#ff4da6" stroke="#ffffff" stroke-width="2" rx="4"/>
+                      <polyline points="20,14 30,6 40,14" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <span class="fw-bold text-white fs-4 d-block mb-1">Flick Notes (Pink)</span>
+                    <span class="text-secondary" style="font-size: 0.9rem;">Swipe up or quickly flick your finger/mouse on the lane when it hits the line. On desktop, releasing the key rapidly counts as a flick.</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hold + Swipe Notes -->
+              <div class="d-flex flex-column p-4 rounded mt-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
+                <div class="d-flex align-items-center gap-4 mb-3">
+                  <div class="d-flex align-items-center justify-content-center" style="width: 80px; height: 100px;">
+                    <svg width="60" height="90" viewBox="0 0 60 90" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="0" y="0" width="60" height="90" fill="rgba(255, 77, 166, 0.4)" stroke="#ff4da6" stroke-width="2" rx="4"/>
+                      <rect x="0" y="0" width="60" height="20" fill="#ff4da6" stroke="#ffffff" stroke-width="2" rx="4"/>
+                      <polyline points="20,14 30,6 40,14" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <span class="fw-bold text-white fs-4 d-block mb-1">Hold + Flick Notes</span>
+                    <span class="text-secondary" style="font-size: 0.9rem;">A combination of Hold and Flick. Keep the key pressed during the transparent body, and release it with a flick/swipe exactly as the pink tail passes the judgment line.</span>
+                  </div>
+                </div>
+              </div>
+
+              <h5 class="text-white mt-4 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">Navigation & Difficulties</h5>
+              
+              <div class="p-4 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
+                <ul class="text-secondary mb-0" style="font-size: 0.95rem; line-height: 1.8;">
+                  <li><strong class="text-white"><i class="bi bi-compass text-info"></i> Hub Navigation:</strong> Use the bottom navigation bar to switch between <strong>Songs</strong>, <strong>Artists</strong>, <strong>Favorites</strong>, <strong>Ranks</strong>, your <strong>Profile</strong>, or <strong>Offline</strong> tracks.</li>
+                  <li><strong class="text-white"><i class="bi bi-bar-chart-fill text-warning"></i> Difficulty Scaling:</strong>
+                    <ul class="mt-1 mb-2">
+                      <li><strong>Easy / Normal:</strong> Uses 4 lanes (D, F, J, K). Best for beginners.</li>
+                      <li><strong>Hard / Expert / Master:</strong> Uses 6 lanes (S, D, F, J, K, L). Requires faster reaction times.</li>
+                      <li><strong>Demon:</strong> Uses all 10 lanes! <span class="text-danger fw-bold">Requires Landscape orientation on mobile devices.</span></li>
+                    </ul>
+                  </li>
+                  <li><strong class="text-white"><i class="bi bi-robot text-primary"></i> Autoplay (Bot Mode):</strong> Toggle "Autoplay" on the song menu to let the bot achieve a perfect score automatically. <i>Note: Autoplay scores are not saved to the leaderboards.</i></li>
+                </ul>
+              </div>
+
+              <h5 class="text-white mt-4 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">Scoring & Ranks</h5>
+              
+              <div class="p-4 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
+                <div class="row g-3 text-center mb-4">
+                  <div class="col-3">
+                    <div class="fw-bold fs-5 text-white">PERFECT</div>
+                    <div class="text-success small">Â±45ms</div>
+                    <div class="text-secondary small">100% Acc</div>
+                  </div>
+                  <div class="col-3">
+                    <div class="fw-bold fs-5" style="color: #ff3b30;">GREAT</div>
+                    <div class="text-success small">Â±80ms</div>
+                    <div class="text-secondary small">75% Acc</div>
+                  </div>
+                  <div class="col-3">
+                    <div class="fw-bold fs-5" style="color: #ffa000;">GOOD</div>
+                    <div class="text-success small">Â±125ms</div>
+                    <div class="text-secondary small">40% Acc</div>
+                  </div>
+                  <div class="col-3">
+                    <div class="fw-bold fs-5" style="color: #8e1c1c;">BAD / MISS</div>
+                    <div class="text-danger small">&gt;125ms</div>
+                    <div class="text-secondary small">Breaks Combo</div>
+                  </div>
+                </div>
+                
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                  <span class="badge bg-danger text-white fs-6 px-3 py-2">SS <small>(98%+)</small></span>
+                  <span class="badge bg-warning text-dark fs-6 px-3 py-2">S <small>(95%+)</small></span>
+                  <span class="badge text-white fs-6 px-3 py-2" style="background: #a78bfa;">A <small>(90%+)</small></span>
+                  <span class="badge text-white fs-6 px-3 py-2" style="background: #60a5fa;">B <small>(80%+)</small></span>
+                  <span class="badge text-dark fs-6 px-3 py-2" style="background: #34d399;">C <small>(70%+)</small></span>
+                </div>
+              </div>
+
+              <h5 class="text-white mt-4 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">Tips & Settings</h5>
+              <ul class="text-secondary" style="font-size: 0.95rem; line-height: 1.8;">
+                <li><strong class="text-white">Calibration:</strong> If notes feel out of sync with the beat, use the Calibration Tool in the Settings tab to adjust your audio offset (in milliseconds).</li>
+                <li><strong class="text-white">Note Speed:</strong> Adjusting the Tick Speed in settings spreads the notes further apart, making fast sections easier to read without altering the song's BPM.</li>
+                <li><strong class="text-white">HP Bar:</strong> Missing notes drains your green health bar. If it empties completely, you fail the stage!</li>
+                <li><strong class="text-white">Anti-Cheat:</strong> The server actively detects inhuman macros and auto-clickers. Do not use scripts, or you will be permanently banned.</li>
+              </ul>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+

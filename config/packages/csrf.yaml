@@ -1,0 +1,5 @@
+# Standard session-based CSRF protection (this app uses session-backed
+# form_login, not a stateless API — stateless CSRF cookies are not needed
+# and were previously misconfigured here, breaking the login form's token).
+framework:
+    csrf_protection: true

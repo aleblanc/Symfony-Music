@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../vendor/symfony/dependency-injection/Loader/schema/services.schema.json
+
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+# See also https://symfony.com/doc/current/service_container/import.html
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+    # Music library location that "app:scan" indexes. Falls back to
+    # <project>/var/library when the MUSIC_DIR env var is empty.
+    app.music_dir: '%env(default:app.music_dir_default:MUSIC_DIR)%'
+    app.music_dir_default: '%kernel.project_dir%/var/library'
+    # Vendored getID3 library location, used by MetadataWriter to require the
+    # tag-writing module (`write.php`) that composer does not classmap.
+    app.getid3_dir: '%kernel.project_dir%/lib/getid3'
+    # Maximum accepted upload size in bytes (mirrors the legacy 10/day quota
+    # check being paired with a sane per-file cap; not enforced by the legacy
+    # code beyond php.ini, but added here as a security hardening measure).
+    app.max_upload_bytes: 52428800
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+        bind:
+            string $musicDir: '%app.music_dir%'
+            string $getid3Dir: '%app.getid3_dir%'
+            int $maxUploadBytes: '%app.max_upload_bytes%'
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+
+    # add more service definitions when explicit configuration is needed
+    # please note that last definitions always *replace* previous ones

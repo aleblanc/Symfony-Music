@@ -1,0 +1,832 @@
+/* Rhythm Game CSS, extracted VERBATIM from legacy/php_music.php
+   (lines 36727-37550). All rules are scoped under `.rg-*` classes
+   or `body.rg-session-active` (a class toggled on <body> while a
+   game session is active, used to hide the app shell/sidebar/player
+   bar and go fullscreen). Uses CSS custom properties (--rg-primary,
+   --rg-bg, --rg-surface, --rg-surface-variant, see .rg-app below) for
+   easy re-theming. */
+
+      body.rg-session-active {
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+      }
+
+      body.rg-session-active .app-container {
+        min-height: 100dvh !important;
+        height: 100dvh !important;
+      }
+
+      body.rg-session-active .sidebar {
+        display: none !important;
+      }
+
+      body.rg-session-active .mobile-header {
+        display: none !important;
+      }
+
+      body.rg-session-active .page-header {
+        display: none !important;
+      }
+
+      body.rg-session-active .content-area-wrapper {
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        flex: 1;
+      }
+
+      body.rg-session-active .main-content {
+        padding: 0 !important;
+        margin: 0 !important;
+        height: 100dvh !important;
+        overflow: hidden !important;
+      }
+
+      body.rg-session-active #player-bar {
+        display: none !important;
+      }
+
+      /* Responsive Artist Rhythm Page Layout */
+      .rg-artist-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        padding: 12px;
+      }
+
+      .rg-artist-left {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        flex-shrink: 0;
+      }
+
+      .rg-artist-right {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        flex-grow: 1;
+      }
+
+      @media (min-width: 992px) {
+        .rg-artist-layout {
+          flex-direction: row !important;
+          align-items: stretch !important;
+          /* Stretches left & right columns to full page height */
+          gap: 16px;
+          overflow-y: hidden !important;
+          /* Disables main layout page scrolling */
+        }
+
+        .rg-artist-left {
+          width: 320px;
+          height: 100%;
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 12px;
+        }
+
+        .rg-artist-right {
+          width: calc(100% - 336px);
+          height: 100%;
+          display: flex !important;
+          flex-direction: column !important;
+        }
+
+        /* Hide Tracks Tab button on Desktop since it's permanently shown on the right */
+        #rg-art-tab-tracks {
+          display: none !important;
+        }
+
+        /* Force the right Tracks pane to take up full height and flex vertically */
+        #rg-art-pane-tracks {
+          display: flex !important;
+          flex-direction: column !important;
+          height: 100%;
+          min-height: 0;
+        }
+
+        /* Lock the Search and Sort Bar statically at the top of the panes */
+        #rg-art-pane-tracks .rg-search-bar,
+        #rg-art-pane-favs .rg-search-bar {
+          flex-shrink: 0;
+        }
+
+        /* Make the actual songs list scroll independently on the right column */
+        #rg-list-artist-songs {
+          overflow-y: auto !important;
+          flex-grow: 1;
+          min-height: 0;
+          scrollbar-width: thin;
+          padding-right: 4px;
+        }
+
+        /* Force left sub-panes (History/Favorites/Following) to fill height below tabs */
+        #rg-art-pane-history,
+        #rg-art-pane-favs,
+        #rg-art-pane-following,
+        #rg-art-pane-playlists {
+          flex-grow: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
+
+        /* Make the inner History, Favorites and Following lists scroll independently on the left column */
+        #rg-list-artist-history,
+        #rg-list-artist-favs,
+        #rg-list-artist-following,
+        #rg-list-artist-playlists {
+          overflow-y: auto !important;
+          flex-grow: 1;
+          min-height: 0;
+          scrollbar-width: thin;
+          padding-right: 4px;
+        }
+
+        /* Overwrite hidden states for Desktop */
+        #rg-art-pane-history.d-none,
+        #rg-art-pane-favs.d-none,
+        #rg-art-pane-following.d-none,
+        #rg-art-pane-playlists.d-none {
+          display: none !important;
+        }
+      }
+
+      /* Rhythm Game Scoped Styles */
+      .rg-app {
+        --rg-primary: #ff3b30;
+        --rg-bg: #000000;
+        --rg-surface: #121212;
+        --rg-surface-variant: #1e1e1e;
+        position: relative;
+        width: 100%;
+        height: 100% !important;
+        flex: 1;
+        background-color: var(--rg-bg);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Global Custom Scrollbar for all Rhythm Game Panes */
+      .rg-app ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+
+      .rg-app ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .rg-app ::-webkit-scrollbar-thumb {
+        background-color: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+      }
+
+      .rg-app ::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(255, 255, 255, 0.4);
+      }
+
+      @media (max-width: 767.98px) {
+        .rg-app {
+          width: 117.647% !important;
+          min-width: 117.647% !important;
+          max-width: 117.647% !important;
+          height: 117.647% !important;
+          min-height: 117.647% !important;
+          max-height: 117.647% !important;
+          flex: none !important;
+          transform: scale(0.85);
+          transform-origin: top left;
+        }
+      }
+
+      @media (min-width: 768px) {
+        .rg-app {
+          border-radius: 0;
+        }
+
+        .rg-list-container {
+          display: flex !important;
+          flex-direction: column;
+          align-items: stretch;
+        }
+      }
+
+      /* Project Sekai Style Song Card Row */
+      .rg-song-card-row {
+        background: linear-gradient(90deg, rgba(20, 20, 25, 0.9) 0%, rgba(10, 10, 12, 0.95) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-left: 4px solid var(--rg-primary);
+        border-radius: 12px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        cursor: pointer;
+        transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s, border-color 0.2s, background 0.2s;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        width: 100%;
+        margin-bottom: 0.25em;
+      }
+
+      .rg-song-card-row:hover {
+        transform: scale(1.01) translateX(4px);
+        background: linear-gradient(90deg, rgba(30, 30, 35, 0.95) 0%, rgba(15, 15, 18, 0.98) 100%);
+        border-color: rgba(255, 255, 255, 0.15);
+        border-left-color: var(--rg-primary);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      }
+
+      .rg-diff-badge-pill {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 8px 2px 4px;
+        border-radius: 50px;
+        font-family: 'Arial Black', sans-serif;
+        font-size: 0.7rem;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .rg-diff-badge-pill .diff-label {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 2px 6px;
+        border-radius: 50px;
+      }
+
+      .rg-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+        z-index: 10;
+        background-color: var(--rg-bg);
+      }
+
+      .rg-screen-center {
+        justify-content: center;
+        align-items: center;
+        padding: 24px;
+      }
+
+      .rg-hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .rg-app h1 {
+        font-size: 3rem;
+        font-weight: 900;
+        letter-spacing: -1px;
+        margin-bottom: 32px;
+        color: var(--rg-primary);
+        text-transform: uppercase;
+      }
+
+      .rg-top-app-bar {
+        height: 56px;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        background-color: var(--rg-surface);
+        border-bottom: 1px solid #333;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--rg-primary);
+        flex-shrink: 0;
+      }
+
+      .rg-tab-container {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .rg-tab-content {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+      }
+
+      .rg-search-bar {
+        padding: 12px 16px;
+        background-color: var(--rg-bg);
+        flex-shrink: 0;
+      }
+
+      .rg-search-input {
+        width: 100%;
+        background-color: var(--rg-surface-variant);
+        color: #fff;
+        border: 1px solid #333;
+        border-radius: 100px;
+        padding: 12px 24px;
+        font-size: 1rem;
+        outline: none;
+      }
+
+      .rg-search-input:focus {
+        border-color: var(--rg-primary);
+      }
+
+      .rg-list-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .rg-list-item {
+        background-color: var(--rg-surface);
+        border: 1px solid #333;
+        border-radius: 16px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .rg-list-item:hover {
+        background-color: var(--rg-surface-variant);
+      }
+
+      .rg-list-item-info {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        overflow: hidden;
+        flex: 1;
+      }
+
+      .rg-list-item-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .rg-cover-img {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background-color: var(--rg-surface-variant);
+        flex-shrink: 0;
+        object-fit: cover;
+      }
+
+      .rg-list-item-title {
+        font-size: 1rem;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #fff;
+      }
+
+      .rg-list-item-sub {
+        font-size: 0.8rem;
+        color: #aaa;
+        font-weight: 700;
+        margin-top: 2px;
+      }
+
+      .rg-fav-btn {
+        background: transparent;
+        border: none;
+        color: #aaa;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 8px;
+        border-radius: 50%;
+        transition: all 0.2s;
+      }
+
+      .rg-fav-btn.active {
+        color: var(--rg-primary);
+      }
+
+      .rg-play-btn {
+        background-color: #4a0000;
+        color: var(--rg-primary);
+        border: none;
+        padding: 8px 16px;
+        border-radius: 100px;
+        font-weight: 700;
+        cursor: pointer;
+        text-transform: uppercase;
+      }
+
+      .rg-bottom-nav {
+        height: 64px;
+        background-color: var(--rg-surface);
+        border-top: 1px solid #333;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+        padding: 0 8px;
+        padding-bottom: env(safe-area-inset-bottom, 0);
+      }
+
+      .rg-nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        color: #fff;
+        opacity: 0.5;
+        cursor: pointer;
+        padding: 6px 2px;
+        border-radius: 12px;
+        transition: all 0.2s;
+        flex: 1 1 0%;
+        min-width: 0;
+        text-align: center;
+      }
+
+      .rg-nav-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .rg-nav-item.active {
+        opacity: 1;
+        color: var(--rg-primary);
+      }
+
+      /* Force Share button inside bottom nav to match fit metrics */
+      .rg-bottom-nav .share-view-btn {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 4px !important;
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+        padding: 6px 2px !important;
+        border-radius: 12px !important;
+        transition: all 0.2s !important;
+        text-align: center !important;
+      }
+
+      .rg-primary-btn {
+        background-color: var(--rg-primary);
+        color: #fff;
+        border: none;
+        padding: 16px 32px;
+        border-radius: 100px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: transform 0.1s;
+        text-align: center;
+      }
+
+      .rg-primary-btn:active {
+        transform: scale(0.95);
+      }
+
+      .rg-dialog-backdrop {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.85);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 50;
+      }
+
+      .rg-dialog-surface {
+        background-color: var(--rg-surface);
+        border: 1px solid #333;
+        border-radius: 28px;
+        padding: 24px;
+        width: 90%;
+        max-width: 400px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .rg-dialog-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--rg-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .rg-play-menu-container {
+        width: 100%;
+        max-width: 1000px;
+        padding: 2rem 1rem;
+        margin: 0 auto;
+        height: 100%;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+      }
+
+      .rg-play-menu-container {
+        position: relative;
+        z-index: 1;
+      }
+
+      @media (min-width: 992px) {
+        .rg-play-menu-container {
+          max-width: 100%;
+          padding: 0;
+          flex-direction: row;
+          overflow-y: hidden;
+          align-items: stretch;
+          gap: 0;
+        }
+
+        .rg-play-menu-left {
+          flex-grow: 1;
+          overflow-y: auto;
+          padding: 2rem;
+          max-height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+        }
+
+        .rg-play-menu-right {
+          width: 450px;
+          flex-shrink: 0;
+          height: 100%;
+          max-height: 100%;
+          display: flex;
+          flex-direction: column;
+          border-left: 1px solid rgba(255, 255, 255, 0.1);
+          background-color: rgba(10, 10, 10, 0.4);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+
+        .rg-play-menu-right-inner {
+          background-color: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+        }
+      }
+
+      @media (max-width: 991.98px) {
+        .rg-play-menu-right-inner {
+          background-color: rgba(40, 40, 40, 0.45);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+      }
+
+      .rg-diff-btn {
+        background-color: var(--ytm-surface-2);
+        border: 1px solid #444;
+        color: #fff;
+        padding: 10px 4px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        text-transform: uppercase;
+        transition: all 0.2s;
+      }
+
+      .rg-diff-btn-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+
+      .rg-diff-btn:hover {
+        background-color: #333;
+      }
+
+      .rg-diff-btn[data-diff="easy"].active {
+        background-color: #064E3B;
+        border-color: #10b981;
+        color: #6EE7B7;
+      }
+
+      .rg-diff-btn[data-diff="medium"].active {
+        background-color: #1E3A8A;
+        border-color: #3b82f6;
+        color: #93C5FD;
+      }
+
+      .rg-diff-btn[data-diff="hard"].active {
+        background-color: #78350F;
+        border-color: #f59e0b;
+        color: #FCD34D;
+      }
+
+      .rg-diff-btn[data-diff="expert"].active {
+        background-color: #7f1d1d;
+        border-color: #f43f5e;
+        color: #FDA4AF;
+      }
+
+      .rg-diff-btn[data-diff="master"].active {
+        background-color: #4C1D95;
+        border-color: #a855f7;
+        color: #D8B4FE;
+      }
+
+      .rg-diff-btn[data-diff="demon"].active {
+        background-color: #450a0a;
+        border-color: #ff3b30;
+        color: #fca5a5;
+      }
+
+      .rg-diff-btn .lvl {
+        font-size: 0.7rem;
+        font-weight: bold;
+        opacity: 0.6;
+      }
+
+      .rg-diff-btn.active .lvl {
+        opacity: 1;
+      }
+
+      .rg-key-btn {
+        background-color: #2a2a2a;
+        border: 2px solid #444;
+        border-radius: 6px;
+        padding: 12px 0;
+        color: #fff;
+        cursor: pointer;
+        font-size: 1.1rem;
+        font-weight: 800;
+        text-align: center;
+        transition: all 0.15s ease;
+      }
+
+      .rg-key-btn:active {
+        background-color: #444;
+      }
+
+      .rg-key-btn.listening {
+        background-color: #fff;
+        border-color: #fff;
+        color: #000;
+      }
+
+      .rg-hud {
+        position: absolute;
+        top: 16px;
+        width: 100%;
+        padding: 0 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        pointer-events: none;
+        z-index: 20;
+      }
+
+      .rg-hud-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.7);
+        max-width: 250px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+        margin-bottom: 2px;
+      }
+
+      .rg-hud-diff {
+        position: absolute;
+        left: 24px;
+        top: 0;
+        font-size: 0.7rem;
+        font-weight: 800;
+        padding: 4px 8px;
+        border-radius: 8px;
+        background-color: var(--rg-surface);
+        color: var(--rg-primary);
+        text-transform: uppercase;
+        display: inline-block;
+        border: 1px solid #333;
+      }
+
+      .rg-score-display {
+        font-family: monospace;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #fff;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        line-height: 1;
+      }
+
+      .rg-quit-btn {
+        background-color: var(--rg-surface-variant);
+        border: 1px solid #333;
+        padding: 8px 16px;
+        color: #fff;
+        border-radius: 100px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        pointer-events: auto;
+      }
+
+      .rg-combo-box {
+        text-align: center;
+        pointer-events: none;
+        z-index: 15;
+        margin-top: 2px;
+      }
+
+      .rg-combo-number {
+        font-size: 1.6rem;
+        font-weight: 900;
+        color: var(--rg-primary);
+        line-height: 1;
+        transition: transform 0.05s ease-out;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+      }
+
+      .rg-combo-text {
+        font-size: 0.6rem;
+        letter-spacing: 2px;
+        color: rgba(255, 255, 255, 0.6);
+        font-weight: 700;
+      }
+
+      .rg-res-item {
+        background-color: var(--rg-surface-variant);
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .rg-res-full {
+        grid-column: span 2;
+        background-color: #4a0000;
+        border-color: var(--rg-primary);
+      }
+
+      .rg-res-label {
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #fff;
+      }
+
+      .rg-res-val {
+        font-size: 1.2rem;
+        font-weight: 700;
+        font-family: monospace;
+        color: #fff;
+      }

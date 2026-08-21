@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sign up · PHP Music{% endblock %}
+
+{% block body %}
+    <div class="auth-wrap">
+        <h1>Sign up</h1>
+
+        {% if error %}
+            <div class="flash flash-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="{{ path('app_register') }}">
+            <div class="field">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" value="{{ email }}" autocomplete="email" required autofocus>
+            </div>
+            <div class="field">
+                <label for="artist">Artist / display name</label>
+                <input type="text" id="artist" name="artist" value="{{ artist }}" required>
+            </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" autocomplete="new-password" minlength="6" required>
+            </div>
+            <input type="hidden" name="_token" value="{{ csrf_token('register') }}">
+            <button class="btn" type="submit" style="width:100%;">Create account</button>
+        </form>
+
+        <p class="auth-alt">Already registered? <a href="{{ path('app_login') }}">Log in</a></p>
+    </div>
+{% endblock %}

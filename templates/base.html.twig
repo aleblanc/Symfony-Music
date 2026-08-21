@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% block title %}PHP Music (Symfony){% endblock %}</title>
+        <link rel="icon" type="image/svg+xml" href="/icon.svg">
+        <link rel="manifest" href="/manifest.json">
+        <meta name="theme-color" content="#0a0a0a">
+        <link rel="stylesheet" href="/app.css">
+        {% block stylesheets %}{% endblock %}
+    </head>
+    <body>
+        <div class="app-shell">
+            <aside class="sidebar">
+                <div class="brand"><a href="{{ path('app_home') }}">🎵 PHP&nbsp;Music</a></div>
+                <nav>
+                    <a href="{{ path('app_home') }}" class="{{ app.request.attributes.get('_route') == 'app_home' ? 'active' }}">Home</a>
+                    <a href="{{ path('app_library') }}" class="{{ app.request.attributes.get('_route') == 'app_library' ? 'active' }}">Library</a>
+                    <a href="{{ path('app_artists') }}" class="{{ app.request.attributes.get('_route') starts with 'app_artist' ? 'active' }}">Artists</a>
+                    <a href="{{ path('app_genres') }}" class="{{ app.request.attributes.get('_route') starts with 'app_genre' ? 'active' }}">Genres</a>
+                    <a href="{{ path('app_years') }}" class="{{ app.request.attributes.get('_route') starts with 'app_year' ? 'active' }}">Years</a>
+                    <a href="{{ path('app_discover') }}" class="{{ app.request.attributes.get('_route') starts with 'app_discover' or app.request.attributes.get('_route') == 'app_mix_show' ? 'active' }}">Discover</a>
+                    {% if app.user %}
+                        <a href="{{ path('app_favorites') }}" class="{{ app.request.attributes.get('_route') == 'app_favorites' ? 'active' }}">Favorites</a>
+                        <a href="{{ path('app_listen_later') }}" class="{{ app.request.attributes.get('_route') starts with 'app_listen_later' ? 'active' }}">Listen Later</a>
+                        <a href="{{ path('app_offline') }}" class="{{ app.request.attributes.get('_route') starts with 'app_offline' ? 'active' }}">Offline</a>
+                        <a href="{{ path('app_playlists') }}" class="{{ app.request.attributes.get('_route') starts with 'app_playlist' ? 'active' }}">Playlists</a>
+                        {# The rhythm game is a standalone full-screen app: open it in its own
+                           tab (target=_blank, which nav.js ignores) so the main tab keeps its
+                           shell and the music playing. #}
+                        <a href="{{ path('app_rhythm') }}" target="_blank" rel="noopener" title="Open the Rhythm game in a new tab">🎮 Rhythm ↗</a>
+                        <a href="{{ path('app_upload') }}" class="{{ app.request.attributes.get('_route') starts with 'app_upload' ? 'active' }}">Upload</a>
+                    {% endif %}
+                </nav>
+                <div class="sidebar-footer">
+                    {% if app.user %}
+                        <div class="me">{{ app.user.artist }}</div>
+                        <a href="{{ path('app_logout') }}" class="btn-link">Log out</a>
+                    {% else %}
+                        <a href="{{ path('app_login') }}" class="btn-link">Log in</a>
+                        <a href="{{ path('app_register') }}" class="btn-link">Sign up</a>
+                    {% endif %}
+                </div>
+            </aside>
+
+            <main class="content">
+                {% for label, messages in app.flashes %}
+                    {% for message in messages %}
+                        <div class="flash flash-{{ label }}">{{ message }}</div>
+                    {% endfor %}
+                {% endfor %}
+                {% block body %}{% endblock %}
+            </main>
+        </div>
+
+        {# Persistent player bar, controlled by assets/player.js #}
+        <footer class="player" id="player" hidden>
+            <div class="player-meta">
+                <img id="player-cover" alt="" width="48" height="48">
+                <div>
+                    <div id="player-title" class="player-title"></div>
+                    <div id="player-artist" class="player-artist"></div>
+                </div>
+            </div>
+            <div class="player-controls">
+                <div class="buttons">
+                    <button id="player-prev" title="Previous" aria-label="Previous">⏮</button>
+                    <button id="player-toggle" title="Play/Pause" aria-label="Play/Pause">▶</button>
+                    <button id="player-next" title="Next" aria-label="Next">⏭</button>
+                </div>
+                <div class="progress">
+                    <span id="player-current">0:00</span>
+                    <input type="range" id="player-seek" min="0" max="100" value="0">
+                    <span id="player-duration">0:00</span>
+                </div>
+            </div>
+            <div class="player-volume">
+                <button id="player-pip" class="pip-btn" title="Mini player (pop out)" aria-label="Mini player" hidden>
+                    <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm4 12V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"/></svg>
+                </button>
+                <input type="range" id="player-volume" min="0" max="100" value="100" title="Volume">
+            </div>
+            <audio id="audio" preload="metadata"></audio>
+        </footer>
+
+        {# Shared per-track context menu, populated + positioned by player.js #}
+        <div id="track-menu" class="context-menu" role="menu"></div>
+
+        {% block player_config %}
+            <script type="application/json" id="player-config">
+                {
+                    "recordUrl": "{{ path('app_play_record', {id: 0}) }}"
+                    {% if app.user %}
+                    , "favoriteCsrf": "{{ csrf_token('favorite') }}"
+                    , "listenLaterToggleUrl": "{{ path('app_listen_later_toggle', {id: 0}) }}"
+                    , "listenLaterCsrf": "{{ csrf_token('listen_later') }}"
+                    , "offlineToggleUrl": "{{ path('app_offline_toggle', {id: 0}) }}"
+                    , "offlineCsrf": "{{ csrf_token('offline') }}"
+                    {% endif %}
+                }
+            </script>
+        {% endblock %}
+
+        <script>
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js').catch(() => {
+                        // Service worker registration failures should never break the app.
+                    });
+                });
+            }
+        </script>
+
+        {# Plain static scripts served from public/ — player first (registers
+           window.appPageInit), then nav (partial navigation). #}
+        <script src="/player.js" defer></script>
+        <script src="/nav.js" defer></script>
+        {% block javascripts %}{% endblock %}
+    </body>
+</html>

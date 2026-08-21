@@ -1,0 +1,402 @@
+{#
+ # Embeddable / shareable single-track player. Native Symfony port of the
+ # legacy `action=embed` page: served by EmbedController, all URLs resolved via
+ # Symfony routes, `song` is a Music entity (fields auto-escaped by Twig).
+ #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ song.displayTitle }} - {{ song.artist }}</title>
+  <style>
+    :root {
+      --accent: #ff0000;
+      --bg: #0f0f0f;
+      --text: #ffffff;
+      --text-muted: #aaaaaa;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .player-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .bg-blur {
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background-image: url('{{ path('app_cover', {id: song.id}) }}');
+      background-size: cover;
+      background-position: center;
+      filter: blur(35px) brightness(0.3);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      padding: 15px;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .cover-art {
+      width: 120px;
+      height: 120px;
+      border-radius: 10px;
+      object-fit: cover;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+      flex-shrink: 0;
+      background-color: #222;
+    }
+
+    .info-pane {
+      flex-grow: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100%;
+    }
+
+    .title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin: 0 0 5px 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    }
+
+    .artist {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin: 0 0 15px 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .play-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--text);
+      color: #000;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease, background 0.2s ease;
+      flex-shrink: 0;
+      padding: 0;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .play-btn:hover {
+      transform: scale(1.08);
+      background: #f0f0f0;
+    }
+
+    .play-btn svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+      margin-left: 3px;
+    }
+
+    .play-btn.playing .icon-play {
+      display: none;
+    }
+
+    .play-btn.playing .icon-pause {
+      display: block;
+      margin-left: 0;
+    }
+
+    .icon-pause,
+    .spinner {
+      display: none;
+    }
+
+    .play-btn.loading .icon-play,
+    .play-btn.loading .icon-pause {
+      display: none !important;
+    }
+
+    .play-btn.loading .spinner {
+      display: block;
+      margin-left: 0;
+      width: 24px;
+      height: 24px;
+      animation: rotate 2s linear infinite;
+    }
+
+    .spinner circle {
+      stroke: currentColor;
+      stroke-linecap: round;
+      animation: dash 1.5s ease-in-out infinite;
+    }
+
+    @keyframes rotate {
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes dash {
+      0% {
+        stroke-dasharray: 1, 150;
+        stroke-dashoffset: 0;
+      }
+
+      50% {
+        stroke-dasharray: 90, 150;
+        stroke-dashoffset: -35;
+      }
+
+      100% {
+        stroke-dasharray: 90, 150;
+        stroke-dashoffset: -124;
+      }
+    }
+
+    .progress-wrapper {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 3px;
+      pointer-events: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      right: -5px;
+      top: -3px;
+      width: 12px;
+      height: 12px;
+      background: var(--text);
+      border-radius: 50%;
+      opacity: 0;
+      transition: opacity 0.2s;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .progress-bar:hover .progress-fill::after {
+      opacity: 1;
+    }
+
+    .time-stamps {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+    }
+
+    .brand {
+      position: absolute;
+      top: 12px;
+      right: 15px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.4);
+      text-decoration: none;
+      z-index: 2;
+      transition: color 0.2s;
+      letter-spacing: 0.5px;
+    }
+
+    .brand:hover {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    @media (max-width: 400px) {
+      .cover-art {
+        width: 90px;
+        height: 90px;
+      }
+
+      .play-btn {
+        width: 40px;
+        height: 40px;
+      }
+
+      .play-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="player-wrapper">
+    <div class="bg-blur"></div>
+    <a href="{{ path('app_home') }}" target="_blank" class="brand">PHP MUSIC</a>
+    <div class="content">
+      <img src="{{ path('app_cover', {id: song.id}) }}" class="cover-art" alt="Cover Art">
+      <div class="info-pane">
+        <div class="title">{{ song.displayTitle }}</div>
+        <div class="artist">{{ song.artist }}</div>
+        <div class="controls">
+          <button class="play-btn" id="playBtn" aria-label="Play/Pause">
+            <svg class="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg class="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            <svg class="spinner" viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle></svg>
+          </button>
+          <div class="progress-wrapper">
+            <div class="progress-bar" id="progBar">
+              <div class="progress-fill" id="progFill"></div>
+            </div>
+            <div class="time-stamps">
+              <span id="timeCurrent">0:00</span>
+              <span id="timeTotal">0:00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <audio id="audio" src="{{ path('app_stream', {id: song.id}) }}" preload="metadata" crossorigin="anonymous"></audio>
+  <script>
+    const audio = document.getElementById('audio');
+    const playBtn = document.getElementById('playBtn');
+    const progBar = document.getElementById('progBar');
+    const progFill = document.getElementById('progFill');
+    const timeCurrent = document.getElementById('timeCurrent');
+    const timeTotal = document.getElementById('timeTotal');
+
+    const formatTime = (s) => {
+      if (isNaN(s) || !isFinite(s)) return '0:00';
+      const min = Math.floor(s / 60);
+      const sec = Math.floor(s % 60).toString().padStart(2, '0');
+      return min + ':' + sec;
+    };
+
+    const updateDuration = () => {
+      if (audio.duration && isFinite(audio.duration)) {
+        timeTotal.textContent = formatTime(audio.duration);
+      }
+    };
+
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('durationchange', updateDuration);
+
+    audio.addEventListener('timeupdate', () => {
+      timeCurrent.textContent = formatTime(audio.currentTime);
+      if (audio.duration && isFinite(audio.duration)) {
+        progFill.style.width = ((audio.currentTime / audio.duration) * 100) + '%';
+      }
+    });
+
+    audio.addEventListener('waiting', () => playBtn.classList.add('loading'));
+
+    audio.addEventListener('playing', () => {
+      playBtn.classList.remove('loading');
+      playBtn.classList.add('playing');
+      updateDuration();
+    });
+
+    audio.addEventListener('pause', () => {
+      playBtn.classList.remove('loading');
+      playBtn.classList.remove('playing');
+    });
+
+    audio.addEventListener('error', (e) => {
+      playBtn.classList.remove('loading', 'playing');
+      const errorSvg = '<svg viewBox="0 0 24 24" fill="#ff4444" style="margin-left:0; width:24px; height:24px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>';
+      const parsed = new DOMParser().parseFromString(errorSvg, 'image/svg+xml').documentElement;
+      playBtn.replaceChildren(parsed);
+      console.error('Audio stream error', e);
+    });
+
+    playBtn.addEventListener('click', () => {
+      if (audio.paused) {
+        const p = audio.play();
+        if (p !== undefined) {
+          playBtn.classList.add('loading');
+          p.catch(e => {
+            console.error('Playback failed:', e);
+            playBtn.classList.remove('loading');
+          });
+        }
+      } else {
+        audio.pause();
+      }
+    });
+
+    progBar.addEventListener('click', (e) => {
+      if (!audio.duration || !isFinite(audio.duration)) return;
+      const rect = progBar.getBoundingClientRect();
+      const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      audio.currentTime = pos * audio.duration;
+    });
+
+    audio.addEventListener('ended', () => {
+      progFill.style.width = '0%';
+      timeCurrent.textContent = '0:00';
+      audio.currentTime = 0;
+      playBtn.classList.remove('playing');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{% extends 'base.html.twig' %}
+{% import 'partials/_tracks.html.twig' as tracks %}
+
+{% block title %}{{ mix.name }} · PHP Music{% endblock %}
+
+{% block body %}
+    <h1>{{ mix.name }}</h1>
+    <p class="section-sub">{{ songs|length }} track{{ songs|length == 1 ? '' : 's' }} · by {{ mix.creator }}</p>
+
+    {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
+{% endblock %}

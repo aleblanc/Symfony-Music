@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Log in · PHP Music{% endblock %}
+
+{% block body %}
+    <div class="auth-wrap">
+        <h1>Log in</h1>
+
+        {% if error %}
+            <div class="flash flash-error">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+        {% endif %}
+
+        <form method="post" action="{{ path('app_login') }}">
+            <div class="field">
+                <label for="username">Email</label>
+                <input type="email" id="username" name="_username" value="{{ last_username }}" autocomplete="email" required autofocus>
+            </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="_password" autocomplete="current-password" required>
+            </div>
+            <div class="field">
+                <label style="display:flex;gap:8px;align-items:center;color:var(--text);">
+                    <input type="checkbox" name="_remember_me" checked style="width:auto;"> Remember me
+                </label>
+            </div>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+            <button class="btn" type="submit" style="width:100%;">Log in</button>
+        </form>
+
+        <p class="auth-alt">No account? <a href="{{ path('app_register') }}">Sign up</a></p>
+    </div>
+{% endblock %}

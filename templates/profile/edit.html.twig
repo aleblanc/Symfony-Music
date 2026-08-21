@@ -1,0 +1,239 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Edit Profile - {{ user.artist }}{% endblock %}
+
+{% block body %}
+    <div class="edit-profile-view">
+        <div class="form-container">
+            <h1>Edit Profile</h1>
+
+            <form method="POST" class="form">
+                <input type="hidden" name="_token" value="{{ csrf_token('profile_edit') }}">
+
+                <div class="form-group">
+                    <label for="name">Display Name *</label>
+                    <input type="text" id="name" name="name" value="{{ user.artist }}" required maxlength="255">
+                </div>
+
+                <div class="form-group">
+                    <label for="bio">Bio</label>
+                    <textarea id="bio" name="bio" rows="6" maxlength="1000">{{ user.bio }}</textarea>
+                    <small>Max 1000 characters</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <a href="{{ path('app_profile_show') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+
+            <hr>
+
+            <h2>Profile Picture</h2>
+            <div class="picture-section">
+                <img class="current-picture" src="{{ path('app_profile_get_picture', {id: user.id}) }}" alt="{{ user.artist }}">
+                <form id="picture-form" enctype="multipart/form-data" class="upload-form">
+                    <input type="hidden" name="_token" value="{{ csrf_token('upload_picture') }}">
+                    <input type="file" id="profile_picture" name="profile_picture" accept="image/jpeg,image/png,image/gif" required>
+                    <button type="submit" class="btn btn-secondary">Upload Picture</button>
+                    <small>JPG, PNG, or GIF. Max 5MB.</small>
+                </form>
+            </div>
+
+            <hr>
+
+            <h2>Profile Background</h2>
+            <div class="background-section">
+                <img class="current-background" src="{{ path('app_profile_get_background', {id: user.id}) }}" alt="Background">
+                <form id="background-form" enctype="multipart/form-data" class="upload-form">
+                    <input type="hidden" name="_token" value="{{ csrf_token('upload_background') }}">
+                    <input type="file" id="profile_background" name="profile_background" accept="image/jpeg,image/png,image/gif,image/webp" required>
+                    <button type="submit" class="btn btn-secondary">Upload Background</button>
+                    <small>JPG, PNG, GIF, or WebP. Max 5MB.</small>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .edit-profile-view {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .form-container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-container h1 {
+            margin: 0 0 30px 0;
+        }
+
+        .form-container h2 {
+            margin: 20px 0 15px 0;
+            font-size: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #2196f3;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 4px;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .picture-section,
+        .background-section {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+        }
+
+        .current-picture {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #f5f5f5;
+        }
+
+        .current-background {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .background-section {
+            flex-direction: column;
+        }
+
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .upload-form input[type="file"] {
+            padding: 10px;
+            border: 2px dashed #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #fafafa;
+        }
+
+        .upload-form input[type="file"]:hover {
+            border-color: #2196f3;
+            background: #f0f7ff;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #2196f3;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1976d2;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        hr {
+            margin: 40px 0;
+            border: none;
+            border-top: 1px solid #eee;
+        }
+    </style>
+
+    <script>
+        // action URLs are rendered server-side per form, since Twig's path()
+        // cannot resolve a route name coming from a JS variable at runtime.
+        async function handleFormSubmit(formId, actionUrl) {
+            const form = document.getElementById(formId);
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const formData = new FormData(form);
+
+                try {
+                    const response = await fetch(actionUrl, {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        alert(data.message);
+                        window.location.href = '{{ path('app_profile_show') }}';
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('An error occurred.');
+                }
+            });
+        }
+
+        handleFormSubmit('picture-form', '{{ path('app_profile_upload_picture') }}');
+        handleFormSubmit('background-form', '{{ path('app_profile_upload_background') }}');
+    </script>
+{% endblock %}

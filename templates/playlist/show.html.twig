@@ -1,0 +1,133 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ playlist.name }} · PHP Music{% endblock %}
+
+{% block body %}
+    <div class="toolbar" style="justify-content:space-between;">
+        <div>
+            <h1>{{ playlist.name }}</h1>
+            <p class="section-sub">{{ playlist.items|length }} track{{ playlist.items|length == 1 ? '' : 's' }}
+                {% if playlist.description %}· {{ playlist.description }}{% endif %}
+                {% if playlist.isPrivate %}· private{% endif %}
+                {% if playlist.isCollaborative %}· collaborative{% endif %}
+                {% if playlist.playCount > 0 %}· {{ playlist.playCount }} play{{ playlist.playCount == 1 ? '' : 's' }}{% endif %}
+            </p>
+            <p class="muted">Share id: <code>{{ playlist.publicId }}</code></p>
+        </div>
+        <div style="display:flex;gap:8px;">
+            {% if isOwner %}
+                <a class="btn btn-ghost" href="{{ path('app_playlist_collaborators', {id: playlist.id}) }}">Collaborators</a>
+                <a class="btn btn-ghost" href="{{ path('app_playlist_export', {id: playlist.id}) }}">Export JSON</a>
+                <form method="post" action="{{ path('app_playlist_delete', {id: playlist.id}) }}"
+                      onsubmit="return confirm('Delete this playlist?');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('playlist_delete_' ~ playlist.id) }}">
+                    <button class="btn btn-ghost" type="submit">Delete</button>
+                </form>
+            {% elseif isCollaborator %}
+                <form method="post" action="{{ path('app_playlist_leave', {id: playlist.id}) }}"
+                      onsubmit="return confirm('Leave this collaboration?');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('playlist_leave_' ~ playlist.id) }}">
+                    <button class="btn btn-ghost" type="submit">Leave collaboration</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if isOwner %}
+        <details style="margin-bottom:20px;">
+            <summary class="btn btn-ghost" style="display:inline-block;cursor:pointer;">Edit details</summary>
+            <form method="post" action="{{ path('app_playlist_edit', {id: playlist.id}) }}" style="margin-top:14px;max-width:480px;">
+                <input type="hidden" name="_token" value="{{ csrf_token('playlist_edit_' ~ playlist.id) }}">
+                <div class="field">
+                    <label for="pl-name">Name</label>
+                    <input type="text" id="pl-name" name="name" value="{{ playlist.name }}" required>
+                </div>
+                <div class="field">
+                    <label for="pl-desc">Description</label>
+                    <input type="text" id="pl-desc" name="description" value="{{ playlist.description }}">
+                </div>
+                <label style="display:flex;align-items:center;gap:6px;margin-bottom:14px;">
+                    <input type="checkbox" name="is_private" value="1" {{ playlist.isPrivate ? 'checked' }}>
+                    Private (turning this on removes all collaborators)
+                </label>
+                <button class="btn" type="submit">Save</button>
+            </form>
+            <form method="post" action="{{ path('app_playlist_toggle_collaborative', {id: playlist.id}) }}" style="margin-top:10px;">
+                <input type="hidden" name="_token" value="{{ csrf_token('playlist_collaborative_' ~ playlist.id) }}">
+                <button class="btn btn-ghost" type="submit">
+                    {{ playlist.isCollaborative ? 'Turn off collaboration' : 'Make collaborative' }}
+                </button>
+            </form>
+        </details>
+    {% endif %}
+
+    {% if canEdit and mixes is not empty %}
+        <form method="post" action="{{ path('app_playlist_add_mix', {id: playlist.id}) }}" class="toolbar">
+            <input type="hidden" name="_token" value="{{ csrf_token('playlist_add_mix_' ~ playlist.id) }}">
+            <label for="pl-mix" class="muted">Add all songs from a mix:</label>
+            <select id="pl-mix" name="mix_id" required>
+                {% for mix in mixes %}
+                    <option value="{{ mix.publicId }}">{{ mix.name }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-ghost" type="submit">Add mix</button>
+        </form>
+    {% endif %}
+
+    {% if canEdit %}
+        <form method="post" action="{{ path('app_playlist_add_by_id', {id: playlist.id}) }}" class="toolbar">
+            <input type="hidden" name="_token" value="{{ csrf_token('playlist_add_track_' ~ playlist.id) }}">
+            <label for="pl-song-id" class="muted">Add track by id:</label>
+            <input type="number" id="pl-song-id" name="songId" min="1" required>
+            <button class="btn btn-ghost" type="submit">Add</button>
+        </form>
+    {% endif %}
+
+    {% if playlist.items is empty %}
+        <p class="muted">This playlist is empty.</p>
+    {% else %}
+        <div class="track-list">
+            {% for item in playlist.items %}
+                {% set song = item.song %}
+                <div class="track track--playlist" data-track
+                     data-track-id="{{ song.id }}"
+                     data-track-title="{{ song.displayTitle }}"
+                     data-track-artist="{{ song.artist }}"
+                     data-track-stream="{{ path('app_stream', {id: song.id}) }}"
+                     data-track-cover="{{ path('app_cover', {id: song.id}) }}">
+                    <div class="track-lead">
+                        <span class="track-idx">{{ loop.index }}</span>
+                        <button class="track-play" data-play title="Play" aria-label="Play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+                    </div>
+                    <img class="track-art" src="{{ path('app_cover', {id: song.id}) }}" alt="" loading="lazy">
+                    <div class="track-main">
+                        <a class="track-title" href="#" data-play>{{ song.displayTitle }}</a>
+                        <div class="track-sub">{% if song.artist %}<a href="{{ path('app_artist', {name: song.artist}) }}">{{ song.artist }}</a>{% endif %}</div>
+                    </div>
+                    <div class="track-album">{% if song.album %}<a href="{{ path('app_album', {name: song.album}) }}">{{ song.album }}</a>{% endif %}</div>
+                    <div class="track-dur">{{ song.duration ? '%d:%02d'|format(song.duration // 60, song.duration % 60) : '' }}</div>
+                    <div class="track-actions">
+                        {% if isOwner %}
+                            <form method="post" action="{{ path('app_playlist_move', {id: playlist.id, songId: song.id}) }}" style="display:inline;">
+                                <input type="hidden" name="_token" value="{{ csrf_token('playlist_order_' ~ playlist.id) }}">
+                                <input type="hidden" name="direction" value="up">
+                                <button class="icon-btn" type="submit" title="Move up" {{ loop.first ? 'disabled' }}>↑</button>
+                            </form>
+                            <form method="post" action="{{ path('app_playlist_move', {id: playlist.id, songId: song.id}) }}" style="display:inline;">
+                                <input type="hidden" name="_token" value="{{ csrf_token('playlist_order_' ~ playlist.id) }}">
+                                <input type="hidden" name="direction" value="down">
+                                <button class="icon-btn" type="submit" title="Move down" {{ loop.last ? 'disabled' }}>↓</button>
+                            </form>
+                        {% endif %}
+                        {% if canEdit %}
+                            <form method="post" action="{{ path('app_playlist_remove', {id: playlist.id, songId: song.id}) }}" style="display:inline;">
+                                <input type="hidden" name="_token" value="{{ csrf_token('playlist_item_' ~ song.id) }}">
+                                <button class="icon-btn" type="submit" title="Remove">✕</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

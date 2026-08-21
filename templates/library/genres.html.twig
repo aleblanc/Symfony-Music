@@ -1,0 +1,24 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Genres · PHP Music{% endblock %}
+
+{% block body %}
+    <h1>Genres</h1>
+    <p class="section-sub">{{ genres|length }} genre{{ genres|length == 1 ? '' : 's' }}</p>
+
+    {% if genres is empty %}
+        <p class="muted">No genres yet — run a scan first.</p>
+    {% else %}
+        <div class="card-grid">
+            {% for g in genres %}
+                <a class="card" href="{{ path('app_genre', {name: g.genre}) }}">
+                    <div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:800;background:var(--bg-elev-2);border-radius:8px;">
+                        {{ g.genre|slice(0, 1)|upper }}
+                    </div>
+                    <div class="card-title">{{ g.genre }}</div>
+                    <div class="card-sub">{{ g.cnt }} track{{ g.cnt == 1 ? '' : 's' }}</div>
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

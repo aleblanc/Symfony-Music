@@ -1,0 +1,17 @@
+{% extends 'base.html.twig' %}
+{% import 'partials/_tracks.html.twig' as tracks %}
+
+{% block title %}Trending · PHP Music{% endblock %}
+
+{% block body %}
+    <h1>Trending</h1>
+    <p class="section-sub">Most played tracks across the whole library.</p>
+
+    {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
+
+    <div class="pagination">
+        {% if page > 1 %}<a href="{{ path('app_discover_trending', {page: page - 1}) }}">← Prev</a>{% endif %}
+        <span class="current">Page {{ page }}</span>
+        {% if songs|length > 0 %}<a href="{{ path('app_discover_trending', {page: page + 1}) }}">Next →</a>{% endif %}
+    </div>
+{% endblock %}

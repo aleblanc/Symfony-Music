@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+{% import 'discovery/_shelf.html.twig' as shelfMacros %}
+
+{% block title %}For You · PHP Music{% endblock %}
+
+{% block body %}
+    <h1>For You</h1>
+    <p class="section-sub">Recommendations based on your listening history.</p>
+
+    {% if shelves is empty %}
+        <p class="muted">Play a few tracks and we'll start recommending things — check out
+            <a href="{{ path('app_discover') }}">Discover</a> in the meantime.</p>
+    {% else %}
+        {% for shelf in shelves %}
+            {{ shelfMacros.shelf(shelf, favoriteIds, listenLaterIds, offlineIds) }}
+        {% endfor %}
+    {% endif %}
+{% endblock %}
