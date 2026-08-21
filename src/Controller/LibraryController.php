@@ -21,12 +21,12 @@ class LibraryController extends AbstractController
         private readonly FavoriteRepository $favorites,
         private readonly ListenLaterRepository $listenLater,
         private readonly OfflineSongRepository $offline,
-    ) {
-    }
+    ) {}
 
     #[Route('/', name: 'app_home')]
     public function home(
-        #[CurrentUser] ?User $user,
+        #[CurrentUser]
+        ?User $user,
         MusicRepository $music,
         HistoryRepository $history,
         PlayCountRepository $playCounts,
@@ -47,7 +47,8 @@ class LibraryController extends AbstractController
     #[Route('/library', name: 'app_library')]
     public function library(
         Request $request,
-        #[CurrentUser] ?User $user,
+        #[CurrentUser]
+        ?User $user,
         MusicRepository $music,
     ): Response {
         $page = max(1, $request->query->getInt('page', 1));

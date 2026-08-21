@@ -28,8 +28,7 @@ class FavoriteController extends AbstractController
         private readonly ListenLaterRepository $listenLater,
         private readonly OfflineSongRepository $offline,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('/favorites', name: 'app_favorites')]
     public function index(#[CurrentUser] User $user): Response
@@ -37,7 +36,7 @@ class FavoriteController extends AbstractController
         $favorites = $this->favorites->findForUser($user);
 
         return $this->render('favorite/index.html.twig', [
-            'songs' => array_map(static fn (Favorite $f) => $f->getSong(), $favorites),
+            'songs' => array_map(static fn(Favorite $f) => $f->getSong(), $favorites),
             'favoriteIds' => $this->favorites->favoritedSongIds($user),
             'listenLaterIds' => $this->listenLater->songIdsForUser($user),
             'offlineIds' => $this->offline->songIdsForUser($user),

@@ -28,8 +28,7 @@ class PlaybackController extends AbstractController
         private readonly PlayCountRepository $playCounts,
         private readonly PlaylistRepository $playlists,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('/play/{id}', name: 'app_play_record', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function record(int $id, Request $request, #[CurrentUser] ?User $user): JsonResponse

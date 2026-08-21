@@ -29,7 +29,8 @@ class ProfileController extends AbstractController
     #[Route('/edit', name: 'app_profile_edit', methods: ['GET', 'POST'])]
     #[IsGranted('ROLE_USER')]
     public function edit(
-        #[CurrentUser] User $user,
+        #[CurrentUser]
+        User $user,
         Request $request,
         EntityManagerInterface $em,
         UserRepository $userRepo
@@ -73,7 +74,8 @@ class ProfileController extends AbstractController
     #[Route('/change-password', name: 'app_profile_change_password', methods: ['GET', 'POST'])]
     #[IsGranted('ROLE_USER')]
     public function changePassword(
-        #[CurrentUser] User $user,
+        #[CurrentUser]
+        User $user,
         Request $request,
         EntityManagerInterface $em,
         UserPasswordHasherInterface $hasher
@@ -83,7 +85,7 @@ class ProfileController extends AbstractController
 
             $newPassword = $request->request->get('new_password', '');
 
-            if (strlen($newPassword) < 6) {
+            if (\strlen($newPassword) < 6) {
                 $this->addFlash('error', 'Password must be at least 6 characters.');
                 return $this->redirectToRoute('app_profile_change_password');
             }
@@ -102,7 +104,8 @@ class ProfileController extends AbstractController
     #[Route('/picture', name: 'app_profile_upload_picture', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function uploadPicture(
-        #[CurrentUser] User $user,
+        #[CurrentUser]
+        User $user,
         Request $request,
         EntityManagerInterface $em
     ): JsonResponse {
@@ -114,7 +117,7 @@ class ProfileController extends AbstractController
         }
 
         $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-        if (!in_array($file->getMimeType(), $allowedTypes)) {
+        if (!\in_array($file->getMimeType(), $allowedTypes)) {
             return $this->json(['status' => 'error', 'message' => 'Invalid file type. Only JPG, PNG, GIF allowed.'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -135,7 +138,8 @@ class ProfileController extends AbstractController
     #[Route('/background', name: 'app_profile_upload_background', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function uploadBackground(
-        #[CurrentUser] User $user,
+        #[CurrentUser]
+        User $user,
         Request $request,
         EntityManagerInterface $em
     ): JsonResponse {
@@ -147,7 +151,7 @@ class ProfileController extends AbstractController
         }
 
         $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!in_array($file->getMimeType(), $allowedTypes)) {
+        if (!\in_array($file->getMimeType(), $allowedTypes)) {
             return $this->json(['status' => 'error', 'message' => 'Invalid file type.'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -189,7 +193,7 @@ class ProfileController extends AbstractController
         $initial = mb_strtoupper(mb_substr($artistName, 0, 1, 'UTF-8'));
         $bgColor = $this->generateColorFromString($artistName);
 
-        $svg = sprintf(
+        $svg = \sprintf(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
             . '<rect width="200" height="200" fill="%s"/>'
             . '<text x="50%%" y="50%%" dominant-baseline="central" text-anchor="middle" '
@@ -232,7 +236,7 @@ class ProfileController extends AbstractController
         $artistName = $user->getArtist() ?? 'Unknown';
         $colors = $this->generateGradientColors($artistName);
 
-        $svg = sprintf(
+        $svg = \sprintf(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400">'
             . '<defs><linearGradient id="grad" x1="0%%" y1="0%%" x2="100%%" y2="100%%">'
             . '<stop offset="0%%" stop-color="%s" />'
@@ -259,7 +263,8 @@ class ProfileController extends AbstractController
     #[Route('/delete', name: 'app_profile_delete', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function delete(
-        #[CurrentUser] User $user,
+        #[CurrentUser]
+        User $user,
         Request $request,
         EntityManagerInterface $em
     ): Response {
@@ -270,7 +275,7 @@ class ProfileController extends AbstractController
         if ($mode === 'keep_data') {
             // Soft delete: generate backup key
             $randomBytes = bin2hex(random_bytes(16));
-            $hash = password_hash($randomBytes, PASSWORD_DEFAULT);
+            $hash = password_hash($randomBytes, \PASSWORD_DEFAULT);
             $backupKey = $user->getId() . '-' . $randomBytes;
 
             $user->setEmail('deleted_' . $user->getId() . '_' . time() . '@mail.com');
@@ -320,7 +325,7 @@ class ProfileController extends AbstractController
         $backupKey = $data['backup_key'] ?? '';
 
         $keyParts = explode('-', $backupKey);
-        if (count($keyParts) !== 2) {
+        if (\count($keyParts) !== 2) {
             return $this->json(['status' => 'error', 'message' => 'Invalid key format.'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -340,7 +345,7 @@ class ProfileController extends AbstractController
         $newArtist = trim($data['new_artist'] ?? '');
         $newPassword = $data['new_password'] ?? '';
 
-        if (!filter_var($newEmail, FILTER_VALIDATE_EMAIL) || empty($newArtist) || strlen($newPassword) < 6) {
+        if (!filter_var($newEmail, \FILTER_VALIDATE_EMAIL) || empty($newArtist) || \strlen($newPassword) < 6) {
             return $this->json(['status' => 'error', 'message' => 'Invalid input data.'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -355,7 +360,7 @@ class ProfileController extends AbstractController
         // Restore account
         $initial = mb_strtoupper(mb_substr($newArtist, 0, 1, 'UTF-8'));
         $bgColor = $this->generateColorRandomly();
-        $svg = sprintf(
+        $svg = \sprintf(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
             . '<rect width="200" height="200" fill="%s"/>'
             . '<text x="50%%" y="50%%" dominant-baseline="central" text-anchor="middle" '
@@ -434,7 +439,7 @@ class ProfileController extends AbstractController
         ];
 
         $hash = hexdec(substr(md5($input), 0, 6));
-        return $colors[$hash % count($colors)];
+        return $colors[$hash % \count($colors)];
     }
 
     /**
@@ -451,9 +456,9 @@ class ProfileController extends AbstractController
             '#ff5722', '#795548',
         ];
 
-        $color1 = hexdec(substr(md5($input . 'bg1'), 0, 6)) % count($colors);
-        $color2 = hexdec(substr(md5($input . 'bg2'), 0, 6)) % count($colors);
-        $color3 = hexdec(substr(md5($input . 'bg3'), 0, 6)) % count($colors);
+        $color1 = hexdec(substr(md5($input . 'bg1'), 0, 6)) % \count($colors);
+        $color2 = hexdec(substr(md5($input . 'bg2'), 0, 6)) % \count($colors);
+        $color3 = hexdec(substr(md5($input . 'bg3'), 0, 6)) % \count($colors);
 
         return [
             $colors[$color1],

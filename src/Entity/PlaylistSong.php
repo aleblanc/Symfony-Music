@@ -37,7 +37,7 @@ class PlaylistSong
 
     public function __construct()
     {
-        $this->addedAt = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+        $this->addedAt = new \DateTimeImmutable()->format('Y-m-d H:i:s');
     }
 
     public function getPlaylist(): ?Playlist

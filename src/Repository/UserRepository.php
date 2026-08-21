@@ -97,7 +97,7 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         }
 
         $ids = array_map(
-            static fn (array $r): int => (int) $r['id'],
+            static fn(array $r): int => (int) $r['id'],
             $qb->getQuery()->getScalarResult(),
         );
         shuffle($ids);

@@ -18,8 +18,7 @@ class MetadataWriter
 {
     public function __construct(
         private readonly string $getid3Dir,
-    ) {
-    }
+    ) {}
 
     /**
      * Writes title/artist/album/genre/lyrics (and optionally a cover image)
@@ -51,7 +50,7 @@ class MetadataWriter
             require_once $writeScript;
         }
 
-        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        $ext = strtolower(pathinfo($file, \PATHINFO_EXTENSION));
 
         $writer = new \getid3_writetags();
         $writer->filename = $file;

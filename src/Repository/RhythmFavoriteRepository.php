@@ -49,7 +49,7 @@ class RhythmFavoriteRepository extends ServiceEntityRepository
             ->getQuery()
             ->getScalarResult();
 
-        return array_map(static fn (array $r): int => (int) $r['song_id'], $rows);
+        return array_map(static fn(array $r): int => (int) $r['song_id'], $rows);
     }
 
     public function nextSortOrder(User $user): int

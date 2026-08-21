@@ -76,7 +76,7 @@ final class RhythmChartGenerator
         $longChance = ($difficulty === 'demon') ? 0.10 : 0.20;
 
         $laneBusyUntil = array_fill(0, $lanesCount, 0.0);
-        $restrictHolds = in_array($difficulty, ['easy', 'medium', 'hard'], true);
+        $restrictHolds = \in_array($difficulty, ['easy', 'medium', 'hard'], true);
         $anyHoldUntil = 0.0;
 
         $isDrop = false;
@@ -119,7 +119,7 @@ final class RhythmChartGenerator
                 $attempts = 0;
 
                 // Semi-random lane searching to create stairs/trills instead of vertical stacks.
-                while ((in_array($lane, $usedLanes, true) || $t < $laneBusyUntil[$lane]) && $attempts < $lanesCount * 2) {
+                while ((\in_array($lane, $usedLanes, true) || $t < $laneBusyUntil[$lane]) && $attempts < $lanesCount * 2) {
                     $lane = ($lane + ($rng() > 0.5 ? 1 : -1) + $lanesCount) % $lanesCount;
                     ++$attempts;
                 }
@@ -176,7 +176,7 @@ final class RhythmChartGenerator
             return 1;
         }
 
-        $totalNotes = count($notes);
+        $totalNotes = \count($notes);
         $nps = ($totalNotes / $duration) / max(0.1, min(10.0, $densityMultiplier));
 
         // 1. Peak NPS over a rolling 5s window.

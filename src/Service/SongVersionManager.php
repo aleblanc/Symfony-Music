@@ -18,9 +18,7 @@ use App\Entity\Music;
  */
 class SongVersionManager
 {
-    public function __construct(private readonly string $musicDir)
-    {
-    }
+    public function __construct(private readonly string $musicDir) {}
 
     /**
      * @return list<array{name: string, mtime: int, sizeMb: float}> newest first, capped at 10 (mirrors the legacy cap)
@@ -45,9 +43,9 @@ class SongVersionManager
             ];
         }
 
-        usort($versions, static fn (array $a, array $b): int => $b['mtime'] - $a['mtime']);
+        usort($versions, static fn(array $a, array $b): int => $b['mtime'] - $a['mtime']);
 
-        return array_slice($versions, 0, 10);
+        return \array_slice($versions, 0, 10);
     }
 
     /**
@@ -72,7 +70,7 @@ class SongVersionManager
         }
 
         if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
+            mkdir($dir, 0o755, true);
         }
         // Snapshot the current file before overwriting it, so the restore is reversible.
         copy($file, $dir . '/' . basename($file) . '_' . date('Y-m-d_H-i-s'));

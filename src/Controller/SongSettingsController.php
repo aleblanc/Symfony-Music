@@ -27,8 +27,7 @@ class SongSettingsController extends AbstractController
         private readonly UserSongSettingRepository $settings,
         private readonly MusicRepository $music,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('/song/{id}/settings', name: 'app_song_settings_get', methods: ['GET'], requirements: ['id' => '\d+'])]
     public function get(int $id, #[CurrentUser] User $user): JsonResponse
@@ -60,13 +59,13 @@ class SongSettingsController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        if (!is_array($data)) {
+        if (!\is_array($data)) {
             return new JsonResponse(['error' => 'Invalid JSON body'], Response::HTTP_BAD_REQUEST);
         }
 
         $volume = (float) ($data['volume'] ?? 1.0);
         $eq = $data['eq'] ?? null;
-        $eqJson = is_array($eq) ? json_encode(array_map('floatval', $eq)) : null;
+        $eqJson = \is_array($eq) ? json_encode(array_map('floatval', $eq)) : null;
 
         $setting = $this->settings->findOneForUser($user, $song);
         if ($setting === null) {

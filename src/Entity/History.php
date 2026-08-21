@@ -33,7 +33,7 @@ class History
 
     public function __construct()
     {
-        $this->playedAt = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+        $this->playedAt = new \DateTimeImmutable()->format('Y-m-d H:i:s');
     }
 
     public function getId(): ?int

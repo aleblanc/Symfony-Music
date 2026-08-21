@@ -45,8 +45,7 @@ class RhythmController extends AbstractController
         private readonly RhythmChartGenerator $generator,
         private readonly RhythmAntiCheat $antiCheat,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('/rhythm', name: 'app_rhythm')]
     public function hub(): Response
@@ -60,7 +59,7 @@ class RhythmController extends AbstractController
         $page = max(1, (int) $request->query->get('page', '1'));
         $songs = $this->music->findBy([], ['id' => 'DESC'], self::PAGE_SIZE, ($page - 1) * self::PAGE_SIZE);
 
-        $ids = array_map(static fn ($s) => $s->getId(), $songs);
+        $ids = array_map(static fn($s) => $s->getId(), $songs);
         $levels = $this->charts->levelsForSongs($ids);
 
         $out = [];
@@ -83,7 +82,7 @@ class RhythmController extends AbstractController
     #[Route('/rhythm/chart/{songId}/{difficulty}', name: 'app_rhythm_chart', methods: ['GET'], requirements: ['songId' => '\d+'])]
     public function chart(int $songId, string $difficulty): JsonResponse
     {
-        if (!in_array($difficulty, self::VALID_DIFFICULTIES, true)) {
+        if (!\in_array($difficulty, self::VALID_DIFFICULTIES, true)) {
             return new JsonResponse(['status' => 'error', 'message' => 'Invalid difficulty'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -95,7 +94,7 @@ class RhythmController extends AbstractController
         $chart = $this->charts->findOneForSong($song, $difficulty);
         $notes = $chart?->getNotesJson() !== null ? json_decode((string) $chart->getNotesJson(), true) : null;
 
-        if ($chart !== null && is_array($notes) && $notes !== []) {
+        if ($chart !== null && \is_array($notes) && $notes !== []) {
             return new JsonResponse(['status' => 'success', 'found' => true, 'notes' => $notes, 'level' => $chart->getLevel()]);
         }
 
@@ -104,7 +103,7 @@ class RhythmController extends AbstractController
         $notes = $this->generator->generate($songId, $duration, $difficulty, 1.0);
         $level = $this->generator->level($notes, $duration, $difficulty, 1.0);
 
-        $chart ??= (new RhythmChart())->setSong($song)->setDifficulty($difficulty);
+        $chart ??= new RhythmChart()->setSong($song)->setDifficulty($difficulty);
         $chart->setNotesJson(json_encode($notes));
         $chart->setLevel($level);
         $this->em->persist($chart);
@@ -190,11 +189,11 @@ class RhythmController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        if (!is_array($data)) {
+        if (!\is_array($data)) {
             return new JsonResponse(['status' => 'error', 'message' => 'Invalid body'], Response::HTTP_BAD_REQUEST);
         }
 
-        $hitDeltas = is_array($data['hit_deltas'] ?? null) ? $data['hit_deltas'] : [];
+        $hitDeltas = \is_array($data['hit_deltas'] ?? null) ? $data['hit_deltas'] : [];
         $claimedScore = (int) ($data['score'] ?? 0);
         $maxCombo = (int) ($data['max_combo'] ?? 0);
 
@@ -289,8 +288,8 @@ class RhythmController extends AbstractController
         }
 
         $favs = $this->favorites->findForUser($user);
-        $songs = array_map(static fn (RhythmFavorite $f) => $f->getSong(), $favs);
-        $ids = array_filter(array_map(static fn ($s) => $s?->getId(), $songs));
+        $songs = array_map(static fn(RhythmFavorite $f) => $f->getSong(), $favs);
+        $ids = array_filter(array_map(static fn($s) => $s?->getId(), $songs));
         $levels = $this->charts->levelsForSongs($ids);
 
         $out = [];

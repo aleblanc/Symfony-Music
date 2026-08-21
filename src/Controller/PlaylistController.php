@@ -37,8 +37,7 @@ class PlaylistController extends AbstractController
         private readonly MixRepository $mixes,
         private readonly UserRepository $users,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('/playlists', name: 'app_playlists')]
     public function index(#[CurrentUser] User $user): Response
@@ -489,7 +488,7 @@ class PlaylistController extends AbstractController
         }
 
         $response = new JsonResponse(['name' => $playlist->getName(), 'songs' => $songs]);
-        $response->setEncodingOptions(JSON_PRETTY_PRINT);
+        $response->setEncodingOptions(\JSON_PRETTY_PRINT);
         $filename = preg_replace('/[^A-Za-z0-9 _-]/', '_', $playlist->getName()) ?? 'playlist';
         $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '.json"');
 
@@ -562,7 +561,7 @@ class PlaylistController extends AbstractController
         $expireMinutes = $request->request->get('expire');
         $expiresAt = null;
         if ($expireMinutes !== null && $expireMinutes !== '' && is_numeric($expireMinutes)) {
-            $expiresAt = (new \DateTimeImmutable())->modify('+' . (int) $expireMinutes . ' minutes');
+            $expiresAt = new \DateTimeImmutable()->modify('+' . (int) $expireMinutes . ' minutes');
         }
 
         $invite = new PlaylistInvite();

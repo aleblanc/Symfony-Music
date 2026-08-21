@@ -42,8 +42,7 @@ class DiscoveryController extends AbstractController
         private readonly OfflineSongRepository $offline,
         private readonly MixRepository $mixes,
         private readonly MixSongRepository $mixSongs,
-    ) {
-    }
+    ) {}
 
     /**
      * Discovery hub: a taste of trending tracks, the "Explore" shelves and a
@@ -126,8 +125,8 @@ class DiscoveryController extends AbstractController
         return $this->render('discovery/mixes.html.twig', [
             'mixes' => $items,
             'songCounts' => array_combine(
-                array_map(static fn (Mix $m): int => $m->getId(), $items),
-                array_map(fn (Mix $m): int => $this->mixes->songCount($m), $items),
+                array_map(static fn(Mix $m): int => $m->getId(), $items),
+                array_map(fn(Mix $m): int => $this->mixes->songCount($m), $items),
             ),
             'query' => $q,
             'sort' => $sort,
@@ -153,8 +152,8 @@ class DiscoveryController extends AbstractController
         }
 
         $songs = array_values(array_filter(
-            array_map(static fn (MixSong $ms) => $ms->getSong(), $this->mixSongs->findForMix($mix)),
-            fn ($song) => $song !== null && $this->recommendations->isVisibleTo($song, $user),
+            array_map(static fn(MixSong $ms) => $ms->getSong(), $this->mixSongs->findForMix($mix)),
+            fn($song) => $song !== null && $this->recommendations->isVisibleTo($song, $user),
         ));
 
         return $this->render('discovery/mix_show.html.twig', [
@@ -212,7 +211,7 @@ class DiscoveryController extends AbstractController
         $users = $this->recommendations->recommendedArtists($user, $targetId);
 
         return new JsonResponse(array_map(
-            static fn (User $u): array => ['id' => $u->getId(), 'artist' => $u->getArtist()],
+            static fn(User $u): array => ['id' => $u->getId(), 'artist' => $u->getArtist()],
             $users,
         ));
     }

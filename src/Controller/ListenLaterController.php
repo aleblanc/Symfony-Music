@@ -35,8 +35,7 @@ class ListenLaterController extends AbstractController
         private readonly FavoriteRepository $favorites,
         private readonly OfflineSongRepository $offline,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('/listen-later', name: 'app_listen_later')]
     public function index(#[CurrentUser] User $user): Response
@@ -44,7 +43,7 @@ class ListenLaterController extends AbstractController
         $entries = $this->listenLater->findForUser($user);
 
         return $this->render('listen_later/index.html.twig', [
-            'songs' => array_map(static fn (ListenLater $l) => $l->getSong(), $entries),
+            'songs' => array_map(static fn(ListenLater $l) => $l->getSong(), $entries),
             'favoriteIds' => $this->favorites->favoritedSongIds($user),
             'listenLaterIds' => $this->listenLater->songIdsForUser($user),
             'offlineIds' => $this->offline->songIdsForUser($user),
@@ -89,7 +88,7 @@ class ListenLaterController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        if (!is_array($data) || !isset($data['ids']) || !is_array($data['ids'])) {
+        if (!\is_array($data) || !isset($data['ids']) || !\is_array($data['ids'])) {
             return new JsonResponse(['error' => 'Invalid JSON body'], Response::HTTP_BAD_REQUEST);
         }
 

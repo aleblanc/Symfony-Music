@@ -37,8 +37,7 @@ class OfflineController extends AbstractController
         private readonly FavoriteRepository $favorites,
         private readonly ListenLaterRepository $listenLater,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('/offline', name: 'app_offline')]
     public function index(#[CurrentUser] User $user): Response
@@ -46,7 +45,7 @@ class OfflineController extends AbstractController
         $entries = $this->offline->findForUser($user);
 
         return $this->render('offline/index.html.twig', [
-            'songs' => array_map(static fn (OfflineSong $o) => $o->getSong(), $entries),
+            'songs' => array_map(static fn(OfflineSong $o) => $o->getSong(), $entries),
             'favoriteIds' => $this->favorites->favoritedSongIds($user),
             'listenLaterIds' => $this->listenLater->songIdsForUser($user),
             'offlineIds' => $this->offline->songIdsForUser($user),
@@ -91,7 +90,7 @@ class OfflineController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        if (!is_array($data) || !isset($data['ids']) || !is_array($data['ids'])) {
+        if (!\is_array($data) || !isset($data['ids']) || !\is_array($data['ids'])) {
             return new JsonResponse(['error' => 'Invalid JSON body'], Response::HTTP_BAD_REQUEST);
         }
 

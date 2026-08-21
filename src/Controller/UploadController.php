@@ -48,8 +48,7 @@ class UploadController extends AbstractController
     public function __construct(
         private readonly string $musicDir,
         private readonly int $maxUploadBytes,
-    ) {
-    }
+    ) {}
 
     #[Route('', name: 'app_upload', methods: ['GET'])]
     public function form(#[CurrentUser] User $user): Response
@@ -64,7 +63,8 @@ class UploadController extends AbstractController
     #[Route('', name: 'app_upload_submit', methods: ['POST'])]
     public function submit(
         Request $request,
-        #[CurrentUser] User $user,
+        #[CurrentUser]
+        User $user,
         MusicRepository $musicRepository,
         UserRepository $userRepository,
         EntityManagerInterface $em,
@@ -152,7 +152,7 @@ class UploadController extends AbstractController
             $artist = $uploaderName;
         }
 
-        $title = $this->tag($comments, 'title', pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
+        $title = $this->tag($comments, 'title', pathinfo($file->getClientOriginalName(), \PATHINFO_FILENAME));
         $album = $this->tag($comments, 'album', 'Unknown Album');
         $genreOverride = trim((string) $request->request->get('genre', ''));
         $genre = $this->tag($comments, 'genre', $genreOverride !== '' ? $genreOverride : 'Uploaded');
@@ -167,7 +167,7 @@ class UploadController extends AbstractController
         $artistPath = $this->sanitizeForPath($artist);
         $shard = substr(md5($artistPath), 0, 2);
         $uploadDir = $this->musicDir . '/uploads/' . $shard . '/' . $artistPath;
-        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0o755, true) && !is_dir($uploadDir)) {
             $this->addFlash('error', 'Could not create upload directory.');
 
             return $this->redirectToRoute('app_upload');
@@ -258,7 +258,7 @@ class UploadController extends AbstractController
      */
     private function sniffMimeType(string $path): ?string
     {
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $finfo = finfo_open(\FILEINFO_MIME_TYPE);
         if ($finfo === false) {
             return null;
         }

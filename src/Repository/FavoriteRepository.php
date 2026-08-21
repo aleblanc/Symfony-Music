@@ -48,7 +48,7 @@ class FavoriteRepository extends ServiceEntityRepository
             ->getQuery()
             ->getScalarResult();
 
-        return array_map(static fn (array $r): int => (int) $r['song_id'], $rows);
+        return array_map(static fn(array $r): int => (int) $r['song_id'], $rows);
     }
 
     /**
@@ -69,6 +69,6 @@ class FavoriteRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        return array_map(static fn (Favorite $f): Music => $f->getSong(), $rows);
+        return array_map(static fn(Favorite $f): Music => $f->getSong(), $rows);
     }
 }

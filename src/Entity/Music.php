@@ -250,6 +250,6 @@ class Music
             return $this->title;
         }
 
-        return $this->file ? pathinfo($this->file, PATHINFO_FILENAME) : 'Unknown';
+        return $this->file ? pathinfo($this->file, \PATHINFO_FILENAME) : 'Unknown';
     }
 }

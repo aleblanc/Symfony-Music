@@ -30,8 +30,7 @@ class MusicScanner
         private readonly UserRepository $userRepository,
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly string $musicDir,
-    ) {
-    }
+    ) {}
 
     public function getMusicDir(): string
     {
@@ -161,7 +160,7 @@ class MusicScanner
             }
 
             $path = str_replace('\\', '/', $file->getPathname());
-            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            $ext = strtolower(pathinfo($path, \PATHINFO_EXTENSION));
             if (\in_array($ext, self::AUDIO_EXTENSIONS, true)) {
                 $files[$path] = $file->getMTime();
             }
@@ -180,7 +179,7 @@ class MusicScanner
         $comments = $info['comments'] ?? [];
 
         return [
-            'title' => $this->tag($comments, 'title', pathinfo($filePath, PATHINFO_FILENAME)),
+            'title' => $this->tag($comments, 'title', pathinfo($filePath, \PATHINFO_FILENAME)),
             'artist' => $this->tag($comments, 'artist', 'Unknown Artist'),
             'album' => $this->tag($comments, 'album', 'Unknown Album'),
             'genre' => $this->tag($comments, 'genre', 'Unknown Genre'),
@@ -224,8 +223,8 @@ class MusicScanner
         $raw = $comments['picture'][0]['data'] ?? null;
 
         if ($raw === null) {
-            $dir = pathinfo($filePath, PATHINFO_DIRNAME);
-            $base = pathinfo($filePath, PATHINFO_FILENAME);
+            $dir = pathinfo($filePath, \PATHINFO_DIRNAME);
+            $base = pathinfo($filePath, \PATHINFO_FILENAME);
             $candidates = array_merge([$base . '.jpg', $base . '.png'], self::COVER_CANDIDATES);
             foreach ($candidates as $candidate) {
                 $coverPath = $dir . '/' . $candidate;

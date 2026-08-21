@@ -41,7 +41,7 @@ class PlayCountRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        return array_map(static fn (PlayCount $pc): Music => $pc->getSong(), $rows);
+        return array_map(static fn(PlayCount $pc): Music => $pc->getSong(), $rows);
     }
 
     /**
@@ -87,6 +87,6 @@ class PlayCountRepository extends ServiceEntityRepository
             ->getQuery()
             ->getScalarResult();
 
-        return array_map(static fn (array $r): string => $r['genre'], $rows);
+        return array_map(static fn(array $r): string => $r['genre'], $rows);
     }
 }

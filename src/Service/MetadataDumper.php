@@ -43,7 +43,7 @@ class MetadataDumper
 
         $out[] = '===== RATING-RELATED FIELDS (heuristic scan) =====';
         $matched = false;
-        array_walk_recursive($info, function ($v, $k) use (&$out, &$matched): void {
+        array_walk_recursive($info, static function ($v, $k) use (&$out, &$matched): void {
             if (\is_string($k) && preg_match('/rat|popm|popular|star|score/i', $k) && !\is_array($v)) {
                 $out[] = '  ' . $k . ' = ' . (\is_scalar($v) ? (string) $v : \gettype($v));
                 $matched = true;

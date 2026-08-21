@@ -16,7 +16,7 @@ final class RhythmAntiCheat
      */
     public function inspect(array $hitDeltas, int $claimedScore, int $maxCombo): ?string
     {
-        $totalHits = count($hitDeltas);
+        $totalHits = \count($hitDeltas);
 
         if ($totalHits > 20) {
             // Layer 1: inhuman precision (>80% of hits under 5ms).

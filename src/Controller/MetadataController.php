@@ -35,7 +35,8 @@ class MetadataController extends AbstractController
     #[IsGranted('ROLE_USER')]
     public function edit(
         int $id,
-        #[CurrentUser] User $user,
+        #[CurrentUser]
+        User $user,
         MusicRepository $musicRepository,
         MetadataDumper $dumper,
     ): Response {
@@ -52,7 +53,8 @@ class MetadataController extends AbstractController
     public function save(
         int $id,
         Request $request,
-        #[CurrentUser] User $user,
+        #[CurrentUser]
+        User $user,
         MusicRepository $musicRepository,
         MetadataWriter $writer,
         EntityManagerInterface $em,
@@ -120,7 +122,8 @@ class MetadataController extends AbstractController
     public function delete(
         int $id,
         Request $request,
-        #[CurrentUser] User $user,
+        #[CurrentUser]
+        User $user,
         MusicRepository $musicRepository,
         EntityManagerInterface $em,
     ): Response {
@@ -233,7 +236,7 @@ class MetadataController extends AbstractController
      */
     private function sniffMimeType(string $path): ?string
     {
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $finfo = finfo_open(\FILEINFO_MIME_TYPE);
         if ($finfo === false) {
             return null;
         }

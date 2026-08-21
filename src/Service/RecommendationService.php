@@ -34,8 +34,7 @@ class RecommendationService
         private readonly FavoriteRepository $favorites,
         private readonly UserRepository $users,
         private readonly MixRepository $mixes,
-    ) {
-    }
+    ) {}
 
     /**
      * @return Music[]

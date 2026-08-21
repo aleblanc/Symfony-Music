@@ -20,7 +20,8 @@ class RegistrationController extends AbstractController
         UserPasswordHasherInterface $passwordHasher,
         UserRepository $users,
         Security $security,
-        #[CurrentUser] ?User $current,
+        #[CurrentUser]
+        ?User $current,
     ): Response {
         if ($current !== null) {
             return $this->redirectToRoute('app_home');

@@ -58,83 +58,83 @@ class PwaController extends AbstractController
     public function serviceWorker(): Response
     {
         $js = <<<'SW'
-// Minimal PWA service worker: caches the app shell and static assets
-// (CSS/JS/images/fonts) so the app can still boot when offline. Deliberately
-// does not attempt to cache audio streaming or any dynamic JSON/HTML
-// endpoint (range requests, non-GET requests, and anything that is not a
-// navigation or a recognizably-static file are left untouched).
-const CACHE_NAME = 'symfony-music-cache-v1';
-const APP_SHELL_URL = '/';
-const PRECACHE_URLS = [APP_SHELL_URL, '/manifest.json', '/icon.svg'];
+            // Minimal PWA service worker: caches the app shell and static assets
+            // (CSS/JS/images/fonts) so the app can still boot when offline. Deliberately
+            // does not attempt to cache audio streaming or any dynamic JSON/HTML
+            // endpoint (range requests, non-GET requests, and anything that is not a
+            // navigation or a recognizably-static file are left untouched).
+            const CACHE_NAME = 'symfony-music-cache-v1';
+            const APP_SHELL_URL = '/';
+            const PRECACHE_URLS = [APP_SHELL_URL, '/manifest.json', '/icon.svg'];
 
-// Extensions considered "static assets" eligible for cache-first serving.
-const STATIC_ASSET_PATTERN = /\.(css|js|mjs|svg|png|jpe?g|webp|gif|ico|woff2?|ttf)$/i;
+            // Extensions considered "static assets" eligible for cache-first serving.
+            const STATIC_ASSET_PATTERN = /\.(css|js|mjs|svg|png|jpe?g|webp|gif|ico|woff2?|ttf)$/i;
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
-  );
-  self.skipWaiting();
-});
+            self.addEventListener('install', (event) => {
+              event.waitUntil(
+                caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
+              );
+              self.skipWaiting();
+            });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => Promise.all(
-      cacheNames
-        .filter((cacheName) => cacheName !== CACHE_NAME)
-        .map((cacheName) => caches.delete(cacheName))
-    ))
-  );
-  self.clients.claim();
-});
+            self.addEventListener('activate', (event) => {
+              event.waitUntil(
+                caches.keys().then((cacheNames) => Promise.all(
+                  cacheNames
+                    .filter((cacheName) => cacheName !== CACHE_NAME)
+                    .map((cacheName) => caches.delete(cacheName))
+                ))
+              );
+              self.clients.claim();
+            });
 
-self.addEventListener('fetch', (event) => {
-  const request = event.request;
+            self.addEventListener('fetch', (event) => {
+              const request = event.request;
 
-  // Never intercept non-GET requests or range requests (audio streaming).
-  if (request.method !== 'GET' || request.headers.get('range')) {
-    return;
-  }
+              // Never intercept non-GET requests or range requests (audio streaming).
+              if (request.method !== 'GET' || request.headers.get('range')) {
+                return;
+              }
 
-  // App shell navigations: try the network first (fresh content), fall
-  // back to the cached shell when offline.
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((networkResponse) => {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
-          return networkResponse;
-        })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match(APP_SHELL_URL)))
-    );
-    return;
-  }
+              // App shell navigations: try the network first (fresh content), fall
+              // back to the cached shell when offline.
+              if (request.mode === 'navigate') {
+                event.respondWith(
+                  fetch(request)
+                    .then((networkResponse) => {
+                      const responseToCache = networkResponse.clone();
+                      caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
+                      return networkResponse;
+                    })
+                    .catch(() => caches.match(request).then((cached) => cached || caches.match(APP_SHELL_URL)))
+                );
+                return;
+              }
 
-  // Static assets: cache-first, populate the cache lazily from the network.
-  const url = new URL(request.url);
-  if (url.origin === self.location.origin && STATIC_ASSET_PATTERN.test(url.pathname)) {
-    event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(request).then((networkResponse) => {
-          if (networkResponse && networkResponse.ok) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
-          }
-          return networkResponse;
-        });
-      })
-    );
-  }
+              // Static assets: cache-first, populate the cache lazily from the network.
+              const url = new URL(request.url);
+              if (url.origin === self.location.origin && STATIC_ASSET_PATTERN.test(url.pathname)) {
+                event.respondWith(
+                  caches.match(request).then((cachedResponse) => {
+                    if (cachedResponse) {
+                      return cachedResponse;
+                    }
+                    return fetch(request).then((networkResponse) => {
+                      if (networkResponse && networkResponse.ok) {
+                        const responseToCache = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
+                      }
+                      return networkResponse;
+                    });
+                  })
+                );
+              }
 
-  // Anything else (dynamic JSON/HTML fragments, API-like GETs) is left to
-  // the browser's default network handling.
-});
+              // Anything else (dynamic JSON/HTML fragments, API-like GETs) is left to
+              // the browser's default network handling.
+            });
 
-SW;
+            SW;
 
         $response = new Response($js);
         $response->headers->set('Content-Type', 'text/javascript; charset=utf-8');

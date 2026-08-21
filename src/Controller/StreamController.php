@@ -45,7 +45,7 @@ class StreamController extends AbstractController
             throw $this->createNotFoundException('Audio file missing on disk.');
         }
 
-        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $ext = strtolower(pathinfo($path, \PATHINFO_EXTENSION));
         $response = new BinaryFileResponse($path);
         $response->headers->set('Content-Type', self::MIME_TYPES[$ext] ?? 'application/octet-stream');
         $response->headers->set('Accept-Ranges', 'bytes');

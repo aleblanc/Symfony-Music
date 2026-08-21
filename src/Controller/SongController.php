@@ -31,7 +31,8 @@ class SongController extends AbstractController
     #[Route('/song/{id}', name: 'app_song', requirements: ['id' => '\d+'])]
     public function show(
         int $id,
-        #[CurrentUser] ?User $user,
+        #[CurrentUser]
+        ?User $user,
         MusicRepository $music,
         FavoriteRepository $favorites,
         ListenLaterRepository $listenLater,
@@ -68,7 +69,8 @@ class SongController extends AbstractController
     public function restoreVersion(
         int $id,
         Request $request,
-        #[CurrentUser] User $user,
+        #[CurrentUser]
+        User $user,
         MusicRepository $music,
         SongVersionManager $versions,
         EntityManagerInterface $em,

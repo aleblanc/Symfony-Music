@@ -281,7 +281,7 @@ class MusicRepository extends ServiceEntityRepository
 
         $rows = $qb->getQuery()->getScalarResult();
 
-        return array_map(static fn (array $r): int => (int) $r['id'], $rows);
+        return array_map(static fn(array $r): int => (int) $r['id'], $rows);
     }
 
     /**
@@ -312,7 +312,7 @@ class MusicRepository extends ServiceEntityRepository
 
         $rows = $qb->getQuery()->getScalarResult();
 
-        return array_map(static fn (array $r): int => (int) $r['id'], $rows);
+        return array_map(static fn(array $r): int => (int) $r['id'], $rows);
     }
 
     /**
@@ -539,7 +539,7 @@ class MusicRepository extends ServiceEntityRepository
 
         $rows = $qb->getQuery()->getScalarResult();
 
-        return array_map(static fn (array $r): int => (int) $r['id'], $rows);
+        return array_map(static fn(array $r): int => (int) $r['id'], $rows);
     }
 
     /**
@@ -583,7 +583,7 @@ class MusicRepository extends ServiceEntityRepository
             ->getQuery()
             ->getScalarResult();
 
-        $ids = array_map(static fn (array $r): int => (int) $r['id'], $rows);
+        $ids = array_map(static fn(array $r): int => (int) $r['id'], $rows);
         shuffle($ids);
 
         return \array_slice($ids, 0, $limit);

@@ -91,6 +91,6 @@ class UserSongSetting
 
         $decoded = json_decode($this->eqBands, true);
 
-        return is_array($decoded) ? array_map('floatval', $decoded) : null;
+        return \is_array($decoded) ? array_map('floatval', $decoded) : null;
     }
 }
