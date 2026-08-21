@@ -124,7 +124,8 @@ class MusicScanner
         // Prune tracks whose files vanished from disk.
         $log('Pruning missing files...');
         foreach ($this->musicRepository->findAll() as $music) {
-            if (!isset($filesOnDisk[$music->getFile()]) && !file_exists((string) $music->getFile())) {
+            $musicFile = (string) $music->getFile();
+            if (!isset($filesOnDisk[$musicFile]) && !file_exists($musicFile)) {
                 $this->em->remove($music);
                 ++$stats['removed'];
             }
@@ -187,6 +188,9 @@ class MusicScanner
             'duration' => (int) ($info['playtime_seconds'] ?? 0),
             'bitrate' => (int) ($info['audio']['bitrate'] ?? 0),
             'image' => $this->extractCover($comments, $filePath),
+            // Cover bytes carry no mime column in the legacy schema; the type is
+            // sniffed from the bytes when served, so none is recorded at scan time.
+            'imageType' => null,
             'lyrics' => $this->tag($comments, 'unsynchronised_lyric', '') ?: null,
         ];
     }
@@ -263,18 +267,19 @@ class MusicScanner
      */
     private function resolveOwner(string $artistTag, int $libraryId, array &$cache, callable $log): User
     {
-        $mainArtist = trim((string) preg_split(
+        $parts = preg_split(
             '/\s*(?:;|\||\s+&\s+|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+)\s*|\s*,\s*(?!(?:the|a|an|jr|sr)\b)/i',
             $artistTag,
-        )[0]);
+        );
+        $mainArtist = trim($parts === false ? $artistTag : (string) ($parts[0] ?? ''));
 
         if ($mainArtist === '' || $mainArtist === 'Unknown Artist') {
-            return $this->em->getReference(User::class, $libraryId);
+            return $this->userReference($libraryId);
         }
 
         $key = mb_strtolower($mainArtist);
         if (isset($cache[$key])) {
-            return $this->em->getReference(User::class, $cache[$key]);
+            return $this->userReference($cache[$key]);
         }
 
         $log(\sprintf('  * New artist "%s": creating account.', $mainArtist));
@@ -285,9 +290,9 @@ class MusicScanner
         while ($this->userRepository->findOneBy(['email' => $email]) !== null
             || $this->userRepository->findOneBy(['artist' => $mainArtist]) !== null) {
             // Artist name collision: fall back to the shared library account.
-            if ($this->userRepository->findOneBy(['artist' => $mainArtist]) !== null) {
-                $existing = $this->userRepository->findOneBy(['artist' => $mainArtist]);
-                $cache[$key] = $existing->getId();
+            $existing = $this->userRepository->findOneBy(['artist' => $mainArtist]);
+            if ($existing !== null) {
+                $cache[$key] = $existing->getId() ?? throw new \LogicException('Persisted user must have an id.');
 
                 return $existing;
             }
@@ -300,9 +305,19 @@ class MusicScanner
         $user->setArtist($mainArtist);
         $user->setPasswordHash($this->passwordHasher->hashPassword($user, bin2hex(random_bytes(16))));
         $this->userRepository->save($user);
-        $cache[$key] = $user->getId();
+        $cache[$key] = $user->getId() ?? throw new \LogicException('Persisted user must have an id.');
 
         return $user;
+    }
+
+    /**
+     * Resolves a managed {@see User} reference by id, guarding the invariant
+     * that the id (a library account or a cached artist) always exists.
+     */
+    private function userReference(int $id): User
+    {
+        return $this->em->getReference(User::class, $id)
+            ?? throw new \LogicException('User reference could not be resolved.');
     }
 
     private function resolveLibraryUser(): User
@@ -334,7 +349,7 @@ class MusicScanner
         $cache = [];
         foreach ($this->userRepository->findAll() as $user) {
             if ($user->getArtist() !== null) {
-                $cache[mb_strtolower($user->getArtist())] = $user->getId();
+                $cache[mb_strtolower($user->getArtist())] = $user->getId() ?? throw new \LogicException('Persisted user must have an id.');
             }
         }
 

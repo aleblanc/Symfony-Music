@@ -25,7 +25,7 @@ class RhythmScoreRepository extends ServiceEntityRepository
      */
     public function globalLeaderboard(int $page, int $pageSize): array
     {
-        return $this->createQueryBuilder('rs')
+        return array_values($this->createQueryBuilder('rs')
             ->select(
                 'IDENTITY(rs.user) AS user_id',
                 'u.artist AS player_name',
@@ -44,7 +44,7 @@ class RhythmScoreRepository extends ServiceEntityRepository
             ->setFirstResult(($page - 1) * $pageSize)
             ->setMaxResults($pageSize)
             ->getQuery()
-            ->getScalarResult();
+            ->getScalarResult());
     }
 
     /**
@@ -55,7 +55,7 @@ class RhythmScoreRepository extends ServiceEntityRepository
      */
     public function songLeaderboard(int $songId): array
     {
-        return $this->createQueryBuilder('rs')
+        return array_values($this->createQueryBuilder('rs')
             ->select(
                 'rs.score AS score',
                 'rs.maxCombo AS max_combo',
@@ -75,7 +75,7 @@ class RhythmScoreRepository extends ServiceEntityRepository
             ->addOrderBy('rs.perfect', 'DESC')
             ->setMaxResults(25)
             ->getQuery()
-            ->getScalarResult();
+            ->getScalarResult());
     }
 
     /**

@@ -139,7 +139,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function getUserIdentifier(): string
     {
-        return (string) $this->email;
+        // A user always has a non-empty, unique email (NOT NULL column); it is
+        // the security identifier. Guard the invariant so the return type is a
+        // guaranteed non-empty string.
+        $email = $this->email;
+        if ($email === null || $email === '') {
+            throw new \LogicException('Cannot derive a security identifier: the user has no email.');
+        }
+
+        return $email;
     }
 
     /**

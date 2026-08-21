@@ -396,7 +396,8 @@ class PlaylistController extends AbstractController
         $this->assertCsrf($request, 'playlist_item_' . $songId);
 
         foreach ($playlist->getItems() as $item) {
-            if ($item->getSong()->getId() === $songId) {
+            $song = $item->getSong();
+            if ($song !== null && $song->getId() === $songId) {
                 $playlist->removeItem($item);
                 $this->em->remove($item);
                 $this->em->flush();
@@ -441,7 +442,10 @@ class PlaylistController extends AbstractController
 
         $existingSongIds = [];
         foreach ($playlist->getItems() as $item) {
-            $existingSongIds[] = $item->getSong()->getId();
+            $existingSong = $item->getSong();
+            if ($existingSong !== null) {
+                $existingSongIds[] = $existingSong->getId();
+            }
         }
 
         $order = $this->playlistSongs->nextSortOrder($playlist);
@@ -489,7 +493,7 @@ class PlaylistController extends AbstractController
 
         $response = new JsonResponse(['name' => $playlist->getName(), 'songs' => $songs]);
         $response->setEncodingOptions(\JSON_PRETTY_PRINT);
-        $filename = preg_replace('/[^A-Za-z0-9 _-]/', '_', $playlist->getName()) ?? 'playlist';
+        $filename = preg_replace('/[^A-Za-z0-9 _-]/', '_', $playlist->getName() ?? '') ?? 'playlist';
         $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '.json"');
 
         return $response;

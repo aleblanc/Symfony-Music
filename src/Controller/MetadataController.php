@@ -95,6 +95,12 @@ class MetadataController extends AbstractController
             }
 
             $raw = file_get_contents($cover->getPathname());
+            if ($raw === false) {
+                $this->addFlash('error', 'Could not read the uploaded cover image.');
+
+                return $this->redirectToRoute('app_metadata_edit', ['id' => $song->getId()]);
+            }
+
             $webp = $this->processImage($raw, 'webp');
             $jpegCover = $this->processImage($raw, 'jpeg');
             if ($webp !== null) {
@@ -210,7 +216,7 @@ class MetadataController extends AbstractController
         $srcY = (int) (($srcH - $minDim) / 2);
         $finalSize = min($minDim, $targetWidth);
 
-        $resized = imagecreatetruecolor($finalSize, $finalSize);
+        $resized = imagecreatetruecolor(max(1, $finalSize), max(1, $finalSize));
         if ($format === 'webp') {
             imagealphablending($resized, false);
             imagesavealpha($resized, true);

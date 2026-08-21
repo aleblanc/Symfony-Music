@@ -11,3 +11,7 @@
 
 .idea
 .editorconfig
+
+###> phpstan/phpstan ###
+phpstan.neon
+###< phpstan/phpstan ###

@@ -51,10 +51,26 @@ class Music
     #[ORM\Column(nullable: true)]
     private ?int $duration = null;
 
+    /** Detected tempo (bpm); null until analysed client-side. Rhythm Phase 2. */
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $bpm = null;
+
+    /**
+     * JSON beat grid {bpm, bass:[sec...], drums:[sec...]} from the client-side
+     * Web Audio analysis; null until analysed. This is the ONLY cached expensive
+     * artifact for the rhythm game — note charts are regenerated on the fly from
+     * it and never persisted (keeps the DB small). Rhythm Phase 2.
+     */
+    #[ORM\Column(name: 'beat_grid_json', type: 'text', nullable: true)]
+    private ?string $beatGridJson = null;
+
     /**
      * Cover art bytes, extracted from tags at scan time. The legacy schema has
      * no mime column (art is normalised to WebP), so the type is sniffed from
-     * the bytes when served.
+     * the bytes when served. Doctrine hydrates a `blob` column as a stream
+     * resource on read, while writes assign a raw byte string.
+     *
+     * @var resource|string|null
      */
     #[ORM\Column(type: 'blob', nullable: true)]
     private $image = null;
@@ -172,6 +188,30 @@ class Music
         return $this;
     }
 
+    public function getBpm(): ?float
+    {
+        return $this->bpm;
+    }
+
+    public function setBpm(?float $bpm): static
+    {
+        $this->bpm = $bpm;
+
+        return $this;
+    }
+
+    public function getBeatGridJson(): ?string
+    {
+        return $this->beatGridJson;
+    }
+
+    public function setBeatGridJson(?string $beatGridJson): static
+    {
+        $this->beatGridJson = $beatGridJson;
+
+        return $this;
+    }
+
     /**
      * @return resource|string|null
      */
@@ -180,6 +220,9 @@ class Music
         return $this->image;
     }
 
+    /**
+     * @param resource|string|null $image
+     */
     public function setImage($image): static
     {
         $this->image = $image;

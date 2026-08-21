@@ -125,7 +125,7 @@ class DiscoveryController extends AbstractController
         return $this->render('discovery/mixes.html.twig', [
             'mixes' => $items,
             'songCounts' => array_combine(
-                array_map(static fn(Mix $m): int => $m->getId(), $items),
+                array_map(static fn(Mix $m): int => $m->getId() ?? throw new \LogicException('Persisted mix must have an id.'), $items),
                 array_map(fn(Mix $m): int => $this->mixes->songCount($m), $items),
             ),
             'query' => $q,
@@ -222,7 +222,7 @@ class DiscoveryController extends AbstractController
     private function songPayload(Music $song): array
     {
         return [
-            'id' => $song->getId(),
+            'id' => $song->getId() ?? throw new \LogicException('Persisted song must have an id.'),
             'title' => $song->getDisplayTitle(),
             'artist' => $song->getArtist(),
             'album' => $song->getAlbum(),

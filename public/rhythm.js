@@ -3090,6 +3090,27 @@
                 }
               }
     
+              // Phase 2: if this song has no beat grid yet, analyse the audio
+              // client-side (bass/drum onsets) and POST it, so the chart fetched
+              // just below is beat-synced. One-time per song; cached server-side.
+              // Any failure falls through to the Phase 1 pseudo-random chart.
+              if (!song.beatAware && typeof window.rhythmAnalyze === "function") {
+                progressText.textContent = `Analyzing beats...`;
+                try {
+                  const grid = await window.rhythmAnalyze(`/stream/${song.id}`);
+                  if (grid) {
+                    await fetchData(`/rhythm/beatgrid/${song.id}`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(grid),
+                    });
+                    song.beatAware = true;
+                  }
+                } catch (e) {
+                  /* fall back to the Phase 1 chart */
+                }
+              }
+
               progressText.textContent = `Loading note chart...`;
               let dbChart = await fetchData(
                 `?action=get_rhythm_chart&song_id=${song.id}&difficulty=${diff}`,

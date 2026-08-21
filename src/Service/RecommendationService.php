@@ -50,7 +50,7 @@ class RecommendationService
      * "From Your Artists" shelf, which depends on the follow system of
      * Feature 6) from the legacy `get_explore` action.
      *
-     * @return array<int, array{title: string, type: string, items: array}>
+     * @return array<int, array{title: string, type: string, items: array<int, mixed>}>
      */
     public function explore(?User $viewer): array
     {
@@ -88,7 +88,7 @@ class RecommendationService
      * legacy `sys_get_temp_dir()` micro-cache) from the legacy
      * `get_recommendations` action.
      *
-     * @return array<int, array{title: string, type: string, items: array}>
+     * @return array<int, array{title: string, type: string, items: array<int, mixed>}>
      */
     public function recommendations(User $user): array
     {

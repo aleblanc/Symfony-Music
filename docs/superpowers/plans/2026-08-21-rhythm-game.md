@@ -1735,200 +1735,133 @@ Expected : `1` (ou plus).
 
 ---
 
-# PHASE 2 — Prise en compte des beats & du rythme réel des morceaux
+# PHASE 2 — Synchronisation aux beats réels (basse / batterie), analyse Web Audio côté client
 
-**Objectif :** au lieu de placer les notes sur une grille pseudo-aléatoire, les caler sur les **vrais temps forts** du morceau (onsets/beats détectés), tout en gardant la variété de mécaniques (tap/hold/swipe/accords) par difficulté. Repli automatique sur la Phase 1 quand aucun beat grid n'est disponible.
+**Décision (2026-08-21, remplace la variante aubio) :** l'analyse audio se fait **dans le navigateur** (Web Audio API), donc **aucun binaire serveur** (pas d'aubio/ffmpeg, pas de build). On **ne cache que la grille de beats** dans `music.beat_grid_json` (~5–30 Ko / morceau) ; les notes sont **régénérées à la volée** côté serveur (PHP pur, ~10–50 ms) et **jamais persistées** en v2. Analyse **paresseuse, au 1ᵉʳ play** d'un morceau — **pas** de pré-génération en masse (sinon le `.db` atteindrait plusieurs Go). Seuls les morceaux réellement joués occupent de la place.
 
-**⚠️ Incertitude assumée :** PHP n'a pas d'analyse audio native. La faisabilité dépend d'un outil externe. La Task 2.1 est un **spike** dont le résultat peut modifier les tâches suivantes — ne pas figer 2.2+ avant de l'avoir fait.
+**Idée centrale — SUIVI DE BEAT, pas seulement détection d'onsets** (leçon du
+playtest 2026-08-21 : sur un mix compressé, la détection d'attaques brute sort
+5+ onsets/s dont ~20 % seulement sur la pulsation — poser les notes dessus
+donne un ressenti « pas du tout en rythme »). Le bon pipeline :
+- **beats par essentia.js** (2ᵉ itération, 2026-08-21 : le tracker maison — histogramme + marche de phase — restait trop imprécis sur de la vraie musique ; remplacé par `RhythmExtractor2013` (méthode `degara`) d'Essentia/UPF compilé en WASM, vendorisé dans `public/vendor/` — essentia-wasm.web.{js,wasm} + essentia.js-core.umd.js, ~2,3 Mo, **chargés paresseusement** uniquement quand une analyse est nécessaire, AGPL) ;
+- onsets par bande **avec force** (basse passe-bas ~160 Hz, batterie passe-haut ~2 kHz, montée d'amplitude redressée), moitié faible jetée — utilisés uniquement pour le gating des slots et le côté des lanes ;
+- **garde de fiabilité** (maison, indépendante du tracker) : si < 35 % des onsets forts s'alignent sur la grille (beats+demi-beats) → `null` → repli Phase 1 ;
+- les notes se posent **sur les beats/subdivisions**, un slot n'est gardé que si un vrai coup basse/batterie est à ±80 ms (les silences restent vides) ; **bandes → lanes** (basse à gauche, batterie à droite).
 
-### Task 2.1 : Spike — choisir et valider l'outil d'analyse
+**Flux de données :**
+1. 1ᵉʳ play → le client sait (via `beatAware:false`) que la grille manque → il `fetch('/stream/{id}')`, `decodeAudioData`, downsample mono, tracke les beats + onsets forts par bande.
+2. `POST /rhythm/beatgrid/{songId}` avec `{bpm, beats:[…], bass:[…], drums:[…]}` (`beats` obligatoire, ≥ 8) → le serveur écrit `music.beat_grid_json` + `music.bpm`, puis calcule et stocke les **6 `level`** (`rhythm_charts`, `notes_json` NULL, `generator_version = 2`). `beatAware` (listings + chart) = la grille contient `"beats"` — les vieilles grilles onsets-seuls redeviennent `false` et se ré-analysent (auto-guérison).
+3. Le client refetch `/rhythm/chart/{songId}/{difficulty}` → désormais `beatAware:true`, notes générées **à la volée** depuis la grille (non persistées).
+4. Repli : pas de grille (analyse échouée / Web Audio indispo) → génération pseudo-aléatoire Phase 1 (inchangée).
 
-**Files:** Create `docs/superpowers/specs/2026-08-21-beat-analysis-spike.md` (notes)
-
-- [ ] **Step 1 : Vérifier la disponibilité d'`aubio`** sur la machine cible :
-
-Run: `which aubioonset aubiotrack`
-Expected : chemins renvoyés. Sinon documenter l'installation (`apt-get install aubio-tools` / `brew install aubio`) ou évaluer une alternative (FFI vers une lib C, ou préprocesseur Python/Node hors ligne).
-
-- [ ] **Step 2 : Tester sur un vrai fichier** de `var/library` :
-
-Run: `aubiotrack /chemin/vers/un.mp3 | head`
-Run: `aubioonset /chemin/vers/un.mp3 | head`
-Expected : liste de timestamps (secondes). Noter le format exact de sortie.
-
-- [ ] **Step 3 : Décider et documenter** dans le spec : outil retenu, contrat de données (`float[] beatTimes` + `float bpm`), où tourne l'analyse (commande console à la demande, recommandé, plutôt qu'au scan — coûteux CPU), coût estimé sur la taille réelle de la bibliothèque. **Point de décision utilisateur avant 2.2.**
+**Empreinte disque :** ~5–30 Ko (grille) + 6 entiers (`level`) par **morceau joué**. Aucune explosion en Go possible.
 
 ---
 
-### Task 2.2 : Migration — stockage des beats
+### Task 2.1 : Colonnes de stockage (migration + entités)
 
-**Files:**
-- Modify: `src/Entity/Music.php` (ajout `bpm`, `beatGridJson`)
-- Modify: `src/Entity/RhythmChart.php` (ajout `generatorVersion`)
-- Create: migration
+**Files:** Modify `src/Entity/Music.php`, `src/Entity/RhythmChart.php` ; Create migration.
 
-- [ ] **Step 1 : Ajouter à `Music`**
-
+- [ ] **Step 1 — `Music`** : ajouter
 ```php
-    /** Detected tempo (beats per minute); null until analysed. Phase 2. */
+    /** Detected tempo (bpm); null until analysed client-side. Phase 2. */
     #[ORM\Column(type: 'float', nullable: true)]
     private ?float $bpm = null;
 
-    /** JSON array of detected beat/onset timestamps in seconds; null until analysed. Phase 2. */
+    /** JSON beat grid {bpm, bass:[sec...], drums:[sec...]} from client Web Audio
+     *  analysis; null until analysed. The ONLY cached expensive artifact —
+     *  notes are regenerated on the fly from it. Phase 2. */
     #[ORM\Column(name: 'beat_grid_json', type: 'text', nullable: true)]
     private ?string $beatGridJson = null;
 ```
-(+ accesseurs `getBpm`/`setBpm`, `getBeatGridJson`/`setBeatGridJson`.)
++ accesseurs `getBpm/setBpm`, `getBeatGridJson/setBeatGridJson`.
 
-- [ ] **Step 2 : Ajouter à `RhythmChart`** un discriminant de génération, pour invalider les charts Phase 1 :
-
+- [ ] **Step 2 — `RhythmChart`** : ajouter `generator_version` (1 = pseudo-aléatoire, 2 = calé beats) + accesseurs.
 ```php
-    /** 1 = Phase 1 pseudo-random; 2 = Phase 2 beat-synced. Lets us regenerate stale charts. */
     #[ORM\Column(name: 'generator_version', type: 'integer', options: ['default' => 1])]
     private int $generatorVersion = 1;
 ```
-(+ accesseurs.)
 
-- [ ] **Step 3 : Générer + appliquer la migration**
-
-Run: `php bin/console doctrine:migrations:diff --no-interaction`
-Run: `php bin/console doctrine:migrations:migrate --no-interaction`
-Expected : colonnes ajoutées sans erreur.
-
-- [ ] **Step 4 : Commit** — `Add beat-grid columns for Phase 2 rhythm sync\n\nref #noref`
+- [ ] **Step 3** : `doctrine:migrations:diff` → **relire** (garder UNIQUEMENT les 3 colonnes, retirer tout rebuild parasite) → `migrations:migrate`. Vérifier via `dbal:run-sql "PRAGMA table_info(music)"`.
 
 ---
 
-### Task 2.3 : `BeatAnalyzer` (wrapper de l'outil externe)
+### Task 2.2 : `RhythmChartGenerator::generateFromBeats()`
 
-**Files:**
-- Create: `src/Service/BeatAnalyzer.php`
+**Files:** Modify `src/Service/RhythmChartGenerator.php`
 
-- [ ] **Step 1 : Écrire le service** (via `symfony/process` ; adapter le binaire/format selon la décision Task 2.1)
-
+- [ ] **Step 1** : ajouter la méthode (logique pure, déterministe — RNG seedé par `songId+difficulty` pour le choix des lanes/mécaniques, donc rejouable à l'identique) :
 ```php
-<?php
-
-namespace App\Service;
-
-use Symfony\Component\Process\Exception\ProcessFailedException;
-use Symfony\Component\Process\Process;
-
 /**
- * Extracts a beat/onset grid + tempo from an audio file using an external
- * analysis binary (default: aubio, chosen in the Phase 2 spike). Returns null
- * on any failure so callers can gracefully fall back to Phase 1 pseudo-random
- * generation. Never throws to the caller.
+ * Beat-synced chart: places notes on the detected onsets instead of a fixed
+ * pseudo-random grid. Reuses the per-difficulty mechanic mix (chords/holds/
+ * swipes/lane count). Bass onsets bias to the left lanes, drums to the right.
+ * Falls back to the Phase 1 generator when the grid is empty.
+ *
+ * @param array{bpm?: float, bass?: list<float>, drums?: list<float>} $grid
+ * @return list<array<string,mixed>>
  */
-final class BeatAnalyzer
-{
-    public function __construct(private readonly string $aubioTrackBin = 'aubiotrack')
-    {
-    }
-
-    /**
-     * @return array{bpm: float|null, beats: list<float>}|null
-     */
-    public function analyse(string $absolutePath): ?array
-    {
-        if (!is_file($absolutePath)) {
-            return null;
-        }
-
-        try {
-            $process = new Process([$this->aubioTrackBin, $absolutePath]);
-            $process->setTimeout(120.0);
-            $process->run();
-            if (!$process->isSuccessful()) {
-                return null;
-            }
-        } catch (ProcessFailedException) {
-            return null;
-        }
-
-        $beats = [];
-        foreach (explode("\n", trim($process->getOutput())) as $line) {
-            $line = trim($line);
-            if ($line !== '' && is_numeric($line)) {
-                $beats[] = (float) $line;
-            }
-        }
-        if ($beats === []) {
-            return null;
-        }
-
-        // Estimate BPM from median inter-beat interval.
-        $bpm = null;
-        if (count($beats) > 1) {
-            $intervals = [];
-            for ($i = 1, $n = count($beats); $i < $n; ++$i) {
-                $intervals[] = $beats[$i] - $beats[$i - 1];
-            }
-            sort($intervals);
-            $median = $intervals[intdiv(count($intervals), 2)];
-            if ($median > 0) {
-                $bpm = round(60.0 / $median, 2);
-            }
-        }
-
-        return ['bpm' => $bpm, 'beats' => $beats];
-    }
-}
+public function generateFromBeats(int $songId, int $duration, string $difficulty, array $grid, float $densityMultiplier = 1.0): array
 ```
+Règles :
+- fusionner `bass` (band=0) + `drums` (band=1) en une liste `[time, band]` triée ; si vide → `return $this->generate($songId,$duration,$difficulty,$densityMultiplier)`.
+- **densité par difficulté** : easy/medium ne gardent qu'un onset sur N (temps forts) ; hard/expert/master gardent plus ; demon garde tout + subdivise les grands intervalles. Réutiliser `min spacing` par tier comme garde anti-surcharge (ne pas dépasser la densité du tier).
+- **lanes** : `lanesCount` identique à `generate()`. Répartir : band basse → moitié gauche des lanes, band batterie → moitié droite ; anti-empilement (`laneBusyUntil`, buffer 50 ms) repris de `generate()`.
+- **mécaniques** : mêmes probabilités accords/holds/swipes que `generate()` (mêmes constantes par tier), tirées via le RNG seedé.
+- **temps** : `time = round(onset, 3)` — **timestamp audio BRUT**, car la boucle de jeu juge les notes contre `audioPlayback.currentTime`. ⚠️ Ne PAS reprendre le décalage `+2.0` du générateur Phase 1 : inoffensif sur des notes aléatoires, il désynchronise de 2 s pleines des notes calées aux beats (bug trouvé au playtest du 2026-08-21). Le temps de montée visuelle s'obtient en sautant les onsets < 2,5 s, pas en décalant les notes. Holds : `endTime = onset + durée`.
 
-- [ ] **Step 2 : Commit** — `Add BeatAnalyzer service (external onset detection)\n\nref #noref`
-
----
-
-### Task 2.4 : Commande d'analyse
-
-**Files:**
-- Create: `src/Command/AnalyzeBeatsCommand.php`
-
-- [ ] **Step 1 : Écrire une commande** `app:rhythm:analyze` qui itère les `Music` sans `beatGridJson`, appelle `BeatAnalyzer`, et persiste `bpm` + `beatGridJson`. Options : `--limit`, `--force` (ré-analyser). S'inspirer de `src/Command/ScanCommand.php` pour la structure (résolution du chemin absolu via le répertoire `var/library`, barre de progression, flush par lot).
-
-- [ ] **Step 2 : Exécuter sur quelques morceaux**
-
-Run: `php bin/console app:rhythm:analyze --limit=5`
-Expected : `bpm`/`beat_grid_json` remplis. Vérifier :
-Run: `php bin/console dbal:run-sql "SELECT id, bpm, length(beat_grid_json) FROM music WHERE beat_grid_json IS NOT NULL LIMIT 5"`
-
-- [ ] **Step 3 : Commit** — `Add app:rhythm:analyze command\n\nref #noref`
+- [ ] **Step 2** : golden-master de non-régression Phase 1 (le chemin `generate()` doit rester byte-identique — cf. Task 1.12).
 
 ---
 
-### Task 2.5 : Génération de chart calée sur les beats
+### Task 2.3 : Module d'analyse client `public/rhythm-analyze.js`
 
-**Files:**
-- Modify: `src/Service/RhythmChartGenerator.php`
+**Files:** Create `public/rhythm-analyze.js` (chargé par la page standalone, avant `rhythm.js`).
 
-- [ ] **Step 1 : Ajouter `generateFromBeats()`** : même logique de mécaniques/probabilités que `generate()` (accords, holds, swipes, densité par difficulté), mais au lieu d'avancer `$t` d'un pas fixe `$spacing`, avancer le long de la **grille de beats** (subdivisée : 1 note par beat en easy, par demi/quart de beat aux difficultés hautes pour approcher le `spacing` cible). Chaque `time` de note est **snappé** au beat/subdivision le plus proche. Garder la même forme de note de sortie (`{time, lane, isLong?, endTime?, isSwipe?, hitEndSwipe?}`).
-
-- [ ] **Step 2 : Repli** : `generateFromBeats()` renvoie `[]` (ou délègue à `generate()`) si `beats` est vide, garantissant la dégradation gracieuse vers la Phase 1.
-
-- [ ] **Step 3 : Golden-master de non-régression Phase 1** : réexécuter le script de la Task 1.12 pour confirmer que `generate()` (chemin pseudo-aléatoire) est **inchangé**. Expected : `ALL GOLDEN-MASTER CASES PASS`.
-
-- [ ] **Step 4 : Commit** — `Add beat-synced chart generation with Phase 1 fallback\n\nref #noref`
+- [ ] **Step 1** : exposer `window.rhythmAnalyze(streamUrl) → Promise<{bpm, bass:[], drums:[]}|null>` :
+  - `fetch(streamUrl)` → `arrayBuffer` → `new (AudioContext||webkitAudioContext)().decodeAudioData` (marche en HTTP).
+  - **downsample mono** : rendre le buffer via un `OfflineAudioContext` à ~**16 kHz mono** (2–4× plus rapide, suffit pour basse/kick).
+  - **basse** : `BiquadFilter` lowpass 160 Hz sur un `OfflineAudioContext` → PCM → énergie de trame (hop ~11 ms) → onsets = pics au-dessus de `moyenne_glissante × sensibilité`, fusion des < 90 ms.
+  - **batterie** : lowpass supprimé + highpass 2 kHz → **flux spectral** (diff. d'énergie trame-à-trame, demi-onde redressée) → onsets idem.
+  - **BPM** : histogramme des intervalles inter-onsets (basse) → intervalle dominant → `bpm = 60/intervalle` (replié dans 60–200).
+  - garde-fous : buffer > cap (ex. 8 min) → tronquer ; toute exception → `return null` (repli Phase 1).
+- [ ] **Step 2** : `node --check public/rhythm-analyze.js`.
 
 ---
 
-### Task 2.6 : Brancher la génération beat-aware + régénération
+### Task 2.4 : Contrôleur — endpoint grille + chart beat-aware
 
-**Files:**
-- Modify: `src/Controller/RhythmController.php` (méthode `chart()`)
-- Create: `src/Command/RegenerateChartsCommand.php`
+**Files:** Modify `src/Controller/RhythmController.php` (+ `MusicRepository` si besoin d'un helper).
 
-- [ ] **Step 1 : `chart()`** — à la génération lazy, si le morceau a un `beatGridJson`, appeler `generateFromBeats(...)` et stocker `generatorVersion = 2` ; sinon garder la Phase 1 (`generatorVersion = 1`). Traiter un chart existant en `generatorVersion = 1` comme périmé **uniquement** si le morceau a désormais un beat grid (le régénérer).
+- [ ] **Step 1** : `#[Route('/rhythm/beatgrid/{songId}', methods:['POST'])] #[IsGranted('ROLE_USER')]` :
+  - valider CSRF (header `X-CSRF-TOKEN`, comme `saveScore`) ; body JSON `{bpm, bass:[], drums:[]}` (clamp tailles).
+  - `music.setBeatGridJson(json_encode($grid))` + `setBpm(...)`, flush.
+  - pour les 6 difficultés : `notes = generator.generateFromBeats(...)` → `level = generator.level(...)` → upsert `RhythmChart` (song,diff) avec `level`, `generatorVersion=2`, `notesJson=NULL` ; flush.
+  - renvoyer `{status:'success'}`.
+- [ ] **Step 2** : `chart()` — si `song.getBeatGridJson()` non nul : `notes = generator.generateFromBeats(...)` (à la volée, **non persisté**), `level` depuis la ligne `rhythm_charts` (ou recalcul) → renvoyer `{..., notes, level, beatAware:true}`. Sinon : chemin Phase 1 inchangé + `beatAware:false`.
+- [ ] **Step 3** : ajouter `beatAware` (bool) à chaque entrée de `songs()` et `favoriteSongs()` (= `song.getBeatGridJson() !== null`) pour que le client sache s'il doit analyser.
 
-- [ ] **Step 2 : `app:rhythm:regenerate-charts`** — commande (remplace le bulk `rescan_charts` admin qu'on a coupé) qui, pour chaque morceau + difficulté, régénère et met en cache le chart (beat-aware si dispo). Options : `--difficulty`, `--force`, `--density`. Transaction par morceau (cf. legacy « 1 write par morceau »).
+---
 
-- [ ] **Step 3 : Vérifier** qu'un morceau analysé produit un chart `generatorVersion = 2` dont les `time` s'alignent sur la grille de beats (tolérance ±30 ms) — petit script `php` jetable dans `var/` comparant `notes[].time` à `beat_grid_json`.
+### Task 2.5 : Câblage client (prepGame) + progression
 
-Run: `php bin/console app:rhythm:regenerate-charts --difficulty=medium --limit=1`
-Run: `curl -s http://127.0.0.1:8000/rhythm/chart/<songAnalyse>/medium`
-Expected : notes calées sur les beats.
+**Files:** Modify `public/rhythm.js`, `templates/rhythm/hub.html.twig` (charger `rhythm-analyze.js`).
 
-- [ ] **Step 4 : Commit** — `Beat-aware chart generation wired into API + regenerate command\n\nref #noref`
+- [ ] **Step 1** : charger `<script src="/rhythm-analyze.js"></script>` **avant** `rhythm.js` dans la page standalone.
+- [ ] **Step 2** : dans `prepGame` (avant le fetch du chart), si `!song.beatAware && window.rhythmAnalyze` :
+  - afficher « Analyse du morceau… » (écran `loading`, avec % si possible),
+  - `const grid = await window.rhythmAnalyze(streamUrlFor(song))`,
+  - si `grid` : `await fetchData('/rhythm/beatgrid/'+song.id, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(grid)})` puis `song.beatAware = true`,
+  - continuer le flux normal (fetch chart → désormais beat-aware). Toute erreur → continuer quand même (repli Phase 1 côté serveur).
+- [ ] **Step 3** : le shim `fetchData`/`mapUrl` accepte déjà les URLs Symfony directes (`/rhythm/beatgrid/...`) sans réécriture — vérifier que `mapUrl` renvoie l'URL telle quelle pour un chemin ne commençant pas par `?action=` (ajouter un court-circuit si nécessaire).
+
+---
+
+### Task 2.6 : Vérification
+
+- [ ] **Générateur** : script `php` jetable → grille synthétique (onsets réguliers) → `generateFromBeats` → asserter que chaque `note.time-2.0` est proche (±30 ms) d'un onset, et que la Phase 1 reste inchangée (golden-master).
+- [ ] **DSP client** : probe navigateur headless → `window.rhythmAnalyze` sur un `AudioBuffer` synthétique (clics réguliers en basse) → asserter des onsets détectés au bon tempo.
+- [ ] **Bout-en-bout** : `curl -X POST /rhythm/beatgrid/{id}` avec une grille → `dbal:run-sql` confirme `music.beat_grid_json` rempli + lignes `rhythm_charts` v2 (level, notes_json NULL) → `curl /rhythm/chart/{id}/medium` renvoie `beatAware:true` + notes calées.
 
 ---
 

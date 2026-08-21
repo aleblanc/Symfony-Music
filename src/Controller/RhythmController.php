@@ -59,20 +59,24 @@ class RhythmController extends AbstractController
         $page = max(1, (int) $request->query->get('page', '1'));
         $songs = $this->music->findBy([], ['id' => 'DESC'], self::PAGE_SIZE, ($page - 1) * self::PAGE_SIZE);
 
-        $ids = array_map(static fn($s) => $s->getId(), $songs);
+        $ids = array_map(static fn($s): int => $s->getId() ?? throw new \LogicException('Persisted song must have an id.'), $songs);
         $levels = $this->charts->levelsForSongs($ids);
 
         $out = [];
         foreach ($songs as $s) {
+            $songId = $s->getId() ?? throw new \LogicException('Persisted song must have an id.');
             $out[] = [
-                'id' => $s->getId(),
+                'id' => $songId,
                 'title' => $s->getTitle(),
                 'artist' => $s->getArtist(),
                 'album' => $s->getAlbum(),
                 'duration' => $s->getDuration(),
-                'stream' => $urls->generate('app_stream', ['id' => $s->getId()]),
-                'cover' => $urls->generate('app_cover', ['id' => $s->getId()]),
-                'levels' => $levels[$s->getId()] ?? null,
+                'stream' => $urls->generate('app_stream', ['id' => $songId]),
+                'cover' => $urls->generate('app_cover', ['id' => $songId]),
+                'levels' => $levels[$songId] ?? null,
+                // Usable = new-format grid carrying the tracked pulse; old onset-only
+                // grids report false so the client re-analyses (self-healing).
+                'beatAware' => str_contains((string) $s->getBeatGridJson(), '"beats"'),
             ];
         }
 
@@ -91,25 +95,40 @@ class RhythmController extends AbstractController
             return new JsonResponse(['status' => 'error', 'message' => 'Song not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $chart = $this->charts->findOneForSong($song, $difficulty);
-        $notes = $chart?->getNotesJson() !== null ? json_decode((string) $chart->getNotesJson(), true) : null;
+        $duration = $song->getDuration() ?: 180;
+        $grid = $song->getBeatGridJson();
 
-        if ($chart !== null && \is_array($notes) && $notes !== []) {
-            return new JsonResponse(['status' => 'success', 'found' => true, 'notes' => $notes, 'level' => $chart->getLevel()]);
+        // Phase 2: beat-synced, regenerated on the fly from the cached grid,
+        // never persisted (keeps the DB tiny — only the grid + levels are stored).
+        // A grid is usable only when it carries the tracked `beats` pulse; older
+        // onset-only grids are ignored (client re-analyses, see beatAware flags).
+        if ($grid !== null) {
+            $decoded = json_decode($grid, true);
+            if (\is_array($decoded) && \count($decoded['beats'] ?? []) >= 8) {
+                $notes = $this->generator->generateFromBeats($songId, $duration, $difficulty, $decoded, 1.0);
+                $level = $this->charts->findOneForSong($song, $difficulty)?->getLevel()
+                    ?? $this->generator->level($notes, $duration, $difficulty, 1.0);
+
+                return new JsonResponse(['status' => 'success', 'found' => true, 'beatAware' => true, 'notes' => $notes, 'level' => $level]);
+            }
         }
 
-        // Lazy generate + cache (Phase 1: pseudo-random, 1.0x density).
-        $duration = $song->getDuration() ?: 180;
+        // Phase 1: pseudo-random, lazily generated + cached.
+        $chart = $this->charts->findOneForSong($song, $difficulty);
+        $notes = $chart?->getNotesJson() !== null ? json_decode((string) $chart->getNotesJson(), true) : null;
+        if ($chart !== null && \is_array($notes) && $notes !== []) {
+            return new JsonResponse(['status' => 'success', 'found' => true, 'beatAware' => false, 'notes' => $notes, 'level' => $chart->getLevel()]);
+        }
+
         $notes = $this->generator->generate($songId, $duration, $difficulty, 1.0);
         $level = $this->generator->level($notes, $duration, $difficulty, 1.0);
-
         $chart ??= new RhythmChart()->setSong($song)->setDifficulty($difficulty);
-        $chart->setNotesJson(json_encode($notes));
+        $chart->setNotesJson(json_encode($notes) ?: null);
         $chart->setLevel($level);
         $this->em->persist($chart);
         $this->em->flush();
 
-        return new JsonResponse(['status' => 'success', 'found' => true, 'notes' => $notes, 'level' => $level]);
+        return new JsonResponse(['status' => 'success', 'found' => true, 'beatAware' => false, 'notes' => $notes, 'level' => $level]);
     }
 
     #[Route('/rhythm/levels/{songId}', name: 'app_rhythm_levels', methods: ['GET'], requirements: ['songId' => '\d+'])]
@@ -193,7 +212,10 @@ class RhythmController extends AbstractController
             return new JsonResponse(['status' => 'error', 'message' => 'Invalid body'], Response::HTTP_BAD_REQUEST);
         }
 
-        $hitDeltas = \is_array($data['hit_deltas'] ?? null) ? $data['hit_deltas'] : [];
+        $rawHitDeltas = \is_array($data['hit_deltas'] ?? null) ? $data['hit_deltas'] : [];
+        // Normalise the raw JSON payload into a clean list of floats (inspect()
+        // treats each delta as a float anyway).
+        $hitDeltas = array_values(array_map(static fn($delta): float => (float) $delta, $rawHitDeltas));
         $claimedScore = (int) ($data['score'] ?? 0);
         $maxCombo = (int) ($data['max_combo'] ?? 0);
 
@@ -297,19 +319,95 @@ class RhythmController extends AbstractController
             if ($s === null) {
                 continue;
             }
+            $songId = $s->getId() ?? throw new \LogicException('Persisted song must have an id.');
             $out[] = [
-                'id' => $s->getId(),
+                'id' => $songId,
                 'title' => $s->getTitle(),
                 'artist' => $s->getArtist(),
                 'album' => $s->getAlbum(),
                 'duration' => $s->getDuration(),
-                'stream' => $urls->generate('app_stream', ['id' => $s->getId()]),
-                'cover' => $urls->generate('app_cover', ['id' => $s->getId()]),
+                'stream' => $urls->generate('app_stream', ['id' => $songId]),
+                'cover' => $urls->generate('app_cover', ['id' => $songId]),
                 'rg_favorite' => 1,
-                'levels' => $levels[$s->getId()] ?? null,
+                'levels' => $levels[$songId] ?? null,
+                // Usable = new-format grid carrying the tracked pulse; old onset-only
+                // grids report false so the client re-analyses (self-healing).
+                'beatAware' => str_contains((string) $s->getBeatGridJson(), '"beats"'),
             ];
         }
 
         return new JsonResponse($out);
+    }
+
+    /**
+     * Phase 2: persist the client-side Web Audio beat grid for a song. This is
+     * the only cached expensive artifact — note charts are regenerated on the
+     * fly from it (see chart()). Also precomputes the 6 tiny difficulty levels.
+     */
+    #[Route('/rhythm/beatgrid/{songId}', name: 'app_rhythm_beatgrid', methods: ['POST'], requirements: ['songId' => '\d+'])]
+    #[IsGranted('ROLE_USER')]
+    public function saveBeatGrid(int $songId, Request $request): JsonResponse
+    {
+        if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, (string) $request->headers->get('X-CSRF-TOKEN'))) {
+            return new JsonResponse(['status' => 'error', 'message' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        $song = $this->music->find($songId);
+        if ($song === null) {
+            return new JsonResponse(['status' => 'error', 'message' => 'Song not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (!\is_array($data)) {
+            return new JsonResponse(['status' => 'error', 'message' => 'Invalid body'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Defensive normalisation: numeric onset times only, capped per band.
+        $clamp = static function ($arr): array {
+            if (!\is_array($arr)) {
+                return [];
+            }
+            $out = [];
+            foreach ($arr as $t) {
+                if (is_numeric($t)) {
+                    $out[] = round((float) $t, 3);
+                }
+                if (\count($out) >= 20000) {
+                    break;
+                }
+            }
+
+            return $out;
+        };
+        $grid = [
+            'bpm' => isset($data['bpm']) && is_numeric($data['bpm']) ? (float) $data['bpm'] : null,
+            'beats' => $clamp($data['beats'] ?? []),
+            'bass' => $clamp($data['bass'] ?? []),
+            'drums' => $clamp($data['drums'] ?? []),
+        ];
+        // `beats` (the tracked musical pulse) is what the generator places notes
+        // on; a grid without it is useless.
+        if (\count($grid['beats']) < 8) {
+            return new JsonResponse(['status' => 'error', 'message' => 'Missing/short beats grid'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $song->setBeatGridJson(json_encode($grid) ?: null);
+        $song->setBpm($grid['bpm']);
+        $this->em->flush();
+
+        // Cache only the 6 levels (a few ints); notes stay on-the-fly.
+        $duration = $song->getDuration() ?: 180;
+        foreach (self::VALID_DIFFICULTIES as $diff) {
+            $notes = $this->generator->generateFromBeats($songId, $duration, $diff, $grid, 1.0);
+            $level = $this->generator->level($notes, $duration, $diff, 1.0);
+            $chart = $this->charts->findOneForSong($song, $diff) ?? new RhythmChart()->setSong($song)->setDifficulty($diff);
+            $chart->setNotesJson(null);
+            $chart->setLevel($level);
+            $chart->setGeneratorVersion(2);
+            $this->em->persist($chart);
+        }
+        $this->em->flush();
+
+        return new JsonResponse(['status' => 'success']);
     }
 }

@@ -43,8 +43,8 @@ class ProfileController extends AbstractController
             }
             $this->validateCsrfToken('profile_edit', $token);
 
-            $newName = trim($request->request->get('name', ''));
-            $newBio = trim($request->request->get('bio', ''));
+            $newName = trim($request->request->getString('name'));
+            $newBio = trim($request->request->getString('bio'));
 
             if (empty($newName)) {
                 $this->addFlash('error', 'Name cannot be empty.');
@@ -81,9 +81,9 @@ class ProfileController extends AbstractController
         UserPasswordHasherInterface $hasher
     ): Response {
         if ($request->isMethod('POST')) {
-            $this->validateCsrfToken('change_password', $request->request->get('_token'));
+            $this->validateCsrfToken('change_password', $request->request->getString('_token'));
 
-            $newPassword = $request->request->get('new_password', '');
+            $newPassword = $request->request->getString('new_password');
 
             if (\strlen($newPassword) < 6) {
                 $this->addFlash('error', 'Password must be at least 6 characters.');
@@ -109,7 +109,7 @@ class ProfileController extends AbstractController
         Request $request,
         EntityManagerInterface $em
     ): JsonResponse {
-        $this->validateCsrfToken('upload_picture', $request->request->get('_token'));
+        $this->validateCsrfToken('upload_picture', $request->request->getString('_token'));
 
         $file = $request->files->get('profile_picture');
         if (!$file) {
@@ -122,6 +122,9 @@ class ProfileController extends AbstractController
         }
 
         $imageData = file_get_contents($file->getPathname());
+        if ($imageData === false) {
+            return $this->json(['status' => 'error', 'message' => 'Failed to read uploaded file.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
         $webpData = $this->processImageToWebp($imageData, 200, 80);
 
         if (!$webpData) {
@@ -143,7 +146,7 @@ class ProfileController extends AbstractController
         Request $request,
         EntityManagerInterface $em
     ): JsonResponse {
-        $this->validateCsrfToken('upload_background', $request->request->get('_token'));
+        $this->validateCsrfToken('upload_background', $request->request->getString('_token'));
 
         $file = $request->files->get('profile_background');
         if (!$file) {
@@ -156,6 +159,9 @@ class ProfileController extends AbstractController
         }
 
         $imageData = file_get_contents($file->getPathname());
+        if ($imageData === false) {
+            return $this->json(['status' => 'error', 'message' => 'Failed to read uploaded file.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
         $webpData = $this->processImageToWebp($imageData, 1200, 400, true);
 
         if (!$webpData) {
@@ -268,9 +274,9 @@ class ProfileController extends AbstractController
         Request $request,
         EntityManagerInterface $em
     ): Response {
-        $this->validateCsrfToken('delete_account', $request->request->get('_token'));
+        $this->validateCsrfToken('delete_account', $request->request->getString('_token'));
 
-        $mode = $request->request->get('mode', 'all');
+        $mode = $request->request->getString('mode', 'all');
 
         if ($mode === 'keep_data') {
             // Soft delete: generate backup key
@@ -281,7 +287,9 @@ class ProfileController extends AbstractController
             $user->setEmail('deleted_' . $user->getId() . '_' . time() . '@mail.com');
             $user->setArtist('Deleted User');
             $user->setBio(null);
-            $user->setPasswordHash(null);
+            // The password_hash column is NOT NULL; an empty hash can never
+            // match any password, which disables normal login for the account.
+            $user->setPasswordHash('');
             $user->setBackupKey($hash);
             $user->setProfilePicture(null);
             $user->setProfileBackground(null);
@@ -302,7 +310,9 @@ class ProfileController extends AbstractController
             $user->setEmail('deleted_' . $user->getId() . '_' . time() . '@mail.com');
             $user->setArtist('Deleted User');
             $user->setBio(null);
-            $user->setPasswordHash(null);
+            // The password_hash column is NOT NULL; an empty hash can never
+            // match any password, which disables normal login for the account.
+            $user->setPasswordHash('');
             $user->setBackupKey(null);
             $user->setProfilePicture(null);
             $user->setProfileBackground(null);
@@ -402,7 +412,7 @@ class ProfileController extends AbstractController
             return null;
         }
 
-        $resizedImage = imagecreatetruecolor($width, $height);
+        $resizedImage = imagecreatetruecolor(max(1, $width), max(1, $height));
         imagecopyresampled(
             $resizedImage,
             $sourceImage,

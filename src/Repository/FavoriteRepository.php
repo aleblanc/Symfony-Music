@@ -69,6 +69,7 @@ class FavoriteRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        return array_map(static fn(Favorite $f): Music => $f->getSong(), $rows);
+        // The inner join on f.song guarantees every row has a song.
+        return array_map(static fn(Favorite $f): Music => $f->getSong() ?? throw new \LogicException('Favorite row must have a joined song.'), $rows);
     }
 }

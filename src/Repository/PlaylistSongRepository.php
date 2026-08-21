@@ -30,7 +30,7 @@ class PlaylistSongRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return PlaylistSong[] Ordered by manual sort order.
+     * @return list<PlaylistSong> Ordered by manual sort order.
      */
     public function findForPlaylist(Playlist $playlist): array
     {

@@ -100,7 +100,7 @@ class UploadController extends AbstractController
             return $this->redirectToRoute('app_upload');
         }
 
-        if ($file->getSize() !== null && $file->getSize() > $this->maxUploadBytes) {
+        if ($file->getSize() !== false && $file->getSize() > $this->maxUploadBytes) {
             $this->addFlash('error', \sprintf('File too large (max %d MB).', (int) ($this->maxUploadBytes / 1024 / 1024)));
 
             return $this->redirectToRoute('app_upload');

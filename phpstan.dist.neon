@@ -1,0 +1,15 @@
+includes:
+    - vendor/phpstan/phpstan-symfony/extension.neon
+    - vendor/phpstan/phpstan-symfony/rules.neon
+    - vendor/phpstan/phpstan-doctrine/extension.neon
+    - vendor/phpstan/phpstan-doctrine/rules.neon
+
+parameters:
+    level: 8
+    paths:
+        - src/
+    doctrine:
+        # Entity association/column properties are typed nullable (?User, ?string)
+        # for uninitialized hydration even when the DB column is NOT NULL; this is
+        # a deliberate, valid choice, so don't flag it as a mapping mismatch.
+        allowNullablePropertyForRequiredField: true

@@ -41,7 +41,8 @@ class PlayCountRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        return array_map(static fn(PlayCount $pc): Music => $pc->getSong(), $rows);
+        // The inner join on pc.song guarantees every row has a song.
+        return array_map(static fn(PlayCount $pc): Music => $pc->getSong() ?? throw new \LogicException('Play count row must have a joined song.'), $rows);
     }
 
     /**

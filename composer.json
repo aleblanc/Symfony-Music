@@ -39,7 +39,9 @@
             "App\\": "src/"
         },
         "classmap": [
-            "lib/getid3/getid3.php"
+            "lib/getid3/getid3.php",
+            "lib/getid3/getid3.lib.php",
+            "lib/getid3/write.php"
         ]
     },
     "autoload-dev": {
@@ -81,6 +83,8 @@
         }
     },
     "require-dev": {
+        "phpstan/phpstan-doctrine": "^2.0",
+        "phpstan/phpstan-symfony": "^2.0",
         "symfony/maker-bundle": "^1.67",
         "symfony/web-profiler-bundle": "8.1.*"
     }

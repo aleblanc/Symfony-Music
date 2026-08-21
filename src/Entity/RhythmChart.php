@@ -32,6 +32,15 @@ class RhythmChart
     #[ORM\Column(type: 'integer', options: ['default' => 1])]
     private int $level = 1;
 
+    /**
+     * Which generator produced this chart: 1 = Phase 1 pseudo-random (notes
+     * cached in notesJson), 2 = Phase 2 beat-synced (notesJson stays NULL, notes
+     * are regenerated on the fly from Music.beatGridJson). Lets us tell cached
+     * charts apart and regenerate stale ones.
+     */
+    #[ORM\Column(name: 'generator_version', type: 'integer', options: ['default' => 1])]
+    private int $generatorVersion = 1;
+
     public function getSong(): ?Music
     {
         return $this->song;
@@ -76,6 +85,18 @@ class RhythmChart
     public function setLevel(int $level): static
     {
         $this->level = $level;
+
+        return $this;
+    }
+
+    public function getGeneratorVersion(): int
+    {
+        return $this->generatorVersion;
+    }
+
+    public function setGeneratorVersion(int $generatorVersion): static
+    {
+        $this->generatorVersion = $generatorVersion;
 
         return $this;
     }

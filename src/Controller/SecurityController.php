@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-use Symfony\Bundle\SecurityBundle\Security;
+use App\Entity\User;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
@@ -12,7 +12,7 @@ use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 class SecurityController extends AbstractController
 {
     #[Route('/login', name: 'app_login')]
-    public function login(AuthenticationUtils $authenticationUtils, #[CurrentUser] $user): Response
+    public function login(AuthenticationUtils $authenticationUtils, #[CurrentUser] ?User $user): Response
     {
         if ($user !== null) {
             return $this->redirectToRoute('app_home');

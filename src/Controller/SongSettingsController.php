@@ -65,7 +65,7 @@ class SongSettingsController extends AbstractController
 
         $volume = (float) ($data['volume'] ?? 1.0);
         $eq = $data['eq'] ?? null;
-        $eqJson = \is_array($eq) ? json_encode(array_map('floatval', $eq)) : null;
+        $eqJson = \is_array($eq) ? (json_encode(array_map('floatval', $eq)) ?: null) : null;
 
         $setting = $this->settings->findOneForUser($user, $song);
         if ($setting === null) {
