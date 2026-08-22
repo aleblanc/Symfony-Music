@@ -474,19 +474,100 @@ final class RhythmChartGenerator
             $candidates[] = $e;
         }
 
-        // Keep only the `targetNps * duration` strongest hits. Ties are broken
-        // by a deterministic hash of the index so equal-strength hits are
-        // dropped uniformly across the song, not from one end.
+        // Keep only ~`targetNps * duration` hits — but like a MUSICIAN, never
+        // by punching random holes in an even pattern (playtest 2026-08-22:
+        // "des trous dans la batterie/basse"). Candidates are grouped into
+        // RUNS (same instrument, quasi-constant spacing); the budget keeps
+        // whole runs, and when a run does not fit it is thinned EVENLY
+        // (every 2nd/3rd note = the same groove at a simpler subdivision),
+        // instead of dropping the weakest hits one by one.
         $window = max(10.0, $totalTime - 3.0);
         $budget = (int) ceil($targetNps * $window);
         if (\count($candidates) > $budget) {
-            $order = array_keys($candidates);
-            usort($order, static function (int $a, int $b) use ($candidates): int {
-                return ($candidates[$b]['s'] <=> $candidates[$a]['s'])
-                    ?: ((($a * 2654435761) % 4294967296) <=> (($b * 2654435761) % 4294967296));
+            $byBand = [];
+            foreach ($candidates as $i => $e) {
+                $byBand[$e['band']][] = $i;
+            }
+            /** @var list<list<int>> $units run = list of candidate indices */
+            $units = [];
+            foreach ($byBand as $indices) {
+                $n = \count($indices);
+                $run = [$indices[0]];
+                $prevIoi = 0.0;
+                for ($j = 1; $j <= $n; ++$j) {
+                    if ($j < $n) {
+                        $ioi = $candidates[$indices[$j]]['t'] - $candidates[$indices[$j - 1]]['t'];
+                        $sameSpacing = \count($run) === 1 || abs($ioi - $prevIoi) <= max(0.035, 0.2 * $prevIoi);
+                        if ($ioi > 0.0 && $ioi <= 0.9 && $sameSpacing) {
+                            $run[] = $indices[$j];
+                            $prevIoi = $ioi;
+                            continue;
+                        }
+                    }
+                    // Close the run: 3+ evenly spaced hits form a pattern
+                    // that must survive (or thin) as a whole; shorter runs
+                    // are independent singletons.
+                    if (\count($run) >= 3) {
+                        $units[] = $run;
+                    } else {
+                        foreach ($run as $idx) {
+                            $units[] = [$idx];
+                        }
+                    }
+                    if ($j < $n) {
+                        $run = [$indices[$j]];
+                        $prevIoi = 0.0;
+                    }
+                }
+            }
+
+            // Strongest units first; equal-strength ties broken by a hash of
+            // the unit's first index so drops spread uniformly across the
+            // song, not from one end.
+            $unitScore = [];
+            foreach ($units as $u => $idxList) {
+                $sum = 0.0;
+                foreach ($idxList as $idx) {
+                    $sum += $candidates[$idx]['s'];
+                }
+                $unitScore[$u] = $sum / \count($idxList);
+            }
+            $unitOrder = array_keys($units);
+            usort($unitOrder, static function (int $a, int $b) use ($unitScore, $units): int {
+                return ($unitScore[$b] <=> $unitScore[$a])
+                    ?: ((($units[$a][0] * 2654435761) % 4294967296) <=> (($units[$b][0] * 2654435761) % 4294967296));
             });
-            $keepIdx = array_flip(\array_slice($order, 0, $budget));
-            $candidates = array_values(array_intersect_key($candidates, $keepIdx));
+
+            $keepIdx = [];
+            $remaining = $budget;
+            foreach ($unitOrder as $u) {
+                if ($remaining <= 0) {
+                    break;
+                }
+                $idxList = $units[$u];
+                $m = \count($idxList);
+                if ($m <= $remaining) {
+                    foreach ($idxList as $idx) {
+                        $keepIdx[$idx] = true;
+                    }
+                    $remaining -= $m;
+                    continue;
+                }
+                // Even thinning: keep every k-th hit starting from the run's
+                // first (usually the downbeat) — uniform spacing, no holes.
+                $k = (int) ceil($m / $remaining);
+                for ($p = 0; $p < $m; $p += $k) {
+                    $keepIdx[$idxList[$p]] = true;
+                    --$remaining;
+                }
+            }
+            $filtered = [];
+            foreach ($candidates as $i => $e) {
+                if (isset($keepIdx[$i])) {
+                    $filtered[] = $e;
+                }
+            }
+            $candidates = $filtered;
         }
 
         // ---- 4b. Group near-simultaneous events into slots (chord candidates).
@@ -535,23 +616,36 @@ final class RhythmChartGenerator
         }
         usort($slots, static fn(array $a, array $b): int => $a['t'] <=> $b['t']);
 
-        // ---- 5. Refractory pass, with the strong-run exception. -------------
+        // ---- 5. Refractory pass, PER INSTRUMENT. -----------------------------
+        // The full comfort gap applies within one instrument; across
+        // instruments only half is required (opposite hands on the zoned
+        // lanes). Otherwise a snare falling between two kicks silently eats
+        // the second kick — a pattern hole (playtest 2026-08-22).
+        $globalRefr = max(0.03, $refractory * 0.5);
         /** @var list<array{t: float, s: float, bands: array<int, float>, midT: float|null, midS: float}> $kept */
         $kept = [];
         $lastKept = -1000.0;
+        $lastKeptBand = [0 => -1000.0, 1 => -1000.0, 2 => -1000.0];
         foreach ($slots as $slot) {
             if ($slot['t'] < 2.5 || $slot['t'] > $totalTime - 0.5) {
                 continue; // visual ramp-up at the start, buffer at the end
             }
             $gap = $slot['t'] - $lastKept;
+            $bandGap = 1000.0;
+            foreach ($slot['bands'] as $b => $unused) {
+                $bandGap = min($bandGap, $slot['t'] - $lastKeptBand[$b]);
+            }
             // Big hits ("gros coups") may pack tighter than the tier's comfort
             // gap — 3 strong hits in a row must always yield 3 taps.
-            $strongRun = $slot['s'] >= 0.7 && $gap >= max(0.20, $refractory * 0.6);
-            if ($gap < $refractory && !$strongRun) {
+            $strongRun = $slot['s'] >= 0.7 && $bandGap >= max(0.20, $refractory * 0.6);
+            if (($bandGap < $refractory && !$strongRun) || $gap < $globalRefr) {
                 continue;
             }
             $kept[] = $slot;
             $lastKept = $slot['t'];
+            foreach ($slot['bands'] as $b => $unused) {
+                $lastKeptBand[$b] = $slot['t'];
+            }
         }
         if (\count($kept) < 8) {
             return $this->generate($songId, $duration, $difficulty, $densityMultiplier);

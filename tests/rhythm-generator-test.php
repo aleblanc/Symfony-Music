@@ -147,6 +147,48 @@ foreach ($targets as $diff => $nps) {
     );
 }
 
+// ---- No pattern holes (playtest 2026-08-22: "des trous dans la batterie") ----
+// (a) Budget pressure on one even run must THIN it uniformly (every k-th
+// note = the same groove at a simpler subdivision), never punch random holes.
+$runLow = [];
+for ($t = 3.0; $t < 28.0; $t += 0.25) {
+    $runLow[] = [round($t, 3), 0.8]; // 100 equal kicks, 0.25 s apart
+}
+$runGrid = ['v' => 4, 'bpm' => null, 'beats' => [], 'bands' => ['low' => $runLow, 'mid' => [], 'high' => []]];
+$runMed = $gen->generateFromBeats(11, 30, 'medium', $runGrid);
+usort($runMed, static fn(array $a, array $b): int => $a['time'] <=> $b['time']);
+$gaps = [];
+for ($i = 1; $i < \count($runMed); ++$i) {
+    $gaps[] = round((float) $runMed[$i]['time'] - (float) $runMed[$i - 1]['time'], 3);
+}
+$uniform = $gaps !== [] && \count(array_unique($gaps)) === 1;
+check('medium: over-budget even run is thinned uniformly (no random holes)', $uniform, json_encode(array_slice(array_values(array_unique($gaps)), 0, 6)) ?: '');
+check('medium: thinned run stays within the nps budget', \count($runMed) <= (int) ceil(1.4 * 27.0), 'notes=' . \count($runMed));
+
+// (b) A snare landing between two kicks must NOT eat the second kick: the
+// full refractory is per instrument, cross-instrument only needs half.
+$holeLow = [];
+$holeMid = [];
+for ($t = 4.0; $t <= 20.0; $t += 2.0) {
+    $holeLow[] = [round($t, 3), 0.6];        // kick (not "strong-run" strong)
+    $holeMid[] = [round($t + 0.2, 3), 0.6];  // snare 0.2 s later
+    $holeLow[] = [round($t + 0.4, 3), 0.6];  // kick 0.2 s after the snare
+}
+$holeGrid = ['v' => 4, 'bpm' => null, 'beats' => [], 'bands' => ['low' => $holeLow, 'mid' => $holeMid, 'high' => []]];
+$holeMed = $gen->generateFromBeats(13, 30, 'medium', $holeGrid);
+$holeOk = true;
+$holeDetail = '';
+foreach ([4.0, 10.0, 18.0] as $t) {
+    // 0.05 s tolerance: bass-only slots carry the -30 ms latency compensation.
+    foreach ([$t, $t + 0.2, $t + 0.4] as $expected) {
+        if (\count(timesAt($holeMed, $expected, 0.05)) !== 1) {
+            $holeOk = false;
+            $holeDetail = "missing @{$expected}s";
+        }
+    }
+}
+check('medium: kick-snare-kick 0.2 s apart -> all 3 taps (no cross-band hole)', $holeOk, $holeDetail);
+
 // ---- Kick-lock + wide bass snap (musician-tight timing) ----------------------
 // A bass attack detected 40 ms after a drum hit is the SAME musical event:
 // the note adopts the drum's timestamp. A bass-only hit detected late (bass
