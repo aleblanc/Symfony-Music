@@ -228,6 +228,44 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
+     * Song browser of the rhythm-game hub: optional text search over
+     * title/artist/album plus the hub's sort modes. Deliberately NOT
+     * visibility-filtered (the hub has always listed every indexed track).
+     * "random" is a deterministic pseudo-shuffle (Knuth multiplicative hash
+     * of the id) so infinite-scroll pagination never repeats rows.
+     *
+     * @return Music[]
+     */
+    public function rhythmList(?string $query, string $sort, int $limit, int $offset): array
+    {
+        $qb = $this->createQueryBuilder('m');
+
+        if ($query !== null && $query !== '') {
+            $qb->andWhere('m.title LIKE :q OR m.artist LIKE :q OR m.album LIKE :q')
+                ->setParameter('q', '%' . addcslashes($query, '%_\\') . '%');
+        }
+
+        if ($sort === 'trending') {
+            $qb->leftJoin(PlayCount::class, 'pc', 'WITH', 'pc.song = m')
+                ->addSelect('COALESCE(SUM(pc.playCount), 0) AS HIDDEN totalPlays')
+                ->groupBy('m.id')
+                ->orderBy('totalPlays', 'DESC')
+                ->addOrderBy('m.id', 'DESC');
+        } elseif ($sort === 'title_asc') {
+            $qb->orderBy('m.title', 'ASC')->addOrderBy('m.id', 'ASC');
+        } elseif ($sort === 'artist_asc') {
+            $qb->orderBy('m.artist', 'ASC')->addOrderBy('m.title', 'ASC');
+        } elseif ($sort === 'random') {
+            $qb->addSelect('MOD(m.id * 2654435761, 4294967296) AS HIDDEN shuffleKey')
+                ->orderBy('shuffleKey', 'ASC');
+        } else { // id_desc (newest)
+            $qb->orderBy('m.id', 'DESC');
+        }
+
+        return $qb->setFirstResult($offset)->setMaxResults($limit)->getQuery()->getResult();
+    }
+
+    /**
      * Tracks ordered by total play count (all users combined), descending.
      * Ported from the legacy `get_trending` action.
      *

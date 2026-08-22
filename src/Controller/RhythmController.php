@@ -57,7 +57,9 @@ class RhythmController extends AbstractController
     public function songs(Request $request, UrlGeneratorInterface $urls): JsonResponse
     {
         $page = max(1, (int) $request->query->get('page', '1'));
-        $songs = $this->music->findBy([], ['id' => 'DESC'], self::PAGE_SIZE, ($page - 1) * self::PAGE_SIZE);
+        $query = trim($request->query->getString('q'));
+        $sort = $request->query->getString('sort', 'id_desc');
+        $songs = $this->music->rhythmList($query !== '' ? $query : null, $sort, self::PAGE_SIZE, ($page - 1) * self::PAGE_SIZE);
 
         $ids = array_map(static fn($s): int => $s->getId() ?? throw new \LogicException('Persisted song must have an id.'), $songs);
         $levels = $this->charts->levelsForSongs($ids);
@@ -74,9 +76,9 @@ class RhythmController extends AbstractController
                 'stream' => $urls->generate('app_stream', ['id' => $songId]),
                 'cover' => $urls->generate('app_cover', ['id' => $songId]),
                 'levels' => $levels[$songId] ?? null,
-                // Usable = new-format grid carrying the tracked pulse; old onset-only
-                // grids report false so the client re-analyses (self-healing).
-                'beatAware' => str_contains((string) $s->getBeatGridJson(), '"beats"'),
+                // Usable = v3 grid carrying strength-ranked band onsets; older
+                // formats report false so the client re-analyses (self-healing).
+                'beatAware' => str_contains((string) $s->getBeatGridJson(), '"v":4'),
             ];
         }
 
@@ -100,11 +102,10 @@ class RhythmController extends AbstractController
 
         // Phase 2: beat-synced, regenerated on the fly from the cached grid,
         // never persisted (keeps the DB tiny — only the grid + levels are stored).
-        // A grid is usable only when it carries the tracked `beats` pulse; older
-        // onset-only grids are ignored (client re-analyses, see beatAware flags).
+        // Usable = v3 bands with enough onsets, or a legacy beats grid.
         if ($grid !== null) {
             $decoded = json_decode($grid, true);
-            if (\is_array($decoded) && \count($decoded['beats'] ?? []) >= 8) {
+            if (\is_array($decoded) && self::gridUsable($decoded)) {
                 $notes = $this->generator->generateFromBeats($songId, $duration, $difficulty, $decoded, 1.0);
                 $level = $this->charts->findOneForSong($song, $difficulty)?->getLevel()
                     ?? $this->generator->level($notes, $duration, $difficulty, 1.0);
@@ -330,9 +331,9 @@ class RhythmController extends AbstractController
                 'cover' => $urls->generate('app_cover', ['id' => $songId]),
                 'rg_favorite' => 1,
                 'levels' => $levels[$songId] ?? null,
-                // Usable = new-format grid carrying the tracked pulse; old onset-only
-                // grids report false so the client re-analyses (self-healing).
-                'beatAware' => str_contains((string) $s->getBeatGridJson(), '"beats"'),
+                // Usable = v3 grid carrying strength-ranked band onsets; older
+                // formats report false so the client re-analyses (self-healing).
+                'beatAware' => str_contains((string) $s->getBeatGridJson(), '"v":4'),
             ];
         }
 
@@ -340,9 +341,11 @@ class RhythmController extends AbstractController
     }
 
     /**
-     * Phase 2: persist the client-side Web Audio beat grid for a song. This is
-     * the only cached expensive artifact — note charts are regenerated on the
-     * fly from it (see chart()). Also precomputes the 6 tiny difficulty levels.
+     * Phase 2 v3: persist the client-side audio analysis for a song — bass/
+     * mid/high onsets WITH strengths (the note anchors) plus the optional
+     * tracked beat grid (de-jitter only). This is the only cached expensive
+     * artifact — note charts are regenerated on the fly from it (see chart()).
+     * Also precomputes the 6 tiny difficulty levels.
      */
     #[Route('/rhythm/beatgrid/{songId}', name: 'app_rhythm_beatgrid', methods: ['POST'], requirements: ['songId' => '\d+'])]
     #[IsGranted('ROLE_USER')]
@@ -362,14 +365,14 @@ class RhythmController extends AbstractController
             return new JsonResponse(['status' => 'error', 'message' => 'Invalid body'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Defensive normalisation: numeric onset times only, capped per band.
-        $clamp = static function ($arr): array {
+        // Defensive normalisation, capped per band.
+        $clampTimes = static function (mixed $arr): array {
             if (!\is_array($arr)) {
                 return [];
             }
             $out = [];
             foreach ($arr as $t) {
-                if (is_numeric($t)) {
+                if (is_numeric($t) && (float) $t >= 0.0 && (float) $t <= 7200.0) {
                     $out[] = round((float) $t, 3);
                 }
                 if (\count($out) >= 20000) {
@@ -379,16 +382,44 @@ class RhythmController extends AbstractController
 
             return $out;
         };
+        // [t, strength] pairs (v3 band onsets).
+        $clampPairs = static function (mixed $arr): array {
+            if (!\is_array($arr)) {
+                return [];
+            }
+            $out = [];
+            foreach ($arr as $pair) {
+                if (\is_array($pair) && isset($pair[0]) && is_numeric($pair[0])
+                    && (float) $pair[0] >= 0.0 && (float) $pair[0] <= 7200.0) {
+                    $s = isset($pair[1]) && is_numeric($pair[1]) ? max(0.0, min(1.0, (float) $pair[1])) : 0.6;
+                    $out[] = [round((float) $pair[0], 3), round($s, 2)];
+                }
+                if (\count($out) >= 20000) {
+                    break;
+                }
+            }
+
+            return $out;
+        };
+
+        $bandsIn = \is_array($data['bands'] ?? null) ? $data['bands'] : [];
         $grid = [
+            // v4 = attack-sharpness-weighted low band (client analyser); the
+            // beatAware flags above check this exact version so older grids
+            // self-heal by re-analysis.
+            'v' => 4,
             'bpm' => isset($data['bpm']) && is_numeric($data['bpm']) ? (float) $data['bpm'] : null,
-            'beats' => $clamp($data['beats'] ?? []),
-            'bass' => $clamp($data['bass'] ?? []),
-            'drums' => $clamp($data['drums'] ?? []),
+            'beats' => $clampTimes($data['beats'] ?? []),
+            'bands' => [
+                'low' => $clampPairs($bandsIn['low'] ?? []),
+                'mid' => $clampPairs($bandsIn['mid'] ?? []),
+                'high' => $clampPairs($bandsIn['high'] ?? []),
+            ],
         ];
-        // `beats` (the tracked musical pulse) is what the generator places notes
-        // on; a grid without it is useless.
-        if (\count($grid['beats']) < 8) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Missing/short beats grid'], Response::HTTP_BAD_REQUEST);
+        // The low/mid onsets ARE the note anchors; without enough of them the
+        // grid is useless (beats alone no longer suffice in the v3 model).
+        if (\count($grid['bands']['low']) + \count($grid['bands']['mid']) < 8) {
+            return new JsonResponse(['status' => 'error', 'message' => 'Too few band onsets'], Response::HTTP_BAD_REQUEST);
         }
 
         $song->setBeatGridJson(json_encode($grid) ?: null);
@@ -403,11 +434,31 @@ class RhythmController extends AbstractController
             $chart = $this->charts->findOneForSong($song, $diff) ?? new RhythmChart()->setSong($song)->setDifficulty($diff);
             $chart->setNotesJson(null);
             $chart->setLevel($level);
-            $chart->setGeneratorVersion(2);
+            $chart->setGeneratorVersion(3);
             $this->em->persist($chart);
         }
         $this->em->flush();
 
         return new JsonResponse(['status' => 'success']);
+    }
+
+    /**
+     * A stored grid can drive Phase 2 generation when it carries enough v3
+     * band onsets (the note anchors) or, for not-yet-reanalysed legacy grids,
+     * a tracked beats pulse.
+     *
+     * @param array<string, mixed> $decoded
+     */
+    private static function gridUsable(array $decoded): bool
+    {
+        $bands = \is_array($decoded['bands'] ?? null) ? $decoded['bands'] : null;
+        if ($bands !== null) {
+            $low = \is_array($bands['low'] ?? null) ? \count($bands['low']) : 0;
+            $mid = \is_array($bands['mid'] ?? null) ? \count($bands['mid']) : 0;
+
+            return ($low + $mid) >= 8;
+        }
+
+        return \is_array($decoded['beats'] ?? null) && \count($decoded['beats']) >= 8;
     }
 }

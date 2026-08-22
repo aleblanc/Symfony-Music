@@ -717,6 +717,11 @@
 
 
 
+{# Inline script: runs during parsing, i.e. BEFORE the deferred nav.js.
+   The rhythm page is a standalone app managing its own history/DOM — partial
+   navigation swapping <main> would orphan the game engine. #}
+<script>window.NO_PARTIAL_NAV = true;</script>
+
 <script type="application/json" id="rhythm-config">
 {
     "csrf": "{{ csrf_token('rhythm') }}",

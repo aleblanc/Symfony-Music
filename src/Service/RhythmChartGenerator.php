@@ -285,50 +285,279 @@ final class RhythmChartGenerator
     }
 
     /**
-     * Beat-synced chart (Phase 2): places notes on the TRACKED BEAT GRID
-     * (`beats`, fitted client-side by rhythm-analyze.js), subdivided per
-     * difficulty tier, keeping only the slots where a real bass/drum attack
-     * exists nearby — so quiet sections stay empty and every note lands on the
-     * musical pulse. Raw onsets alone are NOT used as note times: on loud mixes
-     * they are dense quasi-noise (playtest 2026-08-21), notes must snap to the
-     * beat. Bass-backed slots go to the left lanes, drum-backed to the right.
-     * Deterministic (RNG seeded from songId + difficulty) so replays are
-     * identical. Falls back to {@see self::generate()} when the grid is absent
-     * or unusable (old format without `beats`, or too few beats).
+     * Beat-synced chart (Phase 2 v3, "onset-first"): notes are anchored on the
+     * ACTUAL bass/drum attacks detected client-side (rhythm-analyze.js), each
+     * carrying a normalised strength. Difficulty selects notes by STRENGTH
+     * threshold — easy keeps only the big hits, so "3 big drum hits in a row"
+     * always become 3 taps (a strong-hit exception bypasses the playability
+     * refractory gap). The tracked beat grid, when present, only de-jitters
+     * times by snapping onsets to the nearest subdivision (≤ 55 ms); off-grid
+     * (syncopated) hits keep their raw time instead of being dropped, which
+     * was the main flaw of the previous grid-first version.
+     *
+     * Chords are musical, not random: simultaneous attacks in different bands
+     * (kick+snare within 30 ms), and on hard/expert the partner hit must be
+     * strong itself. Holds only on bass hits followed by a long gap
+     * (sustained low end), so they never eat the next tap. Lanes are FIXED
+     * per instrument (Taiko-style, user spec): bass always on one lane,
+     * snare on another, hats on a third — the chart reads as the
+     * instruments. Density is budgeted in notes/second per tier (the
+     * strength cut adapts to each song's mix instead of a fixed threshold).
+     * Deterministic (xorshift seeded from songId + difficulty). Falls back to
+     * {@see self::generate()} when the grid is absent or too sparse.
      *
      * Note times are RAW audio timestamps: the game loop judges notes against
-     * audioPlayback.currentTime (a +2.0 lead-in shift desyncs everything).
-     * Ramp-up comes from skipping slots below 2.5 s.
+     * audioPlayback.currentTime. Ramp-up comes from skipping slots below 2.5 s.
      *
-     * @param array{bpm?: float|int|null, beats?: list<float|int>, bass?: list<float|int>, drums?: list<float|int>} $grid
+     * Accepts both the v3 grid ({v:3, beats, bands:{low|mid|high: [[t,s]…]}})
+     * and the legacy v2 one ({beats, bass:[t…], drums:[t…]}, strengths
+     * defaulted) — v2 grids are re-analysed client-side anyway (beatAware).
+     *
+     * @param array<string, mixed> $grid
      *
      * @return list<array<string, mixed>>
      */
     public function generateFromBeats(int $songId, int $duration, string $difficulty, array $grid, float $densityMultiplier = 1.0): array
     {
         $totalTime = $duration ?: 180;
+        $density = max(0.1, min(10.0, $densityMultiplier));
 
-        $beats = [];
-        foreach (($grid['beats'] ?? []) as $t) {
-            $t = (float) $t;
-            if ($t > 0.0 && $t <= $totalTime) {
-                $beats[] = $t;
+        // ---- 1. Normalise input events to [t, strength, band]. -------------
+        $events = [];
+        $bands = \is_array($grid['bands'] ?? null) ? $grid['bands'] : null;
+        if ($bands !== null) {
+            foreach (['low' => 0, 'mid' => 1, 'high' => 2] as $key => $bandNo) {
+                foreach (\is_array($bands[$key] ?? null) ? $bands[$key] : [] as $pair) {
+                    if (\is_array($pair) && isset($pair[0]) && is_numeric($pair[0])) {
+                        $t = (float) $pair[0];
+                        if ($t > 0.0 && $t <= $totalTime) {
+                            $s = isset($pair[1]) && is_numeric($pair[1]) ? max(0.0, min(1.0, (float) $pair[1])) : 0.6;
+                            $events[] = ['t' => $t, 's' => $s, 'band' => $bandNo];
+                        }
+                    }
+                }
+            }
+        } else {
+            // Legacy v2: times only. bass -> low; drums (HP 2 kHz, hats-ish) -> high.
+            foreach (['bass' => 0, 'drums' => 2] as $key => $bandNo) {
+                foreach (\is_array($grid[$key] ?? null) ? $grid[$key] : [] as $t) {
+                    if (is_numeric($t) && (float) $t > 0.0 && (float) $t <= $totalTime) {
+                        $events[] = ['t' => (float) $t, 's' => 0.6, 'band' => $bandNo];
+                    }
+                }
             }
         }
-        if (\count($beats) < 8) {
-            // Absent/old-format/unreliable grid: Phase 1 pseudo-random.
+        if (\count($events) < 8) {
             return $this->generate($songId, $duration, $difficulty, $densityMultiplier);
         }
-        sort($beats);
+        usort($events, static fn(array $a, array $b): int => $a['t'] <=> $b['t']);
 
-        $bass = array_values(array_map('floatval', $grid['bass'] ?? []));
-        $drums = array_values(array_map('floatval', $grid['drums'] ?? []));
-        sort($bass);
-        sort($drums);
-        // If the analyser sent no per-band onsets at all, place on every slot.
-        $gateByOnsets = ($bass !== [] || $drums !== []);
+        // ---- 2. Tier parameters. -------------------------------------------
+        $lanesCount = ($difficulty === 'easy' || $difficulty === 'medium') ? 4 : ($difficulty === 'demon' ? 10 : 6);
 
-        // Deterministic xorshift RNG for lane/mechanic choices.
+        // Target chart density in notes/second (playtest 2026-08-22: fixed
+        // strength thresholds made hard unplayable on compressed mixes — the
+        // strength distribution varies wildly per master, so density is now
+        // budgeted explicitly and the threshold adapts to each song).
+        $targetNps = match ($difficulty) {
+            'easy' => 0.8,
+            'medium' => 1.4,
+            'hard' => 2.2,
+            'expert' => 3.2,
+            'master' => 4.4,
+            default => 6.0, // demon
+        } * $density;
+
+        // Absolute strength floor: below this a hit is never a note on the
+        // tier, no matter how sparse the song (easy stays "big hits only").
+        $strengthFloor = match ($difficulty) {
+            'easy' => 0.45,
+            'medium' => 0.30,
+            'hard' => 0.18,
+            'expert' => 0.10,
+            'master' => 0.05,
+            default => 0.0, // demon: everything
+        };
+
+        // Playability refractory (NOT a musical grid): small enough that real
+        // consecutive drum hits at song tempos are all kept.
+        $refractory = max(0.03, match ($difficulty) {
+            'easy' => 0.40,
+            'medium' => 0.30,
+            'hard' => 0.22,
+            'expert' => 0.15,
+            'master' => 0.11,
+            default => 0.06, // demon
+        } / $density);
+
+        // Chords stay rare on the mid tiers: the second band must itself be a
+        // strong hit (kick AND snare both accented), not incidental overlap.
+        $chordSecondMin = match ($difficulty) {
+            'hard' => 0.5,
+            'expert' => 0.35,
+            default => 0.0,
+        };
+
+        $allowedBands = match ($difficulty) {
+            'easy', 'medium', 'hard' => [0, 1],
+            default => [0, 1, 2],
+        };
+        // On expert the hats band only contributes its accents.
+        $highBandMin = $difficulty === 'expert' ? 0.5 : 0.0;
+
+        $maxChord = match ($difficulty) {
+            'easy', 'medium' => 1,
+            'hard', 'expert' => 2,
+            default => 3, // master, demon
+        };
+
+        $swipeChance = ($difficulty === 'easy') ? 0.0 : (($difficulty === 'medium') ? 0.08 : 0.25);
+        $holdChance = ($difficulty === 'demon') ? 0.15 : 0.35;
+
+        // ---- 3. Optional de-jitter: snap onsets to the beat subdivision. ----
+        $subdivisions = [];
+        $beats = [];
+        foreach (\is_array($grid['beats'] ?? null) ? $grid['beats'] : [] as $t) {
+            if (is_numeric($t) && (float) $t > 0.0) {
+                $beats[] = (float) $t;
+            }
+        }
+        if (\count($beats) >= 8) {
+            sort($beats);
+            $parts = match ($difficulty) {
+                'easy', 'medium' => 2,
+                'hard', 'expert' => 4,
+                default => 8,
+            };
+            $n = \count($beats);
+            for ($i = 0; $i < $n; ++$i) {
+                $b = $beats[$i];
+                $next = $beats[$i + 1] ?? ($b + ($b - ($beats[$i - 1] ?? $b - 0.5)));
+                $span = max(0.05, $next - $b);
+                for ($p = 0; $p < $parts; ++$p) {
+                    $subdivisions[] = $b + $span * ($p / $parts);
+                }
+            }
+        }
+        $snap = static function (float $t, float $tol) use ($subdivisions): float {
+            $count = \count($subdivisions);
+            if ($count === 0) {
+                return $t;
+            }
+            $lo = 0;
+            $hi = $count - 1;
+            while ($lo < $hi) {
+                $mid = intdiv($lo + $hi, 2);
+                if ($subdivisions[$mid] < $t) {
+                    $lo = $mid + 1;
+                } else {
+                    $hi = $mid;
+                }
+            }
+            $best = $subdivisions[$lo];
+            if ($lo > 0 && abs($subdivisions[$lo - 1] - $t) < abs($best - $t)) {
+                $best = $subdivisions[$lo - 1];
+            }
+
+            return abs($best - $t) <= $tol ? $best : $t;
+        };
+
+        // ---- 4a. Tier filter, then adaptive density budget. -----------------
+        $candidates = [];
+        foreach ($events as $e) {
+            if (!\in_array($e['band'], $allowedBands, true)) {
+                continue;
+            }
+            if ($e['s'] < $strengthFloor || ($e['band'] === 2 && $e['s'] < $highBandMin)) {
+                continue;
+            }
+            $candidates[] = $e;
+        }
+
+        // Keep only the `targetNps * duration` strongest hits. Ties are broken
+        // by a deterministic hash of the index so equal-strength hits are
+        // dropped uniformly across the song, not from one end.
+        $window = max(10.0, $totalTime - 3.0);
+        $budget = (int) ceil($targetNps * $window);
+        if (\count($candidates) > $budget) {
+            $order = array_keys($candidates);
+            usort($order, static function (int $a, int $b) use ($candidates): int {
+                return ($candidates[$b]['s'] <=> $candidates[$a]['s'])
+                    ?: ((($a * 2654435761) % 4294967296) <=> (($b * 2654435761) % 4294967296));
+            });
+            $keepIdx = array_flip(\array_slice($order, 0, $budget));
+            $candidates = array_values(array_intersect_key($candidates, $keepIdx));
+        }
+
+        // ---- 4b. Group near-simultaneous events into slots (chord candidates).
+        // "Kick-lock" (playtest 2026-08-22: bass felt sloppier than drums):
+        // drums are the timing reference. When a bass attack co-occurs with a
+        // drum hit (≤45 ms) the slot adopts the DRUM's timestamp — bass onsets
+        // smear later than stick hits, drummers don't.
+        /** @var list<array{t: float, s: float, bands: array<int, float>, midT: float|null, midS: float}> $slots */
+        $slots = [];
+        foreach ($candidates as $e) {
+            $isMid = $e['band'] === 1;
+            $last = \count($slots) - 1;
+            if ($last >= 0 && ($e['t'] - $slots[$last]['t']) <= 0.045) {
+                // Same musical instant: merge (kick+snare together = chord).
+                $prev = $slots[$last];
+                $prevBands = $prev['bands'];
+                $prevBands[$e['band']] = max($prevBands[$e['band']] ?? 0.0, $e['s']);
+                $midT = $prev['midT'];
+                $midS = $prev['midS'];
+                if ($isMid && $e['s'] > $midS) {
+                    $midT = $e['t'];
+                    $midS = $e['s'];
+                }
+                $slots[$last] = ['t' => $prev['t'], 's' => max($prev['s'], $e['s']), 'bands' => $prevBands, 'midT' => $midT, 'midS' => $midS];
+                continue;
+            }
+            $slots[] = [
+                't' => $e['t'],
+                's' => $e['s'],
+                'bands' => [$e['band'] => $e['s']],
+                'midT' => $isMid ? $e['t'] : null,
+                'midS' => $isMid ? $e['s'] : 0.0,
+            ];
+        }
+
+        // Adopt the drum timestamp where available, then de-jitter onto the
+        // beat grid. Bass-only slots first get a fixed latency compensation
+        // (-30 ms: a bass attack always crosses the flux detector LATE, unlike
+        // stick hits) and a wider snap window (0.08 s vs 0.055 s), so a hit
+        // meant on the beat is pulled back onto it instead of drifting to the
+        // next subdivision.
+        foreach ($slots as $i => $slot) {
+            $bassOnly = $slot['midT'] === null && !isset($slot['bands'][2]);
+            $anchor = $slot['midT'] ?? ($bassOnly ? max(0.0, $slot['t'] - 0.03) : $slot['t']);
+            $slots[$i]['t'] = $snap($anchor, $bassOnly ? 0.08 : 0.055);
+        }
+        usort($slots, static fn(array $a, array $b): int => $a['t'] <=> $b['t']);
+
+        // ---- 5. Refractory pass, with the strong-run exception. -------------
+        /** @var list<array{t: float, s: float, bands: array<int, float>, midT: float|null, midS: float}> $kept */
+        $kept = [];
+        $lastKept = -1000.0;
+        foreach ($slots as $slot) {
+            if ($slot['t'] < 2.5 || $slot['t'] > $totalTime - 0.5) {
+                continue; // visual ramp-up at the start, buffer at the end
+            }
+            $gap = $slot['t'] - $lastKept;
+            // Big hits ("gros coups") may pack tighter than the tier's comfort
+            // gap — 3 strong hits in a row must always yield 3 taps.
+            $strongRun = $slot['s'] >= 0.7 && $gap >= max(0.20, $refractory * 0.6);
+            if ($gap < $refractory && !$strongRun) {
+                continue;
+            }
+            $kept[] = $slot;
+            $lastKept = $slot['t'];
+        }
+        if (\count($kept) < 8) {
+            return $this->generate($songId, $duration, $difficulty, $densityMultiplier);
+        }
+
+        // ---- 6. Place notes: lanes per band region, musical chords/holds. ---
         $seedString = $songId . '_' . $difficulty . '_beats';
         $seed = crc32($seedString) + hexdec(substr(md5($seedString), 0, 8));
         $rng = static function () use (&$seed): float {
@@ -339,185 +568,73 @@ final class RhythmChartGenerator
             return abs($seed % 1000000) / 1000000;
         };
 
-        $lanesCount = ($difficulty === 'easy' || $difficulty === 'medium') ? 4 : ($difficulty === 'demon' ? 10 : 6);
-
-        // Rhythmic subdivision of the beat grid per tier. The legacy per-tier
-        // spacing then acts as a density cap (e.g. easy's 0.85 s min gap will
-        // naturally keep only every other beat at fast tempos) — greedy
-        // skipping stays ON the grid, so the musical phase is preserved.
-        $fractions = match ($difficulty) {
-            'easy', 'medium' => [0.0],
-            'hard', 'expert', 'master' => [0.0, 0.5],
-            default => [0.0, 0.25, 0.5, 0.75], // demon
+        // FIXED lane per instrument (user spec 2026-08-22, Taiko-style):
+        // bass always lands on the same lane, drums on another — the chart
+        // reads as the instruments themselves. low -> left hand,
+        // mid/snare -> right hand, high/hats -> far right.
+        $homeLane = match ($lanesCount) {
+            4 => [0 => 1, 1 => 2, 2 => 2],
+            10 => [0 => 2, 1 => 5, 2 => 7],
+            default => [0 => 1, 1 => 3, 2 => 5],
         };
-
-        $baseSpacing = match ($difficulty) {
-            'easy' => 0.850,
-            'medium' => 0.500,
-            'hard' => 0.320,
-            'expert' => 0.200,
-            'master' => 0.140,
-            'demon' => 0.025,
-            default => 0.500,
-        };
-        $minGap = $baseSpacing / max(0.1, min(10.0, $densityMultiplier));
-
-        $chordChance = 0.0;
-        $tripleChordChance = 0.0;
-        if ($difficulty === 'hard') {
-            $chordChance = 0.18;
-        } elseif ($difficulty === 'expert') {
-            $chordChance = 0.35;
-            $tripleChordChance = 0.05;
-        } elseif ($difficulty === 'master') {
-            $chordChance = 0.55;
-            $tripleChordChance = 0.15;
-        } elseif ($difficulty === 'demon') {
-            $chordChance = 0.75;
-            $tripleChordChance = 0.30;
-        }
-
-        $swipeChance = ($difficulty === 'easy') ? 0.0 : (($difficulty === 'medium') ? 0.08 : 0.25);
-        $longChance = ($difficulty === 'demon') ? 0.10 : 0.20;
-        $restrictHolds = \in_array($difficulty, ['easy', 'medium', 'hard'], true);
-
-        // Is there an onset of this band within ±$tol of $t? (binary search)
-        $nearOnset = static function (array $sorted, float $t, float $tol = 0.08): bool {
-            $lo = 0;
-            $hi = \count($sorted) - 1;
-            if ($hi < 0) {
-                return false;
-            }
-            while ($lo < $hi) {
-                $mid = intdiv($lo + $hi, 2);
-                if ($sorted[$mid] < $t) {
-                    $lo = $mid + 1;
-                } else {
-                    $hi = $mid;
-                }
-            }
-            $d = abs($sorted[$lo] - $t);
-            if ($lo > 0) {
-                $d = min($d, abs($sorted[$lo - 1] - $t));
-            }
-
-            return $d <= $tol;
-        };
-
-        // Lane regions per band: bass -> left half, drums -> right half.
-        $half = intdiv($lanesCount, 2);
-        $bandLanes = [
-            0 => range(0, $half - 1),
-            1 => range($half, $lanesCount - 1),
-        ];
 
         $laneBusyUntil = array_fill(0, $lanesCount, 0.0);
-        $anyHoldUntil = 0.0;
-        $lastPlaced = -1000.0;
         $notes = [];
-        $beatCount = \count($beats);
+        $keptCount = \count($kept);
 
-        for ($i = 0; $i < $beatCount; ++$i) {
-            $b = $beats[$i];
-            $next = $beats[$i + 1] ?? ($b + ($b - ($beats[$i - 1] ?? $b - 0.5)));
-            $span = max(0.05, $next - $b);
+        for ($i = 0; $i < $keptCount; ++$i) {
+            $slot = $kept[$i];
+            $time = $slot['t'];
+            $gapNext = ($kept[$i + 1]['t'] ?? $totalTime) - $time;
 
-            foreach ($fractions as $f) {
-                $time = $b + $span * $f;
-                if ($time < 2.5 || $time > $totalTime - 0.5) {
-                    continue; // visual ramp-up at the start, buffer at the end
+            // Bands present on this slot, strongest first. Chord partners
+            // (2nd/3rd band) must be strong hits themselves on the mid tiers.
+            $slotBands = $slot['bands'];
+            arsort($slotBands);
+            $bandList = [];
+            foreach ($slotBands as $band => $bandStrength) {
+                if ($bandList === [] || $bandStrength >= $chordSecondMin) {
+                    $bandList[] = $band;
                 }
-                if ($time - $lastPlaced < $minGap) {
-                    continue; // tier density cap (stays on-grid)
-                }
-                if ($restrictHolds && $time < $anyHoldUntil) {
+            }
+            $noteCount = min($maxChord, \count($bandList));
+
+            $usedLanes = [];
+            for ($k = 0; $k < $noteCount; ++$k) {
+                // Fixed instrument lane; skipped if still busy (held note).
+                $lane = $homeLane[$bandList[$k]];
+                if (\in_array($lane, $usedLanes, true) || $time < $laneBusyUntil[$lane]) {
                     continue;
                 }
+                $usedLanes[] = $lane;
 
-                // Which bands actually hit on this slot?
-                $hasBass = $nearOnset($bass, $time);
-                $hasDrums = $nearOnset($drums, $time);
-                if ($gateByOnsets && !$hasBass && !$hasDrums) {
-                    continue; // silence / no accent here -> no note
-                }
-                if (!$gateByOnsets) {
-                    $hasBass = true;
-                    $hasDrums = true;
-                }
+                // Hold: bass attack followed by a long quiet gap = sustained
+                // low end. Never on chords, never eats the next tap.
+                $isLong = $bandList[$k] === 0 && $noteCount === 1 && $gapNext >= 0.6 && $rng() < $holdChance;
+                $isSwipe = !$isLong && ($rng() < $swipeChance);
+                $hitEndSwipe = $isLong && ($rng() < $swipeChance);
 
-                $lastPlaced = $time;
-
-                $noteCount = 1;
-                if ($rng() < $chordChance) {
-                    $noteCount = 2;
-                }
-                if ($rng() < $tripleChordChance && $lanesCount === 6) {
-                    $noteCount = 3;
-                }
-                $allowLong = !($restrictHolds && $noteCount > 1);
-
-                // Bands to draw lanes from: both hit -> alternate/spread.
-                $bands = [];
-                if ($hasBass) {
-                    $bands[] = 0;
-                }
-                if ($hasDrums) {
-                    $bands[] = 1;
+                $dur = 0.0;
+                if ($isLong) {
+                    $dur = max(0.25, min($gapNext - 0.2, 2.0));
                 }
 
-                $usedLanes = [];
-                for ($k = 0; $k < $noteCount; ++$k) {
-                    $band = $bands[$k % \count($bands)];
-                    $region = $bandLanes[$band];
-                    $rc = \count($region);
+                $laneBusyUntil[$lane] = $time + $dur + 0.05;
 
-                    // First free lane in the band's region, scanning from a
-                    // deterministic random start (stairs/trills, not stacks).
-                    $startIdx = ((int) floor($rng() * $rc)) % $rc;
-                    $lane = null;
-                    for ($s = 0; $s < $rc; ++$s) {
-                        $cand = $region[($startIdx + $s) % $rc];
-                        if (!\in_array($cand, $usedLanes, true) && $time >= $laneBusyUntil[$cand]) {
-                            $lane = $cand;
-                            break;
-                        }
+                $note = [
+                    'time' => round($time, 3),
+                    'lane' => (int) $lane,
+                ];
+                if ($isLong) {
+                    $note['isLong'] = true;
+                    $note['endTime'] = round($time + $dur, 3);
+                    if ($hitEndSwipe) {
+                        $note['hitEndSwipe'] = true;
                     }
-                    if ($lane === null) {
-                        continue;
-                    }
-                    $usedLanes[] = $lane;
-
-                    $isLong = $allowLong && ($rng() < $longChance);
-                    $isSwipe = !$isLong && ($rng() < $swipeChance);
-                    $hitEndSwipe = $isLong && ($rng() < $swipeChance);
-
-                    $dur = 0.0;
-                    if ($isLong) {
-                        // Hold for one musical beat (min 0.2 s) so releases land
-                        // on the pulse too.
-                        $dur = max(0.2, $span);
-                    }
-
-                    $laneBusyUntil[$lane] = $time + $dur + 0.05;
-                    if ($isLong) {
-                        $anyHoldUntil = max($anyHoldUntil, $time + $dur);
-                    }
-
-                    $note = [
-                        'time' => round($time, 3),
-                        'lane' => (int) $lane,
-                    ];
-                    if ($isLong) {
-                        $note['isLong'] = true;
-                        $note['endTime'] = round($time + $dur, 3);
-                        if ($hitEndSwipe) {
-                            $note['hitEndSwipe'] = true;
-                        }
-                    } elseif ($isSwipe) {
-                        $note['isSwipe'] = true;
-                    }
-                    $notes[] = $note;
+                } elseif ($isSwipe) {
+                    $note['isSwipe'] = true;
                 }
+                $notes[] = $note;
             }
         }
 

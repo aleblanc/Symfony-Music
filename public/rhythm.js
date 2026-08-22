@@ -99,17 +99,66 @@
         keys: async () => [],
     };
 
-    // Minimal Bootstrap-compatible modal shim (Bootstrap CSS is loaded on the
-    // rhythm page, but we avoid pulling Bootstrap's JS just for show/hide).
+    // Minimal WORKING Bootstrap-compatible modal (Bootstrap CSS is vendored on
+    // the rhythm page; we reimplement show/hide + backdrop + dismissal instead
+    // of shipping Bootstrap's JS). The previous stub could open a modal but
+    // never wired [data-bs-dismiss] / backdrop / Escape, so e.g. the player
+    // history modal appeared dead.
+    const modalInstances = new Map();
+    function makeModal(el) {
+        const inst = {
+            _backdrop: null,
+            show() {
+                el.style.display = 'block';
+                el.classList.add('show');
+                el.removeAttribute('aria-hidden');
+                document.body.classList.add('modal-open');
+                if (!this._backdrop) {
+                    this._backdrop = document.createElement('div');
+                    this._backdrop.className = 'modal-backdrop fade show';
+                    document.body.appendChild(this._backdrop);
+                }
+            },
+            hide() {
+                el.style.display = 'none';
+                el.classList.remove('show');
+                el.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('modal-open');
+                if (this._backdrop) { this._backdrop.remove(); this._backdrop = null; }
+            },
+        };
+        el.addEventListener('click', (e) => {
+            if (e.target.closest('[data-bs-dismiss="modal"]') || e.target === el) inst.hide();
+        });
+        return inst;
+    }
     const bootstrap = {
         Modal: {
-            getOrCreateInstance: (el) => ({
-                show() { if (el) { el.classList.add('show'); el.style.display = 'block'; el.removeAttribute('aria-hidden'); } },
-                hide() { if (el) { el.classList.remove('show'); el.style.display = 'none'; el.setAttribute('aria-hidden', 'true'); } },
-            }),
+            getInstance: (el) => (el && modalInstances.get(el)) || null,
+            getOrCreateInstance(el) {
+                if (!el) return { show() {}, hide() {} };
+                if (!modalInstances.has(el)) modalInstances.set(el, makeModal(el));
+                return modalInstances.get(el);
+            },
         },
         Offcanvas: { getInstance: () => null, getOrCreateInstance: () => ({ show() {}, hide() {} }) },
     };
+    // Bootstrap's JS would auto-wire [data-bs-toggle="modal"] triggers; do it here.
+    document.addEventListener('click', (e) => {
+        const trigger = e.target.closest('[data-bs-toggle="modal"]');
+        if (!trigger) return;
+        const sel = trigger.getAttribute('data-bs-target') || trigger.getAttribute('href');
+        const target = sel ? document.querySelector(sel) : null;
+        if (target) bootstrap.Modal.getOrCreateInstance(target).show();
+    });
+    // Escape closes any open shimmed modal.
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        modalInstances.forEach((inst, el) => { if (el.classList.contains('show')) inst.hide(); });
+    });
+    // Legacy global the engine's destroy() nulls out; declared so that
+    // assignment never hits an undeclared identifier.
+    let localRhythmGame = null;
 
     const withId = (tpl, id) => tpl.replace('/0', '/' + id);
 
@@ -123,6 +172,7 @@
                 const extra = [];
                 if (p.get('page')) extra.push('page=' + p.get('page'));
                 if (p.get('q')) extra.push('q=' + encodeURIComponent(p.get('q')));
+                if (p.get('sort')) extra.push('sort=' + encodeURIComponent(p.get('sort')));
                 return extra.length ? U.songs + '?' + extra.join('&') : U.songs;
             }
             case 'get_rhythm_chart': return U.chart.replace('/0/DIFF', '/' + p.get('song_id') + '/' + p.get('difficulty'));
@@ -1369,28 +1419,11 @@
                     }
                   });
     
-                  if (
-                    (!window.rhythmLevelsMap ||
-                      !window.rhythmLevelsMap.levels ||
-                      Object.keys(window.rhythmLevelsMap.levels).length === 0) &&
-                    !q
-                  ) {
-                    const isAdmin =
-                      currentUser &&
-                      (currentUser.is_admin == 1 ||
-                        currentUser.status === "super_admin");
-                    this.listSongsEl.insertAdjacentHTML(
-                      "beforeend",
-                      `
-                            <div style="background: rgba(255, 59, 48, 0.1); border: 1px solid var(--rg-primary); border-radius: 16px; padding: 20px; margin-bottom: 16px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
-                              <i class="bi bi-exclamation-triangle-fill text-danger d-block mb-2" style="font-size: 2.5rem;"></i>
-                              <h6 class="text-white fw-bold text-uppercase mb-2" style="letter-spacing: 1px;">No Charts Generated</h6>
-                              <p class="text-secondary small mb-3">The database currently has no pre-compiled note charts. Songs will generate on-the-fly when clicked, which may cause a slight initial delay.</p>
-                              ${isAdmin ? `<button class="btn btn-danger rounded-pill fw-bold px-4 py-2 shadow-sm" onclick="document.getElementById('nav-chart-scan').click();"><i class="bi bi-open-chart-scan me-1"></i> Run Server Scanner Now</button>` : `<div class="badge bg-dark border border-secondary text-secondary p-2"><i class="bi bi-lock-fill me-1"></i> Contact Admin to Run Scanner</div>`}
-                            </div>
-                          `,
-                    );
-                  }
+                  // (Legacy "No Charts Generated" warning removed: in this
+                  // port charts are ALWAYS generated on the fly per song, so
+                  // an empty levels map is the normal initial state — and the
+                  // banner's "Run Server Scanner" button targeted a legacy
+                  // element that does not exist here.)
                 }
                 res.forEach((song) => {
                   song.rg_favorite = window.rhythmFavsSet.has(parseInt(song.id))
@@ -1596,7 +1629,7 @@
                           <div class="rg-list-item rank-row" data-userid="${entry.user_id}" data-player-name="${encodeURIComponent(entry.player_name)}" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
                             <div class="rg-list-item-info" style="min-width: 0; flex: 1;">
                               <div style="width: 24px; font-weight: 900; color: var(--rg-primary); text-align: center;">${globalIdx}</div>
-                              <img src="?action=get_profile_picture&id=${entry.user_id}&v=${cacheBuster}" class="rg-cover-img" style="border-radius: 50%;">
+                              <img src="/profile/picture/${entry.user_id}?v=${cacheBuster}" class="rg-cover-img" style="border-radius: 50%;">
                               <div style="min-width: 0; flex: 1; margin-right: 12px;">
                                 <div class="rg-list-item-title text-truncate">${escapeHTML(entry.player_name)}${suspicious}</div>
                                 <div class="rg-list-item-sub text-truncate" style="color: var(--rg-primary); font-size: 0.8rem; font-weight: 700;">
@@ -2095,7 +2128,7 @@
                     entry.bad,
                     entry.miss,
                   );
-                  const pfpUrl = `?action=get_profile_picture&id=${entry.user_id}`;
+                  const pfpUrl = `/profile/picture/${entry.user_id}`;
                   const isFullCombo =
                     parseInt(entry.miss || 0) === 0 && parseInt(entry.bad || 0) === 0;
                   const fcBadge = isFullCombo
@@ -2167,7 +2200,7 @@
             if (page === 1) {
               body.innerHTML = `
                       <div class="text-center mb-4">
-                        <img src="?action=get_profile_picture&id=${userId}" class="rounded-circle shadow-lg mb-2" style="width: 80px; height: 80px; object-fit: cover; border: 2px solid var(--rg-primary);">
+                        <img src="/profile/picture/${userId}" class="rounded-circle shadow-lg mb-2" style="width: 80px; height: 80px; object-fit: cover; border: 2px solid var(--rg-primary);">
                         <h4 class="text-white fw-bold">${escapeHTML(name)}</h4>
                         <p class="text-secondary small">Rhythm Game Played Tracks</p>
                       </div>
@@ -4764,7 +4797,7 @@
             );
             if (isUser && artistUserId) {
               headerContainer.innerHTML = `
-                      <img src="/cover/${sampleSong.id}" onerror="this.onerror=null; this.src='?action=get_app_icon';" class="rounded-circle shadow-lg border border-secondary" style="width: 72px; height: 72px; object-fit: cover; flex-shrink: 0;">
+                      <img src="/cover/${sampleSong.id}" onerror="this.onerror=null; this.src='/icon.svg';" class="rounded-circle shadow-lg border border-secondary" style="width: 72px; height: 72px; object-fit: cover; flex-shrink: 0;">
                       <div class="d-flex flex-column justify-content-center flex-grow-1" style="min-width: 0; text-align: left;">
                         <h4 class="text-white fw-bold mb-1 text-truncate" style="font-size: 1.4rem; max-width: 100%;">${escapeHTML(artistName)}</h4>
                         <div class="d-flex flex-column align-items-start text-secondary small gap-1" style="font-weight: 500;">
@@ -4786,7 +4819,7 @@
               };
             } else {
               headerContainer.innerHTML = `
-                      <img src="/cover/${sampleSong.id}" onerror="this.onerror=null; this.src='?action=get_app_icon';" class="rounded-circle shadow-lg border border-secondary" style="width: 72px; height: 72px; object-fit: cover; flex-shrink: 0;">
+                      <img src="/cover/${sampleSong.id}" onerror="this.onerror=null; this.src='/icon.svg';" class="rounded-circle shadow-lg border border-secondary" style="width: 72px; height: 72px; object-fit: cover; flex-shrink: 0;">
                       <div class="d-flex flex-column justify-content-center flex-grow-1" style="min-width: 0; text-align: left;">
                         <h4 class="text-white fw-bold mb-1 text-truncate" style="font-size: 1.4rem; max-width: 100%;">${escapeHTML(artistName)}</h4>
                         <div class="d-flex flex-column align-items-start text-secondary small gap-1" style="font-weight: 500;">
@@ -5202,6 +5235,22 @@
     } catch (e) {
         console.error('[rhythm] engine init failed', e);
     }
+
+    // The legacy SPA's global popstate handler restored the hub view when the
+    // in-game history entry (pushed by startGame) was popped — the result
+    // screen's "Menu" button and the pause dialog's "Quit" both rely on it
+    // via history.back(). Recreate it for this standalone page: exit cleanly
+    // to the hub (switchScreen('hub') stops the audio and drops the
+    // fullscreen rg-session-active state).
+    window.addEventListener('popstate', () => {
+        const eng = window.rhythmEngine;
+        if (!eng || !eng.screens || !eng.screens.hub) return;
+        try {
+            if (eng.screens.hub.classList.contains('rg-hidden')) {
+                eng.switchScreen('hub');
+            }
+        } catch (e) { /* never break history navigation */ }
+    });
 
     // Tear the engine down when navigating AWAY from /rhythm. player.js owns
     // window.appPageInit and defines it via a deferred script, so on a full

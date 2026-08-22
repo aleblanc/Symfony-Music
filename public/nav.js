@@ -14,6 +14,10 @@
 (function () {
     const main = document.querySelector('main.content');
     if (!main) return;
+    // Standalone app pages (e.g. /rhythm) manage their own history/DOM: an
+    // inline script sets this flag BEFORE this deferred script runs. Partial
+    // navigation there would swap <main> and orphan the running JS engine.
+    if (window.NO_PARTIAL_NAV) return;
 
     const sameOrigin = (url) => url.origin === location.origin;
 
