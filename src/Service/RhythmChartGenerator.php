@@ -568,15 +568,43 @@ final class RhythmChartGenerator
             return abs($seed % 1000000) / 1000000;
         };
 
-        // FIXED lane per instrument (user spec 2026-08-22, Taiko-style):
-        // bass always lands on the same lane, drums on another — the chart
-        // reads as the instruments themselves. low -> left hand,
-        // mid/snare -> right hand, high/hats -> far right.
-        $homeLane = match ($lanesCount) {
-            4 => [0 => 1, 1 => 2, 2 => 2],
-            10 => [0 => 2, 1 => 5, 2 => 7],
-            default => [0 => 1, 1 => 3, 2 => 5],
-        };
+        // Instrument ZONES (user spec 2026-08-22, refined after playtest:
+        // a single fixed lane per instrument left half the keys unused).
+        // Each instrument owns a group of adjacent lanes — bass on the left,
+        // drums next, hats on the right — and consecutive hits of the same
+        // instrument ALTERNATE inside their zone. The chart still reads as
+        // the instruments (left hand = bass, right hand = drums) but every
+        // key gets used, and fast runs become easy left/right trills instead
+        // of one-finger jacks.
+        // The lane split adapts to the instruments actually present in THIS
+        // chart: a tier or song without hats spreads bass/drums over all the
+        // keys instead of leaving dead lanes (hard only allows low+mid, so
+        // its 6 keys split 3+3).
+        $present = [];
+        foreach ($kept as $slot) {
+            foreach ($slot['bands'] as $b => $unused) {
+                $present[$b] = true;
+            }
+        }
+        // On 4 keys the hats share the drum zone: no room for a third zone.
+        $zoneOf = [0 => 0, 1 => 1, 2 => ($lanesCount === 4 ? 1 : 2)];
+        $zoneIdSet = [];
+        foreach (array_keys($present) as $b) {
+            $zoneIdSet[$zoneOf[$b]] = true;
+        }
+        $zoneIds = array_keys($zoneIdSet);
+        sort($zoneIds);
+        $zoneCountReal = max(1, \count($zoneIds));
+        // Fallback: any zone not present in the chart spans the whole
+        // keyboard (never hit by construction, keeps the lookup total).
+        $allLanes = range(0, $lanesCount - 1);
+        $zones = [0 => $allLanes, 1 => $allLanes, 2 => $allLanes];
+        foreach ($zoneIds as $idx => $zid) {
+            $start = (int) round($idx * $lanesCount / $zoneCountReal);
+            $end = (int) round(($idx + 1) * $lanesCount / $zoneCountReal) - 1;
+            $zones[$zid] = range($start, max($start, $end));
+        }
+        $zoneCursor = [0 => 0, 1 => 0, 2 => 0];
 
         $laneBusyUntil = array_fill(0, $lanesCount, 0.0);
         $notes = [];
@@ -601,9 +629,23 @@ final class RhythmChartGenerator
 
             $usedLanes = [];
             for ($k = 0; $k < $noteCount; ++$k) {
-                // Fixed instrument lane; skipped if still busy (held note).
-                $lane = $homeLane[$bandList[$k]];
-                if (\in_array($lane, $usedLanes, true) || $time < $laneBusyUntil[$lane]) {
+                // Next free lane in the instrument's zone, alternating each
+                // hit; skipped entirely if the whole zone is busy (held note
+                // or chord partner sharing the zone on 4 lanes).
+                $band = $bandList[$k];
+                $zid = $zoneOf[$band];
+                $zone = $zones[$zid];
+                $zoneSize = \count($zone);
+                $lane = -1;
+                for ($try = 0; $try < $zoneSize; ++$try) {
+                    $cand = $zone[($zoneCursor[$zid] + $try) % $zoneSize];
+                    if (!\in_array($cand, $usedLanes, true) && $time >= $laneBusyUntil[$cand]) {
+                        $lane = $cand;
+                        $zoneCursor[$zid] = ($zoneCursor[$zid] + $try + 1) % $zoneSize;
+                        break;
+                    }
+                }
+                if ($lane < 0) {
                     continue;
                 }
                 $usedLanes[] = $lane;

@@ -857,3 +857,13 @@ body.rg-session-active .content {
 body.rg-session-active #player {
     display: none !important;
 }
+
+/* The Symfony web debug toolbar (dev-only) is fixed at the bottom of the
+   viewport and OVERLAPS the game's fixed bottom nav — it silently steals
+   clicks on the Favorites/Ranks buttons (elementFromPoint = sf-toolbar-icon,
+   reproduced 2026-08-22). The rhythm page is a fullscreen app: hide it here. */
+.sf-toolbar,
+#sfToolbarMainContent,
+.sf-toolbarreset {
+    display: none !important;
+}

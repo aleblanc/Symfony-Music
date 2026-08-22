@@ -236,9 +236,13 @@ class MusicRepository extends ServiceEntityRepository
      *
      * @return Music[]
      */
-    public function rhythmList(?string $query, string $sort, int $limit, int $offset): array
+    public function rhythmList(?string $query, string $sort, int $limit, int $offset, ?string $artist = null): array
     {
         $qb = $this->createQueryBuilder('m');
+
+        if ($artist !== null && $artist !== '') {
+            $qb->andWhere('m.artist = :artist')->setParameter('artist', $artist);
+        }
 
         if ($query !== null && $query !== '') {
             $qb->andWhere('m.title LIKE :q OR m.artist LIKE :q OR m.album LIKE :q')
@@ -263,6 +267,44 @@ class MusicRepository extends ServiceEntityRepository
         }
 
         return $qb->setFirstResult($offset)->setMaxResults($limit)->getQuery()->getResult();
+    }
+
+    /**
+     * Artist directory of the rhythm-game hub: distinct artist names with
+     * their track count and a sample song id (used for the card cover).
+     * Ported (much simplified) from the legacy `get_rhythm_artists` — the
+     * per-player score stats and follower counts are out of scope here.
+     *
+     * @return list<array{name: string, count: int, sample: int}>
+     */
+    public function rhythmArtists(?string $query, string $sort, int $limit, int $offset): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->select('m.artist AS name', 'COUNT(m.id) AS cnt', 'MAX(m.id) AS sample')
+            ->andWhere("m.artist IS NOT NULL AND m.artist <> ''")
+            ->groupBy('m.artist');
+
+        if ($query !== null && $query !== '') {
+            $qb->andWhere('m.artist LIKE :q')
+                ->setParameter('q', '%' . addcslashes($query, '%_\\') . '%');
+        }
+
+        if ($sort === 'name_desc') {
+            $qb->orderBy('m.artist', 'DESC');
+        } elseif ($sort === 'count_desc') {
+            $qb->orderBy('cnt', 'DESC')->addOrderBy('m.artist', 'ASC');
+        } else {
+            $qb->orderBy('m.artist', 'ASC');
+        }
+
+        $rows = $qb->setFirstResult($offset)->setMaxResults($limit)->getQuery()->getScalarResult();
+
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = ['name' => (string) $r['name'], 'count' => (int) $r['cnt'], 'sample' => (int) $r['sample']];
+        }
+
+        return $out;
     }
 
     /**

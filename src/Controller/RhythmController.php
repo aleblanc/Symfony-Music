@@ -59,7 +59,14 @@ class RhythmController extends AbstractController
         $page = max(1, (int) $request->query->get('page', '1'));
         $query = trim($request->query->getString('q'));
         $sort = $request->query->getString('sort', 'id_desc');
-        $songs = $this->music->rhythmList($query !== '' ? $query : null, $sort, self::PAGE_SIZE, ($page - 1) * self::PAGE_SIZE);
+        $artist = trim($request->query->getString('artist'));
+        $songs = $this->music->rhythmList(
+            $query !== '' ? $query : null,
+            $sort,
+            self::PAGE_SIZE,
+            ($page - 1) * self::PAGE_SIZE,
+            $artist !== '' ? $artist : null,
+        );
 
         $ids = array_map(static fn($s): int => $s->getId() ?? throw new \LogicException('Persisted song must have an id.'), $songs);
         $levels = $this->charts->levelsForSongs($ids);
@@ -79,6 +86,101 @@ class RhythmController extends AbstractController
                 // Usable = v3 grid carrying strength-ranked band onsets; older
                 // formats report false so the client re-analyses (self-healing).
                 'beatAware' => str_contains((string) $s->getBeatGridJson(), '"v":4'),
+            ];
+        }
+
+        return new JsonResponse($out);
+    }
+
+    /**
+     * Artist card of the hub's artist-detail view (port of the legacy
+     * `get_view_data&type=artist`): tells whether the artist name maps to a
+     * registered account (which unlocks the favorites shelf) and returns the
+     * artist's tracks. Without this the engine treated EVERY artist as
+     * unregistered ("Only registered users can have favorites").
+     */
+    #[Route('/rhythm/artist-info', name: 'app_rhythm_artist_info', methods: ['GET'])]
+    public function artistInfo(Request $request, UrlGeneratorInterface $urls): JsonResponse
+    {
+        $name = trim($request->query->getString('name'));
+        if ($name === '') {
+            return new JsonResponse(['status' => 'error', 'message' => 'Missing artist name'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $owner = $this->users->findOneBy(['artist' => $name]);
+        $songs = $this->music->rhythmList(null, 'id_desc', self::PAGE_SIZE, 0, $name);
+        $ids = array_map(static fn($s): int => $s->getId() ?? throw new \LogicException('Persisted song must have an id.'), $songs);
+        $levels = $this->charts->levelsForSongs($ids);
+
+        $out = [];
+        foreach ($songs as $s) {
+            $songId = $s->getId() ?? throw new \LogicException('Persisted song must have an id.');
+            $out[] = [
+                'id' => $songId,
+                'title' => $s->getTitle(),
+                'artist' => $s->getArtist(),
+                'album' => $s->getAlbum(),
+                'duration' => $s->getDuration(),
+                'stream' => $urls->generate('app_stream', ['id' => $songId]),
+                'cover' => $urls->generate('app_cover', ['id' => $songId]),
+                'levels' => $levels[$songId] ?? null,
+                'beatAware' => str_contains((string) $s->getBeatGridJson(), '"v":4'),
+            ];
+        }
+
+        return new JsonResponse([
+            'status' => 'success',
+            'details' => [
+                'is_user' => $owner !== null,
+                'user_id' => $owner?->getId(),
+            ],
+            'songs' => $out,
+        ]);
+    }
+
+    /**
+     * Artist directory tab. Much simplified port of `get_rhythm_artists`:
+     * per-player score stats and follower counts are out of scope (social
+     * features were cut), so those fields are zeroed for the engine's cards.
+     */
+    #[Route('/rhythm/artists', name: 'app_rhythm_artists_list', methods: ['GET'])]
+    public function artists(Request $request): JsonResponse
+    {
+        // The engine's "following_of" mode belongs to the removed social
+        // feature: report an empty list instead of a wrong one.
+        if (trim($request->query->getString('following_of')) !== '') {
+            return new JsonResponse([]);
+        }
+
+        $page = max(1, (int) $request->query->get('page', '1'));
+        $query = trim($request->query->getString('q'));
+        $sort = $request->query->getString('sort', 'name_asc');
+        $rows = $this->music->rhythmArtists($query !== '' ? $query : null, $sort, self::PAGE_SIZE, ($page - 1) * self::PAGE_SIZE);
+
+        // Map artist names to registered accounts in one query.
+        $names = array_column($rows, 'name');
+        $userIds = [];
+        if ($names !== []) {
+            foreach ($this->users->findBy(['artist' => $names]) as $u) {
+                $userIds[(string) $u->getArtist()] = $u->getId();
+            }
+        }
+
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = [
+                'user_id' => $userIds[$r['name']] ?? null,
+                'name' => $r['name'],
+                'id' => $r['sample'],
+                'count' => $r['count'],
+                'score' => 0,
+                'plays' => 0,
+                'perfect' => 0,
+                'great' => 0,
+                'good' => 0,
+                'bad' => 0,
+                'miss' => 0,
+                'followers' => 0,
             ];
         }
 
@@ -304,8 +406,14 @@ class RhythmController extends AbstractController
     }
 
     #[Route('/rhythm/favorite-songs', name: 'app_rhythm_favorite_songs', methods: ['GET'])]
-    public function favoriteSongs(#[CurrentUser] ?User $user, UrlGeneratorInterface $urls): JsonResponse
+    public function favoriteSongs(Request $request, #[CurrentUser] ?User $user, UrlGeneratorInterface $urls): JsonResponse
     {
+        // The artist-detail view lists ANOTHER player's rhythm favorites via
+        // target_user_id; without it, the caller's own list is returned.
+        $targetId = (int) $request->query->get('target_user_id', '0');
+        if ($targetId > 0) {
+            $user = $this->users->find($targetId);
+        }
         if ($user === null) {
             return new JsonResponse([]);
         }

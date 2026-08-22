@@ -57,7 +57,7 @@ $low[] = [10.5, 0.95];                   //   0.35 s refractory -> all 3 kept
 $low[] = [11.5, 0.30];                   // quiet bass note (dropped on easy)
 $low[] = [12.5, 0.30];                   // quiet bass note (dropped on easy)
 
-$mid = [[13.0, 0.9]];                    // snare together with the 13.0 kick
+$mid = [[11.0, 0.9], [13.0, 0.9]];       // lone snare @11.0, snare with the 13.0 kick
 $grid = ['v' => 3, 'bpm' => 120, 'beats' => $beats, 'bands' => ['low' => $low, 'mid' => $mid, 'high' => []]];
 
 // ---- Easy: only the big hits, all of them ----------------------------------
@@ -73,11 +73,20 @@ check('easy: quiet bass @11.5s dropped', timesAt($easy, 11.5) === []);
 check('easy: quiet bass @12.5s dropped', timesAt($easy, 12.5) === []);
 check('easy: jittered kick snapped 6.03 -> 6.0', \count(timesAt($easy, 6.0, 0.001)) === 1 && timesAt($easy, 6.03, 0.001) === []);
 check('easy: single notes only (no chords)', \count(timesAt($easy, 13.0)) === 1);
-// Fixed instrument lanes (Taiko-style): bass -> lane 1, snare -> lane 2 on 4 lanes.
-$badLane = array_filter($easy, static fn(array $n): bool => !\in_array($n['lane'], [1, 2], true));
-check('easy: fixed instrument lanes only (1=bass, 2=snare)', $badLane === [], json_encode(array_values($badLane)) ?: '');
-$bassNotes = array_values(array_filter($easy, static fn(array $n): bool => abs((float) $n['time'] - 10.0) < 0.02));
-check('easy: bass hits always on the bass lane', $bassNotes !== [] && $bassNotes[0]['lane'] === 1, json_encode($bassNotes) ?: '');
+// Instrument zones on 4 lanes: bass -> {0,1}, snare -> {2,3}, alternating so
+// every key gets used (playtest 2026-08-22: one lane per instrument left
+// half the keys dead on medium/hard).
+$bassZone = array_values(array_filter($easy, static fn(array $n): bool => abs((float) $n['time'] - 13.0) >= 0.02 && abs((float) $n['time'] - 11.0) >= 0.02));
+$badBass = array_filter($bassZone, static fn(array $n): bool => !\in_array($n['lane'], [0, 1], true));
+check('easy: bass hits stay in the bass zone {0,1}', $badBass === [], json_encode(array_values($badBass)) ?: '');
+$snareNotes = timesAt($easy, 11.0);
+check('easy: lone snare lands in the drum zone {2,3}', $snareNotes !== [] && \in_array($snareNotes[0]['lane'], [2, 3], true), json_encode($snareNotes) ?: '');
+$run = array_values(array_filter($easy, static fn(array $n): bool => $n['time'] >= 9.9 && $n['time'] <= 10.6));
+$runLanes = array_map(static fn(array $n): int => (int) $n['lane'], $run);
+check('easy: fast bass run alternates lanes inside the zone', \count($runLanes) === 3 && $runLanes[0] !== $runLanes[1] && $runLanes[1] !== $runLanes[2], json_encode($runLanes) ?: '');
+$easyLanesUsed = array_values(array_unique(array_map(static fn(array $n): int => (int) $n['lane'], $easy)));
+sort($easyLanesUsed);
+check('easy: both bass-zone keys get used', \in_array(0, $easyLanesUsed, true) && \in_array(1, $easyLanesUsed, true), json_encode($easyLanesUsed) ?: '');
 
 // ---- Expert: weak hits appear, kick+snare becomes a chord -------------------
 $expert = $gen->generateFromBeats(42, 30, 'expert', $grid);
@@ -89,7 +98,10 @@ check('expert: kick+snare @13.0s -> 2-note chord', \count($chord) === 2, json_en
 if (\count($chord) === 2) {
     $lanes = [$chord[0]['lane'], $chord[1]['lane']];
     sort($lanes);
-    check('expert: chord = fixed bass lane (1) + fixed snare lane (3)', $lanes === [1, 3], json_encode($lanes) ?: '');
+    // This fixture has no hats, so the 6 lanes split adaptively 3+3:
+    // bass zone {0,1,2}, drum zone {3,4,5} — one note from each zone.
+    $inZones = \in_array($lanes[0], [0, 1, 2], true) && \in_array($lanes[1], [3, 4, 5], true);
+    check('expert: chord = one bass-zone note + one drum-zone note', $inZones, json_encode($lanes) ?: '');
 }
 
 // ---- Holds never eat the next tap -------------------------------------------

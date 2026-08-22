@@ -173,7 +173,19 @@
                 if (p.get('page')) extra.push('page=' + p.get('page'));
                 if (p.get('q')) extra.push('q=' + encodeURIComponent(p.get('q')));
                 if (p.get('sort')) extra.push('sort=' + encodeURIComponent(p.get('sort')));
+                if (p.get('artist')) extra.push('artist=' + encodeURIComponent(p.get('artist')));
                 return extra.length ? U.songs + '?' + extra.join('&') : U.songs;
+            }
+            // Artist card of the artist-detail view (legacy get_view_data is
+            // only ever called with type=artist by this engine).
+            case 'get_view_data': return U.artistInfo + '?name=' + encodeURIComponent(p.get('name') || '');
+            case 'get_rhythm_artists': {
+                const extra = [];
+                if (p.get('page')) extra.push('page=' + p.get('page'));
+                if (p.get('q')) extra.push('q=' + encodeURIComponent(p.get('q')));
+                if (p.get('sort')) extra.push('sort=' + encodeURIComponent(p.get('sort')));
+                if (p.get('following_of')) extra.push('following_of=' + encodeURIComponent(p.get('following_of')));
+                return extra.length ? U.artistsList + '?' + extra.join('&') : U.artistsList;
             }
             case 'get_rhythm_chart': return U.chart.replace('/0/DIFF', '/' + p.get('song_id') + '/' + p.get('difficulty'));
             case 'get_rhythm_levels': return withId(U.levels, p.get('song_id'));
@@ -194,7 +206,10 @@
                 return withId(U.favoriteToggle, id);
             }
             case 'get_rhythm_favorites': return U.favorites;
-            case 'get_rhythm_favorite_songs': return U.favoriteSongs;
+            case 'get_rhythm_favorite_songs': {
+                const t = p.get('target_user_id');
+                return t ? U.favoriteSongs + '?target_user_id=' + encodeURIComponent(t) : U.favoriteSongs;
+            }
             default: return legacyUrl; // out-of-scope endpoint (trimmed UI): 404s silently.
         }
     }
@@ -2782,27 +2797,8 @@
           renderSongsList() {
             this.listSongsEl.innerHTML = "";
     
-            if (
-              window.rhythmLevelsMap &&
-              window.rhythmLevelsMap.levels &&
-              Object.keys(window.rhythmLevelsMap.levels).length === 0
-            ) {
-              const isAdmin =
-                currentUser &&
-                (currentUser.is_admin == 1 ||
-                  currentUser.status === "super_admin");
-              this.listSongsEl.insertAdjacentHTML(
-                "beforeend",
-                `
-                      <div style="background: rgba(255, 59, 48, 0.1); border: 1px solid var(--rg-primary); border-radius: 16px; padding: 20px; margin-bottom: 16px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
-                        <i class="bi bi-exclamation-triangle-fill text-danger d-block mb-2" style="font-size: 2.5rem;"></i>
-                        <h6 class="text-white fw-bold text-uppercase mb-2" style="letter-spacing: 1px;">No Charts Generated</h6>
-                        <p class="text-secondary small mb-3">The database currently has no pre-compiled note charts. Songs will generate on-the-fly when clicked, which may cause a slight initial delay.</p>
-                        ${isAdmin ? `<button class="btn btn-danger rounded-pill fw-bold px-4 py-2 shadow-sm" onclick="document.getElementById('nav-chart-scan').click();"><i class="bi bi-open-chart-scan me-1"></i> Run Server Scanner Now</button>` : `<div class="badge bg-dark border border-secondary text-secondary p-2"><i class="bi bi-lock-fill me-1"></i> Contact Admin to Run Scanner</div>`}
-                      </div>
-                    `,
-              );
-            }
+            // (Legacy "No Charts Generated" warning removed here too — see
+            // the note in loadSongs: on-the-fly charts are the normal state.)
     
             const chunk = this.filteredSongs.slice(0, this.renderLimit);
             if (chunk.length === 0) {
