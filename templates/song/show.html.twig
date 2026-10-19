@@ -2,7 +2,13 @@
 
 {% block title %}{{ song.displayTitle }} · PHP Music{% endblock %}
 
+{% macro icon(path) %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="{{ path }}"/></svg>{% endmacro %}
+
 {% block body %}
+    {% import _self as ui %}
+    {% set quality = song.quality %}
+    {% set kbps = song.bitrate ? (song.bitrate / 1000)|round : null %}
+
     <div class="song-detail" data-track
          data-track-id="{{ song.id }}"
          data-track-title="{{ song.displayTitle }}"
@@ -15,118 +21,172 @@
          data-settings-reset-url="{{ path('app_song_settings_reset', {id: song.id}) }}"
          data-settings-csrf="{{ csrf_token('song_settings_' ~ song.id) }}"
          {% endif %}>
-        <div class="song-detail-header" style="display:flex;gap:24px;align-items:flex-start;">
-            <img src="{{ path('app_cover', {id: song.id}) }}" alt="" width="200" height="200" style="border-radius:8px;">
-            <div>
-                <h1>{{ song.displayTitle }}</h1>
-                <p class="section-sub">
+
+        <header class="song-hero">
+            <img class="song-cover" src="{{ path('app_cover', {id: song.id}) }}" alt="" width="232" height="232">
+            <div class="song-hero-info">
+                <span class="eyebrow">Song</span>
+                <h1 class="song-title">{{ song.displayTitle }}</h1>
+                <p class="song-byline">
                     {% if song.artist %}<a href="{{ path('app_artist', {name: song.artist}) }}">{{ song.artist }}</a>{% endif %}
-                    {% if song.album %} — <a href="{{ path('app_album', {name: song.album}) }}">{{ song.album }}</a>{% endif %}
+                    {% if song.album %}<span class="sep">•</span><a href="{{ path('app_album', {name: song.album}) }}">{{ song.album }}</a>{% endif %}
                 </p>
-                <p class="muted">
-                    {% if song.genre %}<a href="{{ path('app_genre', {name: song.genre}) }}">{{ song.genre }}</a>{% endif %}
-                    {% if song.year %} · <a href="{{ path('app_year', {year: song.year}) }}">{{ song.year }}</a>{% endif %}
-                    {% if song.duration %} · {{ '%d:%02d'|format(song.duration // 60, song.duration % 60) }}{% endif %}
-                    {% if song.bitrate %} · {{ song.bitrate }} kbps{% endif %}
-                    {% if playCount %} · {{ playCount }} play{{ playCount == 1 ? '' : 's' }}{% endif %}
-                </p>
-                <p class="muted" title="Rating read from the file's ID3 POPM tag (e.g. Windows Media Player stars)">
-                    {% if rating %}
-                        Rating: {% for i in 1..5 %}{{ i <= rating.stars ? '★' : '☆' }}{% endfor %}
-                        ({{ rating.stars }}/5 · POPM byte {{ rating.byte }}{% if rating.email %} · {{ rating.email }}{% endif %})
-                    {% else %}
-                        Rating: none found in file tags
+                <div class="song-chips">
+                    {% if quality %}<span class="quality-badge quality-{{ quality.value }}">{{ quality.label }}</span>{% endif %}
+                    {% if song.formatLabel or kbps %}
+                        <span class="chip">{{ song.formatLabel }}{% if song.formatLabel and kbps %} · {% endif %}{% if kbps %}{{ kbps }} kbps{% endif %}</span>
                     {% endif %}
-                </p>
-                <div class="t-actions" style="display:flex;gap:8px;">
-                    <button class="icon-btn" data-play title="Play" aria-label="Play">▶ Play</button>
+                    {% if song.genre %}<a class="chip" href="{{ path('app_genre', {name: song.genre}) }}">{{ song.genre }}</a>{% endif %}
+                    {% if song.year %}<a class="chip" href="{{ path('app_year', {year: song.year}) }}">{{ song.year }}</a>{% endif %}
+                    {% if song.duration %}<span class="chip">{{ '%d:%02d'|format(song.duration // 60, song.duration % 60) }}</span>{% endif %}
+                </div>
+                <div class="song-actions">
+                    <button class="btn" data-play>{{ ui.icon('M8 5v14l11-7z') }} Play</button>
                     {% if app.user %}
-                        <button class="icon-btn {{ isFavorite ? 'fav-on' }}" data-fav-toggle
+                        <button class="pill-btn {{ isFavorite ? 'fav-on' }}" data-fav-toggle
                                 data-fav-url="{{ path('app_favorite_toggle', {id: song.id}) }}"
-                                title="Favorite" aria-label="Favorite">{{ isFavorite ? '♥ Favorited' : '♡ Favorite' }}</button>
-                        <button class="icon-btn {{ isListenLater ? 'll-on' }}" data-ll-toggle
-                                data-track-id="{{ song.id }}"
-                                title="Listen later" aria-label="Listen later">{{ isListenLater ? '⏰ Listen later' : '🕐 Listen later' }}</button>
-                        <button class="icon-btn {{ isOffline ? 'off-on' }}" data-off-toggle
-                                data-track-id="{{ song.id }}"
-                                title="Available offline" aria-label="Available offline">{{ isOffline ? '⬇ Offline' : '☁ Offline' }}</button>
+                                aria-label="Favorite">
+                            {{ ui.icon('M12 21s-6.7-4.35-9.33-8.24C.9 10.06 1.4 6.5 4.2 5.2 6.2 4.3 8.6 5 12 8.5 15.4 5 17.8 4.3 19.8 5.2c2.8 1.3 3.3 4.86 1.53 7.56C18.7 16.65 12 21 12 21z') }}
+                            <span class="when-off">Favorite</span><span class="when-on">Favorited</span>
+                        </button>
+                        <button class="pill-btn {{ isListenLater ? 'll-on' }}" data-ll-toggle
+                                data-track-id="{{ song.id }}" aria-label="Listen later">
+                            {{ ui.icon('M12 2a10 10 0 100 20 10 10 0 000-20zm1 11H8v-2h3V7h2z') }}
+                            <span>Listen later</span>
+                        </button>
+                        <button class="pill-btn {{ isOffline ? 'off-on' }}" data-off-toggle
+                                data-track-id="{{ song.id }}" aria-label="Available offline">
+                            {{ ui.icon('M19.35 10.04A7.49 7.49 0 0012 4a7.5 7.5 0 00-6.96 4.73A6 6 0 006 20h13a5 5 0 00.35-9.96zM12 11l4 4h-3v3h-2v-3H8z') }}
+                            <span class="when-off">Save offline</span><span class="when-on">Offline</span>
+                        </button>
                     {% endif %}
                     {% if isOwner %}
-                        <a class="btn btn-ghost" href="{{ path('app_metadata_edit', {id: song.id}) }}">Edit metadata</a>
+                        <a class="pill-btn" href="{{ path('app_metadata_edit', {id: song.id}) }}">
+                            {{ ui.icon('M3 17.25V21h3.75L17.8 9.94l-3.75-3.75zM20.7 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75z') }}
+                            <span>Edit metadata</span>
+                        </a>
                     {% endif %}
                 </div>
             </div>
+        </header>
+
+        <div class="song-grid">
+            <div class="song-main">
+                <section class="panel lyrics">
+                    <div class="panel-head"><h2>Lyrics</h2></div>
+                    {% if song.lyrics %}
+                        <div class="lyrics-body">{{ song.lyrics }}</div>
+                    {% else %}
+                        <p class="muted">No lyrics embedded in this file.</p>
+                    {% endif %}
+                </section>
+            </div>
+
+            <aside class="song-side">
+                <section class="panel">
+                    <div class="panel-head"><h2>Details</h2></div>
+                    <dl class="spec-list">
+                        {% if quality %}
+                            <dt>Quality</dt>
+                            <dd><span class="quality-badge quality-{{ quality.value }}">{{ quality.label }}</span></dd>
+                        {% endif %}
+                        {% if song.formatLabel %}
+                            <dt>Format</dt><dd>{{ song.formatLabel }}</dd>
+                        {% endif %}
+                        {% if song.audioCodec %}
+                            <dt>Codec</dt><dd>{{ song.audioCodec }}</dd>
+                        {% endif %}
+                        {% if kbps %}
+                            <dt>Bitrate</dt>
+                            <dd>{{ kbps }} kbps{% if song.bitrateMode %} <span class="muted">{{ song.bitrateMode|upper }}</span>{% endif %}</dd>
+                        {% endif %}
+                        {% if song.sampleRate %}
+                            <dt>Sample rate</dt>
+                            <dd>{{ (song.sampleRate / 1000)|number_format(song.sampleRate % 1000 ? 1 : 0) }} kHz</dd>
+                        {% endif %}
+                        {% if song.bitsPerSample and song.lossless %}
+                            <dt>Bit depth</dt><dd>{{ song.bitsPerSample }}-bit</dd>
+                        {% endif %}
+                        {% if song.channels %}
+                            <dt>Channels</dt>
+                            <dd>{{ song.channels == 1 ? 'Mono' : (song.channels == 2 ? 'Stereo' : song.channels ~ ' channels') }}</dd>
+                        {% endif %}
+                        <dt>Rating</dt>
+                        <dd title="Read from the file's ID3 POPM tag (e.g. Windows Media Player stars)">
+                            {% if rating %}
+                                <span class="stars">{% for i in 1..5 %}{{ i <= rating.stars ? '★' : '☆' }}{% endfor %}</span>
+                                <span class="muted">POPM {{ rating.byte }}{% if rating.email %} · {{ rating.email }}{% endif %}</span>
+                            {% else %}
+                                <span class="muted">Not in file tags</span>
+                            {% endif %}
+                        </dd>
+                        {% if app.user %}
+                            <dt>Your plays</dt><dd>{{ playCount }}</dd>
+                        {% endif %}
+                    </dl>
+                </section>
+
+                {% if app.user %}
+                    <section class="panel song-audio-settings">
+                        <div class="panel-head">
+                            <h2>Audio settings</h2>
+                            <span class="muted">Saved for you, on this track only</span>
+                        </div>
+                        <div class="sas-volume">
+                            <label for="sas-volume">Volume</label>
+                            <input type="range" id="sas-volume" min="0" max="2" step="0.05" value="1">
+                            <output id="sas-volume-out" for="sas-volume">1.00</output>
+                        </div>
+                        <div class="sas-eq" role="group" aria-label="Equalizer (dB)">
+                            {% for band in 0..4 %}
+                                <label class="sas-eq-col">
+                                    <input type="range" class="sas-eq-band" data-band="{{ band }}" min="-12" max="12" step="1" value="0"
+                                           aria-label="Band {{ band + 1 }}">
+                                    <span>{{ band + 1 }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                        <div class="sas-buttons">
+                            <button type="button" id="sas-save-btn" class="btn">Save</button>
+                            <button type="button" id="sas-reset-btn" class="btn btn-ghost">Reset</button>
+                            <span id="sas-status" class="muted" role="status"></span>
+                        </div>
+                    </section>
+                {% endif %}
+            </aside>
         </div>
 
-        {% if app.user %}
-        <section class="song-audio-settings">
-            <h2>Audio settings</h2>
-            <p class="muted">Volume and equalizer preferences saved for your account on this track only.</p>
-            <div class="song-audio-settings-controls">
-                <label for="sas-volume">Volume multiplier: <output id="sas-volume-out">1.00</output></label>
-                <input type="range" id="sas-volume" min="0" max="2" step="0.05" value="1">
+        {% include 'partials/_raw_metadata.html.twig' %}
 
-                <div class="song-audio-settings-eq">
-                    {% for band in 0..4 %}
-                        <label>Band {{ band + 1 }}
-                            <input type="range" class="sas-eq-band" data-band="{{ band }}" min="-12" max="12" step="1" value="0">
-                        </label>
-                    {% endfor %}
-                </div>
-
-                <div class="t-actions" style="display:flex;gap:8px;">
-                    <button type="button" id="sas-save-btn" class="btn btn-primary">Save settings</button>
-                    <button type="button" id="sas-reset-btn" class="btn btn-ghost">Reset to default</button>
-                </div>
-                <p id="sas-status" class="muted" role="status"></p>
-            </div>
-        </section>
-    {% endif %}
-
-    {% if song.lyrics %}
-            <section class="lyrics">
-                <h2>Lyrics</h2>
-                <pre style="white-space:pre-wrap;font-family:inherit;">{{ song.lyrics }}</pre>
+        {% if isOwner %}
+            <section class="panel song-versions">
+                <div class="panel-head"><h2>File versions</h2></div>
+                {% if versions is empty %}
+                    <p class="muted">No backup versions on disk for this file.</p>
+                {% else %}
+                    <table class="table">
+                        <thead>
+                            <tr><th>Name</th><th>Date</th><th>Size</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for v in versions %}
+                                <tr>
+                                    <td>{{ v.name }}</td>
+                                    <td>{{ v.mtime|date('Y-m-d H:i') }}</td>
+                                    <td>{{ v.sizeMb }} MB</td>
+                                    <td class="table-actions">
+                                        <form method="post" action="{{ path('app_song_version_restore', {id: song.id}) }}">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('song_version_restore_' ~ song.id) }}">
+                                            <input type="hidden" name="version_name" value="{{ v.name }}">
+                                            <button class="btn btn-ghost btn-sm" type="submit">Restore</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
             </section>
         {% endif %}
-
-        {% if rawMetadata %}
-            <details class="raw-metadata" style="margin-top:24px;">
-                <summary style="cursor:pointer;font-weight:600;">Raw file metadata (all embedded tags)</summary>
-                <p class="muted">Everything getID3 can read from the physical file — useful to check whether a rating (Windows Media Player POPM / WM/SharedUserRating) is embedded. Cover-art bytes are omitted.</p>
-                <textarea readonly rows="20" style="width:100%;font-family:monospace;white-space:pre;" onclick="this.select();">{{ rawMetadata }}</textarea>
-            </details>
-        {% endif %}
     </div>
-
-    {% if isOwner %}
-        <section class="song-versions">
-            <h2>File versions</h2>
-            {% if versions is empty %}
-                <p class="muted">No backup versions on disk for this file.</p>
-            {% else %}
-                <table class="table">
-                    <thead>
-                        <tr><th>Name</th><th>Date</th><th>Size</th><th></th></tr>
-                    </thead>
-                    <tbody>
-                        {% for v in versions %}
-                            <tr>
-                                <td>{{ v.name }}</td>
-                                <td>{{ v.mtime|date('Y-m-d H:i') }}</td>
-                                <td>{{ v.sizeMb }} MB</td>
-                                <td>
-                                    <form method="post" action="{{ path('app_song_version_restore', {id: song.id}) }}">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('song_version_restore_' ~ song.id) }}">
-                                        <input type="hidden" name="version_name" value="{{ v.name }}">
-                                        <button class="btn btn-ghost" type="submit">Restore</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% endif %}
-        </section>
-    {% endif %}
 {% endblock %}

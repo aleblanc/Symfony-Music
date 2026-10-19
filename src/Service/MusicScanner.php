@@ -82,8 +82,10 @@ class MusicScanner
             $existing = $this->musicRepository->findOneByFile($filePath);
 
             // Unchanged files are skipped so re-scans stay cheap, unless a
-            // forced rescan was requested.
-            if (!$force && $existing !== null && $existing->getLastModified() === $mtime) {
+            // forced rescan was requested or the row predates the technical
+            // audio columns (codec, sample rate...), which are backfilled here.
+            if (!$force && $existing !== null && $existing->getLastModified() === $mtime
+                && $existing->getAudioFormat() !== null) {
                 ++$stats['skipped'];
                 continue;
             }
@@ -171,7 +173,7 @@ class MusicScanner
     }
 
     /**
-     * @return array{title:string, artist:string, album:string, genre:string, year:int, duration:int, bitrate:int, image:?string, imageType:?string, lyrics:?string}
+     * @return array{title:string, artist:string, album:string, genre:string, year:int, duration:int, format:AudioFormat, image:?string, imageType:?string, lyrics:?string}
      */
     private function analyze(\getID3 $getID3, string $filePath): array
     {
@@ -186,7 +188,7 @@ class MusicScanner
             'genre' => $this->tag($comments, 'genre', 'Unknown Genre'),
             'year' => (int) ($comments['year'][0] ?? 0),
             'duration' => (int) ($info['playtime_seconds'] ?? 0),
-            'bitrate' => (int) ($info['audio']['bitrate'] ?? 0),
+            'format' => AudioFormat::fromGetId3($info, strtolower(pathinfo($filePath, \PATHINFO_EXTENSION))),
             'image' => $this->extractCover($comments, $filePath),
             // Cover bytes carry no mime column in the legacy schema; the type is
             // sniffed from the bytes when served, so none is recorded at scan time.
@@ -206,7 +208,7 @@ class MusicScanner
         $music->setGenre($meta['genre']);
         $music->setYear($meta['year'] ?: null);
         $music->setDuration($meta['duration']);
-        $music->setBitrate($meta['bitrate']);
+        $music->applyAudioFormat($meta['format']);
         $music->setLastModified($mtime);
         if ($meta['lyrics'] !== null) {
             $music->setLyrics($meta['lyrics']);

@@ -54,7 +54,7 @@ class SongController extends AbstractController
         return $this->render('song/show.html.twig', [
             'song' => $song,
             'rating' => $ratingReader->read((string) $song->getFile()),
-            'rawMetadata' => $dumper->dump((string) $song->getFile()),
+            'rawMetadata' => $dumper->sections((string) $song->getFile()),
             'isFavorite' => $user !== null && $favorites->findOneForUser($user, $song) !== null,
             'isListenLater' => $user !== null && $listenLater->findOneForUser($user, $song) !== null,
             'isOffline' => $user !== null && $offline->findOneForUser($user, $song) !== null,

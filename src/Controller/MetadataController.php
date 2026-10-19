@@ -44,7 +44,7 @@ class MetadataController extends AbstractController
 
         return $this->render('metadata/edit.html.twig', [
             'song' => $song,
-            'rawMetadata' => $dumper->dump((string) $song->getFile()),
+            'rawMetadata' => $dumper->sections((string) $song->getFile()),
         ]);
     }
 

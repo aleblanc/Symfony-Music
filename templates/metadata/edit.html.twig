@@ -44,7 +44,7 @@
                 <input type="file" id="cover_image" name="cover_image" accept="image/jpeg,image/png,image/webp,image/gif">
             </div>
 
-            <div class="field">
+            <div class="field field-check">
                 <label><input type="checkbox" name="is_private" value="1" {{ song.isPrivate ? 'checked' }}> Private (only visible to me)</label>
             </div>
 
@@ -52,14 +52,19 @@
         </form>
     </div>
 
-    <h2>Raw file metadata (read-only)</h2>
-    <p class="muted">Everything getID3 can read from the physical file — useful to check whether a rating (Windows Media Player POPM / WM/SharedUserRating) is embedded in the file. Cover-art bytes are omitted.</p>
-    <textarea readonly rows="20" style="width:100%;font-family:monospace;white-space:pre;" onclick="this.select();">{{ rawMetadata }}</textarea>
+    <div style="margin-top:28px;">
+        {% include 'partials/_raw_metadata.html.twig' %}
+    </div>
 
-    <h2>Danger zone</h2>
-    <form method="post" action="{{ path('app_metadata_delete', {id: song.id}) }}"
-          onsubmit="return confirm('Delete this song permanently? This cannot be undone.');">
-        <input type="hidden" name="_token" value="{{ csrf_token('metadata_delete_' ~ song.id) }}">
-        <button class="btn btn-ghost" type="submit">Delete song</button>
-    </form>
+    <section class="panel danger-zone">
+        <div class="panel-head">
+            <h2>Danger zone</h2>
+            <span class="muted">Deletes the database entry and the file on disk</span>
+        </div>
+        <form method="post" action="{{ path('app_metadata_delete', {id: song.id}) }}"
+              onsubmit="return confirm('Delete this song permanently? This cannot be undone.');">
+            <input type="hidden" name="_token" value="{{ csrf_token('metadata_delete_' ~ song.id) }}">
+            <button class="btn btn-danger" type="submit">Delete song</button>
+        </form>
+    </section>
 {% endblock %}

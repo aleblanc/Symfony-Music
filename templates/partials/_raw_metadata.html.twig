@@ -1,0 +1,45 @@
+{# Raw getID3 dump, one collapsible key/value table per section.
+   Expects `rawMetadata`: array<section, list<[key, value]>> or null. #}
+<section class="panel raw-metadata">
+    <div class="panel-head">
+        <h2>Raw file metadata</h2>
+        <span class="muted">Everything getID3 reads from the file · cover art omitted</span>
+    </div>
+
+    {% if rawMetadata is null %}
+        <p class="muted">The file is not readable on disk (or getID3 is unavailable).</p>
+    {% else %}
+        {% set open_sections = ['audio', 'comments', 'rating-related'] %}
+        {% for name, rows in rawMetadata %}
+            <details class="meta-section" {{ name in open_sections ? 'open' }}>
+                <summary>
+                    <span class="meta-section-name">{{ name|replace({'-': ' '})|capitalize }}</span>
+                    <span class="meta-count">{{ rows|length }}</span>
+                </summary>
+                {% if rows is empty %}
+                    <p class="muted meta-empty">
+                        {{ name == 'rating-related' ? 'No rating field (POPM, WM/SharedUserRating…) embedded in this file.' : 'Empty.' }}
+                    </p>
+                {% else %}
+                    <dl class="meta-table">
+                        {% for row in rows %}
+                            <dt>{{ row[0] }}</dt>
+                            <dd>{{ row[1] }}</dd>
+                        {% endfor %}
+                    </dl>
+                {% endif %}
+            </details>
+        {% endfor %}
+
+        <details class="meta-section">
+            <summary><span class="meta-section-name">Plain text</span><span class="muted">to copy &amp; paste</span></summary>
+            <textarea class="meta-plain" readonly rows="16" onclick="this.select();">
+                {%- for name, rows in rawMetadata -%}
+                    ===== {{ name|upper }} ====={{ "\n" }}
+                    {%- for row in rows %}{{ row[0] }} = {{ row[1] }}{{ "\n" }}{% endfor -%}
+                    {{ "\n" }}
+                {%- endfor -%}
+            </textarea>
+        </details>
+    {% endif %}
+</section>

@@ -3,7 +3,7 @@
 namespace App\Service;
 
 /**
- * Produces a flat, human-readable text dump of every tag getID3 can read from
+ * Produces a human-readable dump of every tag getID3 can read from
  * a file (ID3v1, ID3v2 frames, APE, comments, "tags" arrays, …). Binary blobs
  * such as embedded cover art are omitted so the output stays copy-pasteable.
  *
@@ -16,10 +16,16 @@ class MetadataDumper
     /** Top-level getID3 sections worth showing; the rest are internals. */
     private const SECTIONS = ['fileformat', 'audio', 'tags', 'comments', 'id3v1', 'id3v2', 'ape', 'asf', 'quicktime'];
 
-    public function dump(string $filePath): string
+    /**
+     * Every readable getID3 section as key/value rows, plus a final
+     * "rating-related" section gathering POPM/rating-looking fields.
+     *
+     * @return array<string, list<array{0: string, 1: string}>>|null null when the file can't be read
+     */
+    public function sections(string $filePath): ?array
     {
         if (!class_exists(\getID3::class) || !is_file($filePath)) {
-            return 'File not readable or getID3 unavailable.';
+            return null;
         }
 
         $getID3 = new \getID3();
@@ -27,33 +33,34 @@ class MetadataDumper
         $info = $getID3->analyze($filePath);
         \getid3_lib::CopyTagsToComments($info);
 
-        $out = [];
-        $out[] = '===== FILE =====';
-        $out[] = 'size = ' . ($info['filesize'] ?? '?') . ' bytes';
-        $out[] = '';
+        $sections = ['file' => [['size', ($info['filesize'] ?? '?') . ' bytes']]];
 
         foreach (self::SECTIONS as $section) {
             if (!isset($info[$section])) {
                 continue;
             }
-            $out[] = '===== ' . strtoupper($section) . ' =====';
-            $this->walk($info[$section], '', $out);
-            $out[] = '';
+            $lines = [];
+            $this->walk($info[$section], '', $lines);
+            $sections[$section] = array_map(
+                static function (string $line): array {
+                    $parts = explode(' = ', $line, 2);
+
+                    return [$parts[0], $parts[1] ?? ''];
+                },
+                $lines,
+            );
         }
 
-        $out[] = '===== RATING-RELATED FIELDS (heuristic scan) =====';
-        $matched = false;
-        array_walk_recursive($info, static function ($v, $k) use (&$out, &$matched): void {
-            if (\is_string($k) && preg_match('/rat|popm|popular|star|score/i', $k) && !\is_array($v)) {
-                $out[] = '  ' . $k . ' = ' . (\is_scalar($v) ? (string) $v : \gettype($v));
-                $matched = true;
+        $rating = [];
+        array_walk_recursive($info, static function ($v, $k) use (&$rating): void {
+            // Anchored so "sample_rate" / "tag_offset_start" don't match.
+            if (\is_string($k) && preg_match('/rating|popm|popular|^stars?$|score/i', $k) && !\is_array($v)) {
+                $rating[] = [$k, \is_scalar($v) ? (string) $v : \gettype($v)];
             }
         });
-        if (!$matched) {
-            $out[] = '  (nothing matched rat/popm/popular/star/score)';
-        }
+        $sections['rating-related'] = $rating;
 
-        return implode("\n", $out);
+        return $sections;
     }
 
     /**

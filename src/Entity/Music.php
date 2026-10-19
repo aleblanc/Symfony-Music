@@ -2,7 +2,9 @@
 
 namespace App\Entity;
 
+use App\Enum\AudioQuality;
 use App\Repository\MusicRepository;
+use App\Service\AudioFormat;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -78,8 +80,37 @@ class Music
     #[ORM\Column(nullable: true)]
     private ?int $lastModified = null;
 
+    /** Bits per second (getID3 `audio.bitrate`), not kbps. */
     #[ORM\Column(nullable: true)]
     private ?int $bitrate = null;
+
+    /**
+     * getID3 `audio.dataformat` (mp3, mp4, flac, vorbis, opus, wav...). Null
+     * means the technical audio fields were never read: the scan refills them.
+     */
+    #[ORM\Column(length: 16, nullable: true)]
+    private ?string $audioFormat = null;
+
+    /** Codec/encoder name as reported by getID3 (e.g. "LAME", "ISO/IEC 14496-3 AAC"). */
+    #[ORM\Column(length: 128, nullable: true)]
+    private ?string $audioCodec = null;
+
+    /** cbr, vbr or abr. */
+    #[ORM\Column(length: 8, nullable: true)]
+    private ?string $bitrateMode = null;
+
+    /** Hz. */
+    #[ORM\Column(nullable: true)]
+    private ?int $sampleRate = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $bitsPerSample = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $channels = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?bool $lossless = null;
 
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $lyrics = null;
@@ -257,6 +288,73 @@ class Music
         $this->bitrate = $bitrate;
 
         return $this;
+    }
+
+    public function getAudioFormat(): ?string
+    {
+        return $this->audioFormat;
+    }
+
+    public function getAudioCodec(): ?string
+    {
+        return $this->audioCodec;
+    }
+
+    public function getBitrateMode(): ?string
+    {
+        return $this->bitrateMode;
+    }
+
+    public function getSampleRate(): ?int
+    {
+        return $this->sampleRate;
+    }
+
+    public function getBitsPerSample(): ?int
+    {
+        return $this->bitsPerSample;
+    }
+
+    public function getChannels(): ?int
+    {
+        return $this->channels;
+    }
+
+    public function isLossless(): ?bool
+    {
+        return $this->lossless;
+    }
+
+    /** Copies every technical audio property (bitrate included) in one go. */
+    public function applyAudioFormat(AudioFormat $format): static
+    {
+        $this->bitrate = $format->bitrate;
+        $this->audioFormat = $format->dataformat;
+        $this->audioCodec = $format->codec;
+        $this->bitrateMode = $format->bitrateMode;
+        $this->sampleRate = $format->sampleRate;
+        $this->bitsPerSample = $format->bitsPerSample;
+        $this->channels = $format->channels;
+        $this->lossless = $format->lossless;
+
+        return $this;
+    }
+
+    /** Short codec name for display (MP3, AAC, ALAC, FLAC, Vorbis...). */
+    public function getFormatLabel(): ?string
+    {
+        return match ($this->audioFormat) {
+            null => null,
+            'mp4', 'm4a' => $this->lossless === true ? 'ALAC' : 'AAC',
+            'vorbis', 'ogg' => 'Ogg Vorbis',
+            'opus' => 'Opus',
+            default => strtoupper($this->audioFormat),
+        };
+    }
+
+    public function getQuality(): ?AudioQuality
+    {
+        return AudioQuality::classify($this->audioFormat, $this->lossless, $this->bitrate);
     }
 
     public function getLyrics(): ?string

@@ -6,6 +6,7 @@ use App\Entity\Music;
 use App\Entity\User;
 use App\Repository\MusicRepository;
 use App\Repository\UserRepository;
+use App\Service\AudioFormat;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -158,7 +159,7 @@ class UploadController extends AbstractController
         $genre = $this->tag($comments, 'genre', $genreOverride !== '' ? $genreOverride : 'Uploaded');
         $year = (int) ($comments['year'][0] ?? 0);
         $duration = (int) ($info['playtime_seconds'] ?? 0);
-        $bitrate = (int) ($info['audio']['bitrate'] ?? 0);
+        $audioFormat = AudioFormat::fromGetId3($info, $ext);
         $lyrics = $this->tag($comments, 'unsynchronised_lyric', '');
         $rawImage = $comments['picture'][0]['data'] ?? null;
         $isPrivate = (bool) $request->request->get('is_private', false);
@@ -194,7 +195,7 @@ class UploadController extends AbstractController
         $song->setGenre($genre);
         $song->setYear($year ?: null);
         $song->setDuration($duration);
-        $song->setBitrate($bitrate);
+        $song->applyAudioFormat($audioFormat);
         $song->setLastModified(filemtime($filePath) ?: time());
         $song->setIsPrivate($isPrivate);
         if ($lyrics !== '') {
