@@ -60,6 +60,18 @@
                             <span class="when-off">Save offline</span><span class="when-on">Offline</span>
                         </button>
                     {% endif %}
+                    {% if song.spotifyUrl %}
+                        <a class="pill-btn pill-spotify" href="{{ song.spotifyUrl }}" target="_blank" rel="noopener">
+                            {{ ui.icon('M12 2a10 10 0 100 20 10 10 0 000-20zm4.6 14.4a.62.62 0 01-.86.2c-2.35-1.43-5.3-1.76-8.79-.96a.62.62 0 11-.28-1.21c3.81-.87 7.08-.5 9.72 1.11.3.18.39.56.21.86zm1.22-2.72a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.17a.78.78 0 11-.45-1.49c3.63-1.1 8.15-.57 11.24 1.33.37.22.48.7.25 1.07zm.11-2.83C14.7 8.93 9.38 8.75 6.3 9.69a.94.94 0 11-.54-1.79c3.53-1.07 9.4-.86 13.1 1.34a.94.94 0 01-.96 1.61z') }}
+                            <span>Spotify</span>
+                        </a>
+                    {% else %}
+                        <a class="pill-btn" href="https://open.spotify.com/search/{{ ((song.artist ?? '') ~ ' ' ~ song.displayTitle)|trim|url_encode }}"
+                           target="_blank" rel="noopener" title="No link stored yet: search Spotify">
+                            {{ ui.icon('M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z') }}
+                            <span>Find on Spotify</span>
+                        </a>
+                    {% endif %}
                     {% if isOwner %}
                         <a class="pill-btn" href="{{ path('app_metadata_edit', {id: song.id}) }}">
                             {{ ui.icon('M3 17.25V21h3.75L17.8 9.94l-3.75-3.75zM20.7 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75z') }}

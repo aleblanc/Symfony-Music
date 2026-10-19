@@ -237,6 +237,33 @@ class MusicRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
+    /**
+     * Ids to process with app:spotify:match, oldest first. Not visibility
+     * filtered: this is a library maintenance task.
+     *
+     * - default: never looked up
+     * - $retryUnmatched: also tracks looked up without a match
+     * - $all: every track (re-match)
+     * - $matchedOnly: tracks that already have a Spotify id (tag writing)
+     *
+     * @return int[]
+     */
+    public function spotifyCandidateIds(bool $retryUnmatched = false, bool $all = false, bool $matchedOnly = false, ?int $limit = null): array
+    {
+        $qb = $this->createQueryBuilder('m')->select('m.id')->orderBy('m.id', 'ASC');
+
+        if ($matchedOnly) {
+            $qb->andWhere('m.spotifyId IS NOT NULL');
+        } elseif (!$all) {
+            $qb->andWhere($retryUnmatched ? 'm.spotifyId IS NULL' : 'm.spotifyCheckedAt IS NULL');
+        }
+        if ($limit !== null) {
+            $qb->setMaxResults($limit);
+        }
+
+        return array_map('intval', $qb->getQuery()->getSingleColumnResult());
+    }
+
     public function countAll(?User $viewer): int
     {
         $qb = $this->createQueryBuilder('m')->select('COUNT(m.id)');

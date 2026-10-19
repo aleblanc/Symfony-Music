@@ -1,0 +1,216 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Service\Enrichment;
+
+use Symfony\Component\Clock\ClockInterface;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+
+/**
+ * Minimal MusicBrainz web-service (v2, JSON) client.
+ *
+ * MusicBrainz asks for at most one request per second and an identifying
+ * User-Agent; both are enforced here. Responses are cached (releases and
+ * recordings barely change) so re-runs cost no requests.
+ *
+ * @see https://musicbrainz.org/doc/MusicBrainz_API
+ */
+class MusicBrainzClient
+{
+    private const BASE_URL = 'https://musicbrainz.org/ws/2/';
+    private const MIN_INTERVAL = 1.05;
+    private const MAX_ATTEMPTS = 4;
+    private const CACHE_TTL = 30 * 86400;
+
+    private float $lastRequestAt = 0.0;
+
+    public function __construct(
+        private readonly HttpClientInterface $httpClient,
+        private readonly CacheInterface $cache,
+        private readonly ClockInterface $clock,
+        private readonly string $musicbrainzUserAgent,
+    ) {}
+
+    /**
+     * @return list<ReleaseSummary>
+     */
+    public function searchReleases(?string $artist, string $album, int $limit = 5): array
+    {
+        $query = 'release:' . $this->quote($album) . ($artist !== null ? ' AND artist:' . $this->quote($artist) : '');
+        $data = $this->get('release', ['query' => $query, 'limit' => $limit]);
+
+        return array_map(fn(array $r): ReleaseSummary => $this->releaseSummary($r), $data['releases'] ?? []);
+    }
+
+    /**
+     * @return list<RecordingMatch>
+     */
+    public function searchRecordings(?string $artist, string $title, int $limit = 5): array
+    {
+        $query = 'recording:' . $this->quote($title) . ($artist !== null ? ' AND artist:' . $this->quote($artist) : '');
+        $data = $this->get('recording', ['query' => $query, 'limit' => $limit]);
+
+        return array_map(fn(array $r): RecordingMatch => $this->recording($r), $data['recordings'] ?? []);
+    }
+
+    public function getRecording(string $id): ?RecordingMatch
+    {
+        $data = $this->get('recording/' . rawurlencode($id), ['inc' => 'releases+release-groups+artist-credits']);
+
+        return isset($data['id']) ? $this->recording($data) : null;
+    }
+
+    public function getRelease(string $id): ?ReleaseCandidate
+    {
+        $data = $this->get('release/' . rawurlencode($id), ['inc' => 'recordings+artist-credits+release-groups+genres']);
+        if (!isset($data['id'])) {
+            return null;
+        }
+
+        $albumArtist = $this->artistCredit($data['artist-credit'] ?? []);
+        $tracks = [];
+        foreach ($data['media'] ?? [] as $medium) {
+            $disc = (int) ($medium['position'] ?? 1);
+            foreach ($medium['tracks'] ?? [] as $track) {
+                $length = $track['length'] ?? $track['recording']['length'] ?? null;
+                $tracks[] = new ReleaseTrack(
+                    disc: $disc,
+                    position: (int) ($track['position'] ?? \count($tracks) + 1),
+                    title: (string) ($track['title'] ?? $track['recording']['title'] ?? ''),
+                    artist: $this->artistCredit($track['artist-credit'] ?? $track['recording']['artist-credit'] ?? []) ?: $albumArtist,
+                    duration: $length !== null ? (int) round($length / 1000) : null,
+                    recordingId: $track['recording']['id'] ?? null,
+                );
+            }
+        }
+
+        $group = $data['release-group'] ?? [];
+        $date = $group['first-release-date'] ?? $data['date'] ?? '';
+        $genres = $data['genres'] ?? $group['genres'] ?? [];
+        usort($genres, static fn(array $a, array $b): int => ($b['count'] ?? 0) <=> ($a['count'] ?? 0));
+        $secondary = $group['secondary-types'] ?? [];
+
+        return new ReleaseCandidate(
+            id: (string) $data['id'],
+            title: (string) ($data['title'] ?? ''),
+            artist: $albumArtist,
+            year: preg_match('/^(\d{4})/', (string) $date, $m) === 1 ? (int) $m[1] : null,
+            genre: isset($genres[0]['name']) ? ucwords((string) $genres[0]['name']) : null,
+            releaseGroupId: $group['id'] ?? null,
+            tracks: $tracks,
+            isCompilation: \in_array('Compilation', $secondary, true) || mb_strtolower($albumArtist) === 'various artists',
+        );
+    }
+
+    /**
+     * @param array<string, scalar> $query
+     *
+     * @return array<string, mixed>
+     */
+    private function get(string $path, array $query): array
+    {
+        $query['fmt'] = 'json';
+        $url = self::BASE_URL . $path . '?' . http_build_query($query);
+
+        return $this->cache->get('mb_' . hash('xxh128', $url), function (ItemInterface $item) use ($url): array {
+            $item->expiresAfter(self::CACHE_TTL);
+
+            return $this->fetch($url);
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fetch(string $url): array
+    {
+        for ($attempt = 1; ; ++$attempt) {
+            $this->throttle();
+            $response = $this->httpClient->request('GET', $url, [
+                'headers' => ['User-Agent' => $this->musicbrainzUserAgent, 'Accept' => 'application/json'],
+            ]);
+            $status = $response->getStatusCode();
+
+            if ($status === 404) {
+                return [];
+            }
+            // 503 = rate limited / overloaded: back off and retry.
+            if (($status === 503 || $status === 429) && $attempt < self::MAX_ATTEMPTS) {
+                $this->clock->sleep(2 ** $attempt);
+                continue;
+            }
+            if ($status !== 200) {
+                throw new EnrichmentException(\sprintf('MusicBrainz returned HTTP %d for %s', $status, $url));
+            }
+
+            return $response->toArray();
+        }
+    }
+
+    private function throttle(): void
+    {
+        $now = (float) $this->clock->now()->format('U.u');
+        $wait = $this->lastRequestAt + self::MIN_INTERVAL - $now;
+        if ($wait > 0) {
+            $this->clock->sleep($wait);
+        }
+        $this->lastRequestAt = (float) $this->clock->now()->format('U.u');
+    }
+
+    /**
+     * @param array<string, mixed> $r
+     */
+    private function releaseSummary(array $r): ReleaseSummary
+    {
+        $group = $r['release-group'] ?? [];
+
+        return new ReleaseSummary(
+            id: (string) ($r['id'] ?? ''),
+            title: (string) ($r['title'] ?? ''),
+            artist: $this->artistCredit($r['artist-credit'] ?? []),
+            date: $r['date'] ?? null,
+            status: $r['status'] ?? null,
+            primaryType: $group['primary-type'] ?? null,
+            secondaryTypes: $group['secondary-types'] ?? [],
+            trackCount: (int) ($r['track-count'] ?? 0),
+            score: isset($r['score']) ? ((int) $r['score']) / 100 : 1.0,
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $r
+     */
+    private function recording(array $r): RecordingMatch
+    {
+        return new RecordingMatch(
+            id: (string) $r['id'],
+            title: (string) ($r['title'] ?? ''),
+            artist: $this->artistCredit($r['artist-credit'] ?? []),
+            duration: isset($r['length']) ? (int) round($r['length'] / 1000) : null,
+            score: isset($r['score']) ? ((int) $r['score']) / 100 : 1.0,
+            releases: array_map(fn(array $rel): ReleaseSummary => $this->releaseSummary($rel), $r['releases'] ?? []),
+        );
+    }
+
+    /**
+     * @param list<array<string, mixed>> $credits
+     */
+    private function artistCredit(array $credits): string
+    {
+        $name = '';
+        foreach ($credits as $credit) {
+            $name .= ($credit['name'] ?? $credit['artist']['name'] ?? '') . ($credit['joinphrase'] ?? '');
+        }
+
+        return trim($name);
+    }
+
+    /** Quotes a value for a Lucene phrase query. */
+    private function quote(string $value): string
+    {
+        return '"' . addcslashes($value, '"\\') . '"';
+    }
+}

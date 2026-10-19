@@ -8,6 +8,9 @@ parameters:
     level: 8
     paths:
         - src/
+    # getID3's write modules are require()d at runtime, not autoloaded.
+    scanFiles:
+        - lib/getid3/write.id3v2.php
     doctrine:
         # Entity association/column properties are typed nullable (?User, ?string)
         # for uninitialized hydration even when the DB column is NOT NULL; this is

@@ -1,0 +1,214 @@
+<?php
+
+/*
+ * Standalone test for Enrichment\MetadataEnricher orchestration with fake
+ * remote clients: folder-level album match from path hints, orphan file
+ * identified by fingerprint, field policy (genre/cover only when missing),
+ * remote failures never escaping.
+ *
+ * Run:  php tests/enrichment-enricher-test.php   (exit 0 = pass)
+ */
+
+declare(strict_types=1);
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use App\Service\Enrichment\AcoustIdClient;
+use App\Service\Enrichment\CoverArtClient;
+use App\Service\Enrichment\EnrichmentException;
+use App\Service\Enrichment\EnrichmentTrack;
+use App\Service\Enrichment\Fingerprint;
+use App\Service\Enrichment\Fingerprinter;
+use App\Service\Enrichment\HintExtractor;
+use App\Service\Enrichment\MatchScorer;
+use App\Service\Enrichment\MetadataEnricher;
+use App\Service\Enrichment\MusicBrainzClient;
+use App\Service\Enrichment\RecordingMatch;
+use App\Service\Enrichment\ReleaseCandidate;
+use App\Service\Enrichment\ReleaseSummary;
+use App\Service\Enrichment\ReleaseTrack;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\HttpClient\MockHttpClient;
+
+$failures = 0;
+
+function check(string $label, bool $ok, string $detail = ''): void
+{
+    global $failures;
+    if ($ok) {
+        echo "  ok  {$label}\n";
+    } else {
+        ++$failures;
+        echo "FAIL  {$label}" . ($detail !== '' ? " — {$detail}" : '') . "\n";
+    }
+}
+
+function okc(string $id = 'rel-okc'): ReleaseCandidate
+{
+    $tracks = [];
+    foreach ([['Airbag', 284], ['Paranoid Android', 383], ['Subterranean Homesick Alien', 267], ['Fitter Happier', 117]] as $i => [$t, $d]) {
+        $tracks[] = new ReleaseTrack(1, $i + 1, $t, 'Radiohead', $d, 'rec-' . ($i + 1));
+    }
+
+    return new ReleaseCandidate($id, 'OK Computer', 'Radiohead', 1997, 'Alternative Rock', 'rg-okc', $tracks);
+}
+
+final class FakeMusicBrainz extends MusicBrainzClient
+{
+    public bool $fail = false;
+    /** @var list<string> */
+    public array $calls = [];
+
+    public function __construct()
+    {
+        parent::__construct(new MockHttpClient(), new ArrayAdapter(), new MockClock(), 'UA');
+    }
+
+    public function searchReleases(?string $artist, string $album, int $limit = 5): array
+    {
+        $this->calls[] = "searchReleases({$artist}, {$album})";
+        if ($this->fail) {
+            throw new EnrichmentException('MusicBrainz returned HTTP 500');
+        }
+
+        return mb_strtolower($album) === 'ok computer'
+            ? [new ReleaseSummary('rel-okc', 'OK Computer', 'Radiohead', '1997', 'Official', 'Album', [], 4)]
+            : [];
+    }
+
+    public function searchRecordings(?string $artist, string $title, int $limit = 5): array
+    {
+        $this->calls[] = "searchRecordings({$artist}, {$title})";
+
+        return [];
+    }
+
+    public function getRecording(string $id): ?RecordingMatch
+    {
+        $this->calls[] = "getRecording({$id})";
+
+        return $id === 'rec-4' ? new RecordingMatch('rec-4', 'Fitter Happier', 'Radiohead', 117, 1.0, [
+            new ReleaseSummary('rel-best-of', 'The Best Of', 'Radiohead', '2008', 'Official', 'Album', ['Compilation'], 30),
+            new ReleaseSummary('rel-okc', 'OK Computer', 'Radiohead', '1997-05-21', 'Official', 'Album', [], 12),
+            new ReleaseSummary('rel-okc-jp', 'OK Computer', 'Radiohead', '1997-06-01', 'Official', 'Album', [], 13),
+        ]) : null;
+    }
+
+    public function getRelease(string $id): ?ReleaseCandidate
+    {
+        $this->calls[] = "getRelease({$id})";
+
+        return str_starts_with($id, 'rel-okc') ? okc($id) : null;
+    }
+}
+
+final class FakeAcoustId extends AcoustIdClient
+{
+    public function __construct()
+    {
+        parent::__construct(new MockHttpClient(), new MockClock(), 'KEY');
+    }
+
+    public function lookup(Fingerprint $fingerprint): array
+    {
+        return $fingerprint->fingerprint === 'fp-fitter'
+            ? [new RecordingMatch('rec-4', 'Fitter Happier', 'Radiohead', 117, 0.96, [new ReleaseSummary('rel-okc', 'OK Computer', '', null, null, null, [], 12)])]
+            : [];
+    }
+}
+
+final class FakeFingerprinter extends Fingerprinter
+{
+    public function __construct(private readonly bool $on)
+    {
+        parent::__construct('fpcalc');
+    }
+
+    public function isAvailable(): bool
+    {
+        return $this->on;
+    }
+
+    public function fingerprint(string $file): Fingerprint
+    {
+        return new Fingerprint(str_contains($file, 'dump') ? 'fp-fitter' : 'fp-unknown', 117);
+    }
+}
+
+final class FakeCovers extends CoverArtClient
+{
+    public int $calls = 0;
+
+    public function __construct()
+    {
+        parent::__construct(new MockHttpClient(), 'UA');
+    }
+
+    public function front(string $releaseId, ?string $releaseGroupId = null): ?string
+    {
+        ++$this->calls;
+
+        return "\xFF\xD8\xFF-cover-{$releaseId}";
+    }
+}
+
+$mb = new FakeMusicBrainz();
+$covers = new FakeCovers();
+$root = '/music';
+$log = [];
+$logger = static function (string $line) use (&$log): void { $log[] = $line; };
+
+// ---- A. Folder of "Track N" files, path names the album, no fingerprinting ----
+$enricher = new MetadataEnricher(new HintExtractor(), new MatchScorer(), $mb, new FakeAcoustId(), new FakeFingerprinter(false), $covers, $root);
+$folder = [
+    new EnrichmentTrack(1, "{$root}/2019/Radiohead/OK Computer/Track 1.mp3", 'Track 1', 'Unknown Artist', 'Unknown Album', 'Unknown Genre', 285, null, false, true),
+    new EnrichmentTrack(2, "{$root}/2019/Radiohead/OK Computer/Track 2.mp3", 'Track 2', 'Unknown Artist', 'Unknown Album', 'Unknown Genre', 382, null, false, true),
+    new EnrichmentTrack(3, "{$root}/2019/Radiohead/OK Computer/Track 3.mp3", 'Track 3', 'Unknown Artist', 'Unknown Album', 'Rock', 268, null, true, true),
+    // Already well tagged sibling: helps the match, gets no proposal.
+    new EnrichmentTrack(4, "{$root}/2019/Radiohead/OK Computer/04 Fitter Happier.mp3", 'Fitter Happier', 'Radiohead', 'OK Computer', 'Rock', 117, 4, true, false),
+];
+$proposals = $enricher->enrichFolder($folder, $logger);
+$byId = [];
+foreach ($proposals as $p) {
+    $byId[$p->musicId] = $p;
+}
+check('A: one proposal per target track', array_keys($byId) == [1, 2, 3], json_encode(array_keys($byId)));
+check('A: album match source', ($byId[1]->source ?? '') === 'album-match');
+check('A: confident', ($byId[1]->score ?? 0) >= 0.85, (string) ($byId[1]->score ?? 0));
+check('A: Track 2 → Paranoid Android', ($byId[2]->fields['title'] ?? null) === 'Paranoid Android');
+check('A: track number + total', ($byId[2]->fields['trackNumber'] ?? null) === 2 && ($byId[2]->fields['trackTotal'] ?? null) === 4);
+check('A: album / artist / album artist / year', ($byId[1]->fields['album'] ?? null) === 'OK Computer' && $byId[1]->fields['artist'] === 'Radiohead' && $byId[1]->fields['albumArtist'] === 'Radiohead' && $byId[1]->fields['year'] === 1997);
+check('A: genre proposed when unknown', ($byId[1]->fields['genre'] ?? null) === 'Alternative Rock');
+check('A: existing genre kept', !array_key_exists('genre', $byId[3]->fields ?? []), json_encode($byId[3]->fields ?? []));
+check('A: cover only for tracks without one', ($byId[1]->cover ?? null) !== null && isset($byId[3]) && $byId[3]->cover === null);
+check('A: cover downloaded once per release', $covers->calls === 1, (string) $covers->calls);
+check('A: MusicBrainz ids recorded', ($byId[1]->releaseId ?? '') === 'rel-okc' && ($byId[1]->recordingId ?? '') === 'rec-1');
+
+// ---- B. Orphan "Track 1" in a dump folder, identified by fingerprint ---------
+$enricher = new MetadataEnricher(new HintExtractor(), new MatchScorer(), $mb, new FakeAcoustId(), new FakeFingerprinter(true), new FakeCovers(), $root);
+$mb->calls = [];
+$proposals = $enricher->enrichFolder([
+    new EnrichmentTrack(9, "{$root}/dump/Track 1.mp3", 'Track 1', 'Unknown Artist', 'Unknown Album', '', 117, null, false, true),
+], $logger);
+$p = $proposals[0] ?? null;
+check('B: orphan identified', $p !== null && $p->fields['title'] === 'Fitter Happier', json_encode($p?->fields));
+check('B: source acoustid', $p?->source === 'acoustid');
+check('B: studio album preferred over compilation, oldest edition', $p?->releaseId === 'rel-okc', (string) $p?->releaseId);
+check('B: track number from the release, not from "Track 1"', ($p?->fields['trackNumber'] ?? null) === 4);
+check('B: confident', ($p?->score ?? 0) >= 0.85, (string) $p?->score);
+
+// ---- C. Remote failure is logged, never thrown --------------------------------
+$mb->fail = true;
+$log = [];
+$enricher = new MetadataEnricher(new HintExtractor(), new MatchScorer(), $mb, new FakeAcoustId(), new FakeFingerprinter(false), new FakeCovers(), $root);
+try {
+    $proposals = $enricher->enrichFolder($folder, $logger);
+    check('C: failure → no proposals', $proposals === []);
+    check('C: failure logged', (bool) array_filter($log, static fn(string $l): bool => str_contains($l, 'HTTP 500')), json_encode($log));
+} catch (Throwable $e) {
+    check('C: failure must not throw', false, $e->getMessage());
+}
+
+echo $failures === 0 ? "\nAll enricher tests passed.\n" : "\n{$failures} failure(s).\n";
+exit($failures === 0 ? 0 : 1);

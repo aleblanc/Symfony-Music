@@ -523,3 +523,8 @@ a.chip:hover { background: var(--bg-hover); color: var(--text); }
 }
 .sort-bar a:hover { background: var(--bg-elev-2); color: var(--text); }
 .sort-bar a.active { background: var(--text); color: #000; }
+.pill-spotify { color: #1ed760; border-color: rgba(30, 215, 96, .35); }
+.pill-spotify:hover { background: rgba(30, 215, 96, .12); color: #1ed760; }
+.field small { display: block; margin-top: 6px; font-size: 12px; }
+/* A flash message sits above the song hero: don't pull the hero under it. */
+.flash ~ .song-detail .song-hero { margin-top: 0; border-radius: var(--radius); }

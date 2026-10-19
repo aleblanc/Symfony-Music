@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Music;
 use App\Entity\User;
 use App\Repository\MusicRepository;
+use App\Service\CoverImageProcessor;
 use App\Service\MetadataDumper;
 use App\Service\MetadataWriter;
 use App\Service\MusicScanner;
@@ -57,6 +58,7 @@ class MetadataController extends AbstractController
         User $user,
         MusicRepository $musicRepository,
         MetadataWriter $writer,
+        CoverImageProcessor $images,
         EntityManagerInterface $em,
     ): Response {
         $song = $this->findEditableSong($id, $user, $musicRepository);
@@ -71,6 +73,13 @@ class MetadataController extends AbstractController
         $genre = trim((string) $request->request->get('genre', ''));
         $lyrics = trim((string) $request->request->get('lyrics', ''));
         $isPrivate = (bool) $request->request->get('is_private', false);
+        $spotifyInput = trim((string) $request->request->get('spotify', ''));
+        $spotifyId = $spotifyInput !== '' ? $this->parseSpotifyTrackId($spotifyInput) : null;
+        if ($spotifyInput !== '' && $spotifyId === null) {
+            $this->addFlash('error', 'Spotify link not recognised: paste a https://open.spotify.com/track/… link.');
+
+            return $this->redirectToRoute('app_metadata_edit', ['id' => $song->getId()]);
+        }
 
         $song->setTitle($title);
         $song->setArtist($artist);
@@ -78,6 +87,11 @@ class MetadataController extends AbstractController
         $song->setGenre($genre);
         $song->setLyrics($lyrics !== '' ? $lyrics : null);
         $song->setIsPrivate($isPrivate);
+        if ($spotifyId !== $song->getSpotifyId()) {
+            $song->setSpotifyId($spotifyId);
+            // A manual choice (even clearing it) must not be redone by app:spotify:match.
+            $song->setSpotifyCheckedAt(time());
+        }
 
         $jpegCover = null;
 
@@ -101,8 +115,8 @@ class MetadataController extends AbstractController
                 return $this->redirectToRoute('app_metadata_edit', ['id' => $song->getId()]);
             }
 
-            $webp = $this->processImage($raw, 'webp');
-            $jpegCover = $this->processImage($raw, 'jpeg');
+            $webp = $images->toWebp($raw);
+            $jpegCover = $images->toJpeg($raw);
             if ($webp !== null) {
                 $song->setImage($webp);
             }
@@ -121,6 +135,20 @@ class MetadataController extends AbstractController
         $this->addFlash('success', 'Metadata updated successfully.');
 
         return $this->redirectToRoute('app_song', ['id' => $song->getId()]);
+    }
+
+    /**
+     * Accepts an open.spotify.com track URL (any locale prefix / query
+     * string), a spotify:track:… URI or a bare 22-char id.
+     */
+    private function parseSpotifyTrackId(string $input): ?string
+    {
+        if (preg_match('~(?:open\.spotify\.com/(?:intl-[a-z-]+/)?track/|spotify:track:)([A-Za-z0-9]{22})~', $input, $m)
+            || preg_match('~^([A-Za-z0-9]{22})$~', $input, $m)) {
+            return $m[1];
+        }
+
+        return null;
     }
 
     #[Route('/song/{id}/delete', name: 'app_metadata_delete', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -196,45 +224,6 @@ class MetadataController extends AbstractController
         }
 
         return $song;
-    }
-
-    /**
-     * Resizes+center-crops an image to a square, mirroring the legacy
-     * `process_image_to_webp`/`process_image_to_jpeg` helpers.
-     */
-    private function processImage(string $imageData, string $format, int $targetWidth = 640, int $quality = 82): ?string
-    {
-        $source = @imagecreatefromstring($imageData);
-        if ($source === false) {
-            return null;
-        }
-
-        $srcW = imagesx($source);
-        $srcH = imagesy($source);
-        $minDim = min($srcW, $srcH);
-        $srcX = (int) (($srcW - $minDim) / 2);
-        $srcY = (int) (($srcH - $minDim) / 2);
-        $finalSize = min($minDim, $targetWidth);
-
-        $resized = imagecreatetruecolor(max(1, $finalSize), max(1, $finalSize));
-        if ($format === 'webp') {
-            imagealphablending($resized, false);
-            imagesavealpha($resized, true);
-        }
-        imagecopyresampled($resized, $source, 0, 0, $srcX, $srcY, $finalSize, $finalSize, $minDim, $minDim);
-
-        ob_start();
-        if ($format === 'webp') {
-            imagewebp($resized, null, $quality);
-        } else {
-            imagejpeg($resized, null, $quality);
-        }
-        $data = ob_get_clean();
-
-        imagedestroy($source);
-        imagedestroy($resized);
-
-        return $data !== false && $data !== '' ? $data : null;
     }
 
     /**

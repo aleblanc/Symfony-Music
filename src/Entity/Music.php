@@ -49,6 +49,23 @@ class Music
     #[ORM\Column(nullable: true)]
     private ?int $year = null;
 
+    /** Album artist (ID3 TPE2 / Vorbis ALBUMARTIST), distinct from per-track artists. */
+    #[ORM\Column(length: 512, nullable: true)]
+    private ?string $albumArtist = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $trackNumber = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $discNumber = null;
+
+    /**
+     * Last metadata-enrichment attempt (MusicBrainz/AcoustID), matched or
+     * not; `app:enrich` skips tracks already attempted unless --retry.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $enrichedAt = null;
+
     /** Duration in seconds. */
     #[ORM\Column(nullable: true)]
     private ?int $duration = null;
@@ -114,6 +131,17 @@ class Music
 
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $lyrics = null;
+
+    /** Spotify track id (base62, 22 chars), null until matched. */
+    #[ORM\Column(length: 32, nullable: true)]
+    private ?string $spotifyId = null;
+
+    /**
+     * Unix time of the last Spotify lookup, matched or not, so
+     * `app:spotify:match` doesn't re-query tracks it already failed on.
+     */
+    #[ORM\Column(nullable: true)]
+    private ?int $spotifyCheckedAt = null;
 
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $isPrivate = false;
@@ -203,6 +231,54 @@ class Music
     public function setYear(?int $year): static
     {
         $this->year = $year;
+
+        return $this;
+    }
+
+    public function getAlbumArtist(): ?string
+    {
+        return $this->albumArtist;
+    }
+
+    public function setAlbumArtist(?string $albumArtist): static
+    {
+        $this->albumArtist = $albumArtist;
+
+        return $this;
+    }
+
+    public function getTrackNumber(): ?int
+    {
+        return $this->trackNumber;
+    }
+
+    public function setTrackNumber(?int $trackNumber): static
+    {
+        $this->trackNumber = $trackNumber;
+
+        return $this;
+    }
+
+    public function getDiscNumber(): ?int
+    {
+        return $this->discNumber;
+    }
+
+    public function setDiscNumber(?int $discNumber): static
+    {
+        $this->discNumber = $discNumber;
+
+        return $this;
+    }
+
+    public function getEnrichedAt(): ?\DateTimeImmutable
+    {
+        return $this->enrichedAt;
+    }
+
+    public function setEnrichedAt(?\DateTimeImmutable $enrichedAt): static
+    {
+        $this->enrichedAt = $enrichedAt;
 
         return $this;
     }
@@ -355,6 +431,35 @@ class Music
     public function getQuality(): ?AudioQuality
     {
         return AudioQuality::classify($this->audioFormat, $this->lossless, $this->bitrate);
+    }
+
+    public function getSpotifyId(): ?string
+    {
+        return $this->spotifyId;
+    }
+
+    public function setSpotifyId(?string $spotifyId): static
+    {
+        $this->spotifyId = $spotifyId;
+
+        return $this;
+    }
+
+    public function getSpotifyCheckedAt(): ?int
+    {
+        return $this->spotifyCheckedAt;
+    }
+
+    public function setSpotifyCheckedAt(?int $spotifyCheckedAt): static
+    {
+        $this->spotifyCheckedAt = $spotifyCheckedAt;
+
+        return $this;
+    }
+
+    public function getSpotifyUrl(): ?string
+    {
+        return $this->spotifyId !== null ? 'https://open.spotify.com/track/' . $this->spotifyId : null;
     }
 
     public function getLyrics(): ?string

@@ -40,6 +40,13 @@
             </div>
 
             <div class="field">
+                <label for="spotify">Spotify link</label>
+                <input type="text" id="spotify" name="spotify" value="{{ song.spotifyUrl }}"
+                       placeholder="https://open.spotify.com/track/…" inputmode="url" autocomplete="off">
+                <small class="muted">Filled by <code>app:spotify:match</code>; paste a link to fix a wrong or missing match, empty it to remove.</small>
+            </div>
+
+            <div class="field">
                 <label for="cover_image">Cover image (optional)</label>
                 <input type="file" id="cover_image" name="cover_image" accept="image/jpeg,image/png,image/webp,image/gif">
             </div>
