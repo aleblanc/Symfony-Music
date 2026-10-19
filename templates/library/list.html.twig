@@ -4,17 +4,14 @@
 {% block title %}Library · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Library</h1>
-    <form class="toolbar" method="get" action="{{ path('app_library') }}">
-        <input class="field search" type="search" name="q" value="{{ query }}" placeholder="Search title, artist, album, genre…">
-        <button class="btn" type="submit">Search</button>
-        {% if query %}<a class="btn btn-ghost" href="{{ path('app_library') }}">Clear</a>{% endif %}
-    </form>
-
-    <p class="section-sub">{{ total }} result{{ total == 1 ? '' : 's' }}{{ query ? ' for “' ~ query ~ '”' }}</p>
+    <h1>{{ query ? 'Results for “' ~ query ~ '”' : 'Library' }}</h1>
+    <p class="section-sub">
+        {{ total }} {{ query ? 'result' : 'track' }}{{ total == 1 ? '' : 's' }}
+        {% if query %} · <a class="link" href="{{ path('app_library') }}">Clear search</a>{% endif %}
+    </p>
 
     {% if is_granted('ROLE_ADMIN') %}
-        <form method="post" action="{{ path('app_admin_rescan') }}" style="margin-bottom:16px;">
+        <form class="admin-actions" method="post" action="{{ path('app_admin_rescan') }}">
             <input type="hidden" name="_token" value="{{ csrf_token('admin_rescan') }}">
             <button class="btn btn-ghost" type="submit" name="force" value="0">Rescan library</button>
             <button class="btn btn-ghost" type="submit" name="force" value="1">Force full rescan</button>
@@ -22,7 +19,7 @@
     {% endif %}
 
     <nav class="sort-bar" aria-label="Sort">
-        <span class="muted">Sort by:</span>
+        <span class="muted">Sort by</span>
         <a href="{{ path('app_library', {q: query, sort: sort == 'artist_asc' ? 'artist_desc' : 'artist_asc'}) }}"
            class="{{ sort starts with 'artist' ? 'active' }}">Artist {{ sort == 'artist_desc' ? '↓' : '↑' }}</a>
         <a href="{{ path('app_library', {q: query, sort: sort == 'album_asc' ? 'album_desc' : 'album_asc'}) }}"

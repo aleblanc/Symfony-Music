@@ -12,31 +12,37 @@
     </head>
     <body>
         <div class="app-shell">
+            {% import 'partials/_icons.html.twig' as icons %}
+            {% set route = app.request.attributes.get('_route') %}
             <aside class="sidebar">
-                <div class="brand"><a href="{{ path('app_home') }}">🎵 PHP&nbsp;Music</a></div>
+                <div class="brand"><a href="{{ path('app_home') }}"><span class="brand-mark">♪</span> PHP&nbsp;Music</a></div>
                 <nav>
-                    <a href="{{ path('app_home') }}" class="{{ app.request.attributes.get('_route') == 'app_home' ? 'active' }}">Home</a>
-                    <a href="{{ path('app_library') }}" class="{{ app.request.attributes.get('_route') == 'app_library' ? 'active' }}">Library</a>
-                    <a href="{{ path('app_artists') }}" class="{{ app.request.attributes.get('_route') starts with 'app_artist' ? 'active' }}">Artists</a>
-                    <a href="{{ path('app_genres') }}" class="{{ app.request.attributes.get('_route') starts with 'app_genre' ? 'active' }}">Genres</a>
-                    <a href="{{ path('app_years') }}" class="{{ app.request.attributes.get('_route') starts with 'app_year' ? 'active' }}">Years</a>
-                    <a href="{{ path('app_discover') }}" class="{{ app.request.attributes.get('_route') starts with 'app_discover' or app.request.attributes.get('_route') == 'app_mix_show' ? 'active' }}">Discover</a>
+                    <a href="{{ path('app_home') }}" class="{{ route == 'app_home' ? 'active' }}">{{ icons.icon('home') }}<span>Home</span></a>
+                    <a href="{{ path('app_library') }}" class="{{ route == 'app_library' ? 'active' }}">{{ icons.icon('library') }}<span>Library</span></a>
+                    <a href="{{ path('app_artists') }}" class="{{ route starts with 'app_artist' ? 'active' }}">{{ icons.icon('artist') }}<span>Artists</span></a>
+                    <a href="{{ path('app_genres') }}" class="{{ route starts with 'app_genre' ? 'active' }}">{{ icons.icon('genre') }}<span>Genres</span></a>
+                    <a href="{{ path('app_years') }}" class="{{ route starts with 'app_year' ? 'active' }}">{{ icons.icon('year') }}<span>Years</span></a>
+                    <a href="{{ path('app_discover') }}" class="{{ route starts with 'app_discover' or route == 'app_mix_show' ? 'active' }}">{{ icons.icon('discover') }}<span>Discover</span></a>
                     {% if app.user %}
-                        <a href="{{ path('app_favorites') }}" class="{{ app.request.attributes.get('_route') == 'app_favorites' ? 'active' }}">Favorites</a>
-                        <a href="{{ path('app_listen_later') }}" class="{{ app.request.attributes.get('_route') starts with 'app_listen_later' ? 'active' }}">Listen Later</a>
-                        <a href="{{ path('app_offline') }}" class="{{ app.request.attributes.get('_route') starts with 'app_offline' ? 'active' }}">Offline</a>
-                        <a href="{{ path('app_playlists') }}" class="{{ app.request.attributes.get('_route') starts with 'app_playlist' ? 'active' }}">Playlists</a>
+                        <div class="nav-label">Your music</div>
+                        <a href="{{ path('app_favorites') }}" class="{{ route == 'app_favorites' ? 'active' }}">{{ icons.icon('heart') }}<span>Favorites</span></a>
+                        <a href="{{ path('app_listen_later') }}" class="{{ route starts with 'app_listen_later' ? 'active' }}">{{ icons.icon('clock') }}<span>Listen Later</span></a>
+                        <a href="{{ path('app_offline') }}" class="{{ route starts with 'app_offline' ? 'active' }}">{{ icons.icon('cloud') }}<span>Offline</span></a>
+                        <a href="{{ path('app_playlists') }}" class="{{ route starts with 'app_playlist' ? 'active' }}">{{ icons.icon('playlist') }}<span>Playlists</span></a>
                         {# The rhythm game is a standalone full-screen app: open it in its own
                            tab (target=_blank, which nav.js ignores) so the main tab keeps its
                            shell and the music playing. #}
-                        <a href="{{ path('app_rhythm') }}" target="_blank" rel="noopener" title="Open the Rhythm game in a new tab">🎮 Rhythm ↗</a>
-                        <a href="{{ path('app_upload') }}" class="{{ app.request.attributes.get('_route') starts with 'app_upload' ? 'active' }}">Upload</a>
+                        <a href="{{ path('app_rhythm') }}" target="_blank" rel="noopener" title="Open the Rhythm game in a new tab">{{ icons.icon('game') }}<span>Rhythm ↗</span></a>
+                        <a href="{{ path('app_upload') }}" class="{{ route starts with 'app_upload' ? 'active' }}">{{ icons.icon('upload') }}<span>Upload</span></a>
                     {% endif %}
                 </nav>
                 <div class="sidebar-footer">
                     {% if app.user %}
-                        <div class="me">{{ app.user.artist }}</div>
-                        <a href="{{ path('app_logout') }}" class="btn-link">Log out</a>
+                        <div class="me">
+                            <span class="avatar">{{ (app.user.artist ?? '?')|slice(0, 1)|upper }}</span>
+                            <span class="me-name">{{ app.user.artist }}</span>
+                        </div>
+                        <a href="{{ path('app_logout') }}" class="btn-link">{{ icons.icon('logout') }}<span>Log out</span></a>
                     {% else %}
                         <a href="{{ path('app_login') }}" class="btn-link">Log in</a>
                         <a href="{{ path('app_register') }}" class="btn-link">Sign up</a>
@@ -45,6 +51,17 @@
             </aside>
 
             <main class="content">
+                {# Global search, rendered inside <main> so nav.js partial swaps
+                   keep the field's value in sync with the current page. #}
+                <div class="topbar">
+                    <form class="global-search" role="search" method="get" action="{{ path('app_library') }}">
+                        {{ icons.icon('search') }}
+                        <input type="search" id="global-search" name="q"
+                               value="{{ route == 'app_library' ? app.request.query.get('q') }}"
+                               placeholder="Search songs, artists, albums, genres…" aria-label="Search the library" autocomplete="off">
+                        <kbd>/</kbd>
+                    </form>
+                </div>
                 {% for label, messages in app.flashes %}
                     {% for message in messages %}
                         <div class="flash flash-{{ label }}">{{ message }}</div>
@@ -103,6 +120,15 @@
         {% endblock %}
 
         <script>
+            // "/" focuses the global search from anywhere (except while typing).
+            document.addEventListener('keydown', (e) => {
+                if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+                const t = e.target;
+                if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+                const field = document.getElementById('global-search');
+                if (field) { e.preventDefault(); field.focus(); field.select(); }
+            });
+
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     navigator.serviceWorker.register('/sw.js').catch(() => {

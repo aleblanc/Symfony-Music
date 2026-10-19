@@ -219,6 +219,24 @@ class MusicRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
+    /**
+     * Most recently indexed tracks. Music has no creation timestamp, but ids
+     * are autoincremented as the scan/upload inserts rows, so the highest ids
+     * are the newest additions.
+     *
+     * @return Music[]
+     */
+    public function findRecentlyAdded(?User $viewer, int $limit): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->orderBy('m.id', 'DESC')
+            ->setMaxResults($limit);
+
+        $this->applyVisibility($qb, $viewer);
+
+        return $qb->getQuery()->getResult();
+    }
+
     public function countAll(?User $viewer): int
     {
         $qb = $this->createQueryBuilder('m')->select('COUNT(m.id)');

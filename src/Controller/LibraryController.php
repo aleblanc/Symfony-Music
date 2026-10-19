@@ -36,6 +36,7 @@ class LibraryController extends AbstractController
 
         return $this->render('library/home.html.twig', [
             'total' => $music->countAll($user),
+            'recentlyAdded' => $music->findRecentlyAdded($user, 12),
             'recent' => $recent,
             'topSongs' => $topSongs,
             'favoriteIds' => $this->favoriteIds($user),
