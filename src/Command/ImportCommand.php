@@ -112,6 +112,22 @@ class ImportCommand extends Command
                 break;
             }
 
+            // Broken symlinks, files not downloaded from iCloud…: reported and
+            // skipped, never fatal for the whole run.
+            $readable = [];
+            foreach ($files as $file) {
+                if (is_file($file) && is_readable($file) && @filesize($file) !== false) {
+                    $readable[] = $file;
+                } else {
+                    $io->writeln(\sprintf('  <error>!</error> %s — unreadable (broken link, or not downloaded from iCloud?), skipped', substr($file, \strlen($source) + 1)));
+                    ++$stats['failed'];
+                }
+            }
+            $files = $readable;
+            if ($files === []) {
+                continue;
+            }
+
             // Every file of the folder helps the album match; only those not
             // already tried (or changed since) — or, with --only, those with
             // the requested statuses — are targets.

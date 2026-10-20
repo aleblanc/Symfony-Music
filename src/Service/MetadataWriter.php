@@ -245,12 +245,20 @@ class MetadataWriter
 
         try {
             $info = $rebuilder->analyze($file);
+            // Stacked ID3v2 tags hide the audio from getID3: merged into one below.
+            $stacked = $rebuilder->stackedTags($file);
             // The low-level writer would happily prepend a tag to anything.
-            if (($info['audio']['dataformat'] ?? null) !== 'mp3') {
-                throw new \RuntimeException('not an MP3 audio stream');
+            if ($stacked === null && ($info['audio']['dataformat'] ?? null) !== 'mp3') {
+                $error = \is_array($info['error'] ?? null) ? (string) reset($info['error']) : '';
+                throw new \RuntimeException(\sprintf(
+                    'not an MP3 audio stream (getID3 sees: file format %s, audio %s%s)',
+                    $info['fileformat'] ?? 'unknown',
+                    $info['audio']['dataformat'] ?? 'unknown',
+                    $error !== '' ? ', error: ' . $error : '',
+                ));
             }
-            $major = $rebuilder->majorVersion($info);
-            $frames = $rebuilder->frames($info);
+            $major = $stacked['major'] ?? $rebuilder->majorVersion($info);
+            $frames = $stacked['frames'] ?? $rebuilder->frames($info);
             $changed = [];
             $set = static function (string $id, ?string $value) use (&$frames, &$changed, $rebuilder, $major): void {
                 $changed[] = $id;
@@ -333,7 +341,7 @@ class MetadataWriter
                 'comment' => $current('comment'),
             ];
 
-            $rebuilder->write($file, $info, $frames, array_values(array_unique($changed)), $id3v1);
+            $rebuilder->write($file, $info, $frames, array_values(array_unique($changed)), $id3v1, $stacked);
         } catch (\RuntimeException $e) {
             $this->lastError = $e->getMessage();
 
@@ -361,7 +369,11 @@ class MetadataWriter
             default => 'ISO-8859-1',
         };
 
-        return $from === 'UTF-8' ? $raw : (string) @iconv($from, 'UTF-8//IGNORE', $raw);
+        if ($from === 'UTF-8') {
+            return mb_check_encoding($raw, 'UTF-8') ? $raw : (string) mb_convert_encoding($raw, 'UTF-8', 'ISO-8859-1');
+        }
+
+        return (string) mb_convert_encoding($raw, 'UTF-8', $from);
     }
 
     /**

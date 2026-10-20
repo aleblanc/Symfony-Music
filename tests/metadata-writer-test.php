@@ -257,6 +257,44 @@ try {
         @unlink($fake);
     }
 
+    // 10) Two ID3v2 tags stacked (Muse, Shaka Ponk: an ID3v2.3 tag, then an ID3v2.4 tag,
+    //     then the MPEG audio). getID3 reads the first and expects audio right after.
+    $tag = static function (int $major, string $frames): string {
+        $size = strlen($frames);
+        $syncsafe = chr(($size >> 21) & 0x7F) . chr(($size >> 14) & 0x7F) . chr(($size >> 7) & 0x7F) . chr($size & 0x7F);
+
+        return 'ID3' . chr($major) . "\x00\x00" . $syncsafe . $frames;
+    };
+    // v2.3 frame sizes are plain big-endian, v2.4 ones syncsafe (identical below 128 bytes).
+    $f23 = static fn(string $id, string $data): string => $id . pack('N', strlen($data)) . "\x00\x00" . $data;
+    $first = $tag(3, $f23('TIT2', "\x00Uprising") . $f23('TYER', "\x002009") . $f23('PRIV', "WM/MediaClassPrimaryID\x00\x01\x02"));
+    // The second tag carries a big cover (here 200 KB): the audio starts beyond the
+    // window getID3 scans for MPEG sync after the first tag.
+    $f24 = static function (string $id, string $data): string {
+        $n = strlen($data);
+
+        return $id . chr(($n >> 21) & 0x7F) . chr(($n >> 14) & 0x7F) . chr(($n >> 7) & 0x7F) . chr($n & 0x7F) . "\x00\x00" . $data;
+    };
+    $bigCover = $jpeg . str_repeat("\x00", 200000);
+    // TCOM claims UTF-8 but holds ISO-8859-1 ("Caf\xE9"): seen in Muse's second tag.
+    $second = $tag(4, $f24('TALB', "\x03The Resistance") . $f24('TPE1', "\x03Muse") . $f24('TIT2', "\x03Uprising (v2.4 copy)") . $f24('TCOM', "\x03Caf\xE9 Bellamy") . $f24('APIC', "\x00image/jpeg\x00\x03\x00" . $bigCover));
+    $stacked = sys_get_temp_dir() . '/mw-stacked-' . bin2hex(random_bytes(4)) . '.mp3';
+    file_put_contents($stacked, $first . $second . str_repeat("\xFF\xFB\x90\x64" . str_repeat("\x00", 413), 200));
+    try {
+        $before = readTags($stacked);
+        check('stacked tags: getID3 cannot find the audio before the fix (fixture is realistic)', ($before['audio']['dataformat'] ?? null) !== 'mp3');
+        $ok = $writer->writeTags($stacked, ['title' => 'Uprising', 'trackNumber' => 1, 'trackTotal' => 11]);
+        $info = readTags($stacked);
+        check('stacked tags: write succeeds', $ok, (string) $writer->lastError());
+        check('stacked tags: a single tag remains, the MPEG audio is found again', ($info['audio']['dataformat'] ?? null) === 'mp3' && substr_count((string) file_get_contents($stacked, false, null, 0, 4096), 'ID3') === 1);
+        check('stacked tags: frames of both tags merged (first wins, second completes)', ($info['comments']['title'][0] ?? '') === 'Uprising' && ($info['comments']['album'][0] ?? '') === 'The Resistance' && ($info['comments']['artist'][0] ?? '') === 'Muse' && count($info['id3v2']['PRIV'] ?? []) === 1, json_encode([$info['comments']['title'] ?? null, $info['comments']['album'] ?? null]));
+        check('stacked tags: text claiming UTF-8 but in ISO-8859-1 kept (as "Café")', ($info['comments']['composer'][0] ?? '') === 'Café Bellamy', json_encode($info['comments']['composer'] ?? null));
+        check('stacked tags: the big cover of the second tag is kept', strlen((string) ($info['id3v2']['APIC'][0]['data'] ?? '')) === strlen($bigCover));
+        check('stacked tags: new values written', ($info['tags']['id3v2']['track_number'][0] ?? '') === '1');
+    } finally {
+        @unlink($stacked);
+    }
+
     check('missing file → false', $writer->writeTags($file . '.nope', ['title' => 'x']) === false);
 } finally {
     @unlink($file);
