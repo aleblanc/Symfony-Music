@@ -37,7 +37,8 @@ class CoverArtClient
             $response = $this->httpClient->request('GET', self::BASE_URL . $path, [
                 'headers' => ['User-Agent' => $this->musicbrainzUserAgent],
                 'max_redirects' => 5,
-                'timeout' => 30,
+                'timeout' => MusicBrainzClient::IDLE_TIMEOUT,
+                'max_duration' => MusicBrainzClient::MAX_DURATION,
             ]);
             if ($response->getStatusCode() !== 200) {
                 return null;

@@ -72,18 +72,26 @@ Dev: `phpstan/phpstan-doctrine`, `phpstan/phpstan-symfony`,
 - `public/vendor/` — **Bootstrap** + **Bootstrap Icons** (rhythm game UI) and
   **Essentia.js** (WASM audio analysis for rhythm charts, runs in the browser).
 
-### External tools (optional, per feature)
+### External tools
+
+**Required**
+
+| Tool | macOS | Debian/Ubuntu | Needed for |
+|---|---|---|---|
+| `AtomicParsley` | `brew install atomicparsley` | `apt install atomicparsley` | writing tags into **M4A** files (getID3 cannot): editor, `app:enrich`, import |
+
+**Optional, per feature**
 
 | Tool | macOS | Debian/Ubuntu | Needed for |
 |---|---|---|---|
 | `fpcalc` (Chromaprint) | `brew install chromaprint` | `apt install libchromaprint-tools` | audio fingerprinting in `app:enrich` (identifies files with no usable name) |
 | `metaflac` | `brew install flac` | `apt install flac` | writing tags into **FLAC** files (getID3 shells out to it) |
 | `vorbiscomment` | `brew install vorbis-tools` | `apt install vorbis-tools` | writing tags into **Ogg Vorbis** files |
-| `AtomicParsley` | `brew install atomicparsley` | `apt install atomicparsley` | writing tags into **M4A** files (getID3 cannot) |
 
 MP3 tags are written in pure PHP. M4A tags (cover and MusicBrainz ids
 included, as Picard's `----:com.apple.iTunes` atoms) are written by
-AtomicParsley; without it, only the database is updated for those files.
+AtomicParsley; if it is missing, M4A files are not tagged (only the database
+is updated, and the import files them untagged).
 
 ### External services
 
@@ -255,7 +263,7 @@ path given by `LibraryPath`:
 |---|---|
 | album track | `Album Artist/Album (Year)/07 Title.ext` |
 | multi-disc album | `Album Artist/Album (Year)/2-07 Title.ext` |
-| various-artists release | `Compilations/Album (Year)/07 Artist - Title.ext` |
+| various-artists release | `Artist/Album (Year)/07 Title.ext` (the track's own artist) |
 | no album known | `Artist/Singles/Title.ext` |
 
 Names are sanitised for any file system (no `/ \ : * ? " < > |`, no leading
@@ -264,7 +272,7 @@ dot, NFC, ≤ 120 bytes per part). An existing file is never overwritten
 ignored) is a duplicate and goes to `IMPORT_DIR/_duplicates/`. `cover.jpg` is
 added next to the album when missing, and the import folders left empty are
 removed. Moving works across disks (copy + delete when `rename()` fails).
-MP3, FLAC, Ogg and M4A (with AtomicParsley) are tagged; WAV is only filed.
+MP3, FLAC, Ogg and M4A are tagged; WAV is only filed.
 
 ### Pending files in the database (`import_item`)
 
@@ -383,9 +391,10 @@ Follow-ups: PHPUnit coverage for `MusicScanner` + controllers; consider
 
 - [x] **`app:import`**: identifies the files of `IMPORT_DIR`, writes tags +
   cover + MusicBrainz ids, files them into `MUSIC_DIR/Artist/Album (Year)/NN
-  Title` (singles and compilations apart, file names sanitised). Unidentified
-  files stay in the import folder; `import_item` remembers attempts (retried
-  when the file changes or with `--retry`) and stores the candidates;
+  Title` (singles apart, compilations under each track's artist, file
+  names sanitised). Unidentified files stay in the import folder;
+  `import_item` remembers attempts (retried when the file changes or with
+  `--retry`) and stores the candidates;
   duplicates (same audio already filed) go to `IMPORT_DIR/_duplicates`.
 - [ ] **Web page for the files left in the import folder**: list each
   unidentified file with its candidates (title, artist, album, year, cover,
@@ -399,5 +408,8 @@ Follow-ups: PHPUnit coverage for `MusicScanner` + controllers; consider
 - [ ] **Spotify "step 0"**: release MusicBrainz id → its `open.spotify.com/album`
   URL relation → album tracks, matched on title + duration (no artist-name
   search).
+- [ ] **Latin artist names**: MusicBrainz credits some artists in their own
+  script ("植松伸夫" for Nobuo Uematsu); when the file names are in Latin
+  script, prefer the artist's Latin alias / sort name for tags and folders.
 - [ ] `composer update "symfony/*"` for the 3 advisories reported by
   `composer audit` (expression-language, http-foundation, yaml).

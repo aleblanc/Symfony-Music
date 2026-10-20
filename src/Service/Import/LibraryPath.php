@@ -9,7 +9,7 @@ use App\Service\Enrichment\HintExtractor;
  *
  *   Album Artist/Album (Year)/NN Title.ext          album track
  *   Album Artist/Album (Year)/D-NN Title.ext        multi-disc album
- *   Compilations/Album (Year)/NN Artist - Title.ext various-artists release
+ *   Artist/Album (Year)/NN Title.ext                various-artists release (track artist)
  *   Artist/Singles/Title.ext                        no album known
  *
  * Every part is made safe for any file system: no "/" or reserved
@@ -49,10 +49,9 @@ class LibraryPath
             }
         }
 
-        $name = $prefix . ($compilation ? $artist . ' - ' : '') . $title;
-
-        return ($compilation ? 'Compilations' : $this->component($albumArtist)) . '/' . $this->component($album) . '/'
-            . $this->fit($this->component($this->part($name, 'Untitled')), '.' . $ext);
+        // A various-artists release is filed under each track's own artist.
+        return $this->component($compilation ? $artist : $albumArtist) . '/' . $this->component($album) . '/'
+            . $this->fit($this->component($this->part($prefix . $title, 'Untitled')), '.' . $ext);
     }
 
     /** A whole file/folder name never starts with a dot (hidden file, "."/".."). */

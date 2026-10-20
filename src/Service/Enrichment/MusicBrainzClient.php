@@ -7,6 +7,7 @@ namespace App\Service\Enrichment;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
@@ -24,6 +25,10 @@ class MusicBrainzClient
     private const MIN_INTERVAL = 1.05;
     private const MAX_ATTEMPTS = 6;
     private const MAX_BACKOFF = 30;
+    /** Seconds without data before a request is abandoned (and retried). */
+    public const IDLE_TIMEOUT = 20;
+    /** Hard cap per request: a laptop going to sleep once left one hanging 17 minutes. */
+    public const MAX_DURATION = 60;
     private const CACHE_TTL = 30 * 86400;
 
     private float $lastRequestAt = 0.0;
@@ -138,10 +143,21 @@ class MusicBrainzClient
     {
         for ($attempt = 1; ; ++$attempt) {
             $this->throttle();
-            $response = $this->httpClient->request('GET', $url, [
-                'headers' => ['User-Agent' => $this->musicbrainzUserAgent, 'Accept' => 'application/json'],
-            ]);
-            $status = $response->getStatusCode();
+            try {
+                $response = $this->httpClient->request('GET', $url, [
+                    'headers' => ['User-Agent' => $this->musicbrainzUserAgent, 'Accept' => 'application/json'],
+                    'timeout' => self::IDLE_TIMEOUT,
+                    'max_duration' => self::MAX_DURATION,
+                ]);
+                $status = $response->getStatusCode();
+            } catch (TransportExceptionInterface $e) {
+                // Timeout, DNS, connection reset: transient more often than not.
+                if ($attempt < self::MAX_ATTEMPTS) {
+                    $this->clock->sleep(min(self::MAX_BACKOFF, 2 ** $attempt));
+                    continue;
+                }
+                throw new EnrichmentException(\sprintf('MusicBrainz unreachable (%s) for %s', $e->getMessage(), $url), 0, $e);
+            }
 
             if ($status === 404) {
                 return [];
@@ -157,7 +173,15 @@ class MusicBrainzClient
                 throw new EnrichmentException(\sprintf('MusicBrainz returned HTTP %d for %s', $status, $url));
             }
 
-            return $response->toArray();
+            try {
+                return $response->toArray();
+            } catch (TransportExceptionInterface $e) {
+                if ($attempt < self::MAX_ATTEMPTS) {
+                    $this->clock->sleep(min(self::MAX_BACKOFF, 2 ** $attempt));
+                    continue;
+                }
+                throw new EnrichmentException(\sprintf('MusicBrainz unreachable (%s) for %s', $e->getMessage(), $url), 0, $e);
+            }
         }
     }
 

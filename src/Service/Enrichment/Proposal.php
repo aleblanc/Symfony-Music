@@ -28,6 +28,14 @@ final readonly class Proposal
         public ?string $releaseGroupId = null,
     ) {}
 
+    /**
+     * @param array<string, float> $breakdown merged into the current one
+     */
+    public function withScore(float $score, array $breakdown = []): self
+    {
+        return new self($this->musicId, $this->fields, round($score, 3), $this->source, $this->releaseId, $this->recordingId, $breakdown + $this->breakdown, $this->cover, $this->releaseGroupId);
+    }
+
     public function withCover(?string $cover): self
     {
         return new self($this->musicId, $this->fields, $this->score, $this->source, $this->releaseId, $this->recordingId, $this->breakdown, $cover, $this->releaseGroupId);

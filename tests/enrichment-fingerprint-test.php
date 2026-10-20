@@ -23,6 +23,7 @@ use App\Service\Enrichment\HintExtractor;
 use App\Service\Enrichment\MatchScorer;
 use App\Service\Enrichment\MetadataEnricher;
 use App\Service\Enrichment\MusicBrainzClient;
+use App\Service\Enrichment\Proposal;
 use App\Service\Enrichment\RecordingMatch;
 use App\Service\Enrichment\ReleaseCandidate;
 use App\Service\Enrichment\ReleaseSummary;
@@ -85,8 +86,15 @@ final class FpAcoustId extends AcoustIdClient
         parent::__construct(new MockHttpClient(), new MockClock(), 'KEY');
     }
 
+    /** @var list<string> fingerprints whose lookup fails like a network timeout */
+    public array $failing = [];
+
     public function lookup(Fingerprint $fingerprint): array
     {
+        if (in_array($fingerprint->fingerprint, $this->failing, true)) {
+            throw new Symfony\Component\HttpClient\Exception\TransportException('Idle timeout reached for "https://api.acoustid.org/v2/lookup".');
+        }
+
         return $this->byFingerprint[$fingerprint->fingerprint] ?? [];
     }
 }
@@ -357,6 +365,53 @@ $all = $en->identifyFolder($folder('OK Computer'), $logger);
 $releases = array_values(array_unique(array_map(static fn($c) => $c->releaseId, $all[1] ?? [])));
 sort($releases);
 check('8c: tied albums are both offered as candidates', $releases === ['rel-okc', 'rel-twin'], json_encode($releases));
+
+// ---- 9. Night run on the library ------------------------------------------------
+// One AcoustID timeout must not cost the whole folder ("La mécanique du cœur": 7 × no match).
+$acoust = new FpAcoustId($acoustFor('rec'));
+$acoust->failing = ['fp:Track 2.mp3'];
+$en = new MetadataEnricher(new HintExtractor(), new MatchScorer(), new FpMusicBrainz([$okcSummary], ['rel-okc' => $okc]), $acoust, new FpFingerprinter(), new NoCovers(), '/music');
+$p = $byId($en->enrichFolder($folder('Radiohead/OK Computer'), $logger));
+check('9a: one fingerprint timeout costs only that file, the folder is still identified', count($p) === 4 && ($p[1]->releaseId ?? '') === 'rel-okc', json_encode(array_map(static fn($x) => [$x->releaseId, $x->score], $p)));
+
+// The folder's album is weak, but each file's fingerprint includes the recording the
+// album gives it: the album is confirmed (was: a compilation recording listed first won).
+$drift = [290, 389, 273, 270];
+$weakFolder = [];
+$acoust = [];
+$recordings = [];
+$compilationTracks = [];
+foreach ([1, 2, 3, 4] as $n) {
+    $weakFolder[] = new EnrichmentTrack($n, "/music/dump/Track {$n}.mp3", "Track {$n}", 'Unknown Artist', 'Unknown Album', '', $drift[$n - 1], null, true, true);
+    $acoust["fp:Track {$n}.mp3"] = [
+        new RecordingMatch("comp-{$n}", "Song {$n}", 'Radiohead', $drift[$n - 1], 0.97, []),
+        new RecordingMatch("rec-{$n}", "Song {$n}", 'Radiohead', $drift[$n - 1], 0.96, []),
+    ];
+    $recordings["comp-{$n}"] = new RecordingMatch("comp-{$n}", "Song {$n}", 'Radiohead', $drift[$n - 1], 1.0, [new ReleaseSummary('rel-comp', 'R&B Divas', 'Various Artists', '2006', 'Official', 'Album', ['Compilation'], 20)]);
+    $compilationTracks[] = new ReleaseTrack(1, $n + 4, "Song {$n}", 'Radiohead', $drift[$n - 1], "comp-{$n}");
+}
+$comp = new ReleaseCandidate('rel-comp', 'R&B Divas', 'Various Artists', 2006, null, 'rg-comp', $compilationTracks, true, 'Official', ['Compilation']);
+$en = new MetadataEnricher(new HintExtractor(), new MatchScorer(), new FpMusicBrainz([$okcSummary], ['rel-okc' => $okc, 'rel-comp' => $comp], $recordings), new FpAcoustId($acoust), new FpFingerprinter(), new NoCovers(), '/music');
+$p = $byId($en->enrichFolder($weakFolder, $logger));
+check('9b: album confirmed by each fingerprint wins over a compilation recording', count($p) === 4 && ($p[1]->releaseId ?? '') === 'rel-okc' && ($p[4]->releaseId ?? '') === 'rel-okc', json_encode(array_map(static fn($x) => [$x->releaseId, $x->score], $p)));
+check('9b: confirmed album is confident', min(array_map(static fn($x) => $x->score, $p ?: [new Proposal(0, [], 0, 'x', null, null)])) >= 0.85, json_encode(array_map(static fn($x) => $x->score, $p)));
+
+// "The Passenger": a 1990 release of the artist ranks above "Lust for Life" (1977)
+// by a hair on the fingerprint score — the original (oldest) album must win.
+$late = new ReleaseSummary('rel-late', "Livin' on the Edge of the Night", 'Iggy Pop', '1990-01-01', 'Official', 'Album', [], 12);
+$orig = new ReleaseSummary('rel-lust', 'Lust for Life', 'Iggy Pop', '1977-08-29', 'Official', 'Album', [], 9);
+$en = new MetadataEnricher(new HintExtractor(), new MatchScorer(), new FpMusicBrainz([], [
+    'rel-late' => new ReleaseCandidate('rel-late', "Livin' on the Edge of the Night", 'Iggy Pop', 1990, null, 'rg-late', [new ReleaseTrack(1, 2, 'The Passenger', 'Iggy Pop', 284, 'pass-late')], false, 'Official'),
+    'rel-lust' => new ReleaseCandidate('rel-lust', 'Lust for Life', 'Iggy Pop', 1977, null, 'rg-lust', [new ReleaseTrack(1, 5, 'The Passenger', 'Iggy Pop', 284, 'pass-orig')], false, 'Official'),
+], [
+    'pass-late' => new RecordingMatch('pass-late', 'The Passenger', 'Iggy Pop', 284, 1.0, [$late]),
+    'pass-orig' => new RecordingMatch('pass-orig', 'The Passenger', 'Iggy Pop', 284, 1.0, [$orig]),
+]), new FpAcoustId(['fp:Iggy Pop - The Passenger.mp3' => [
+    new RecordingMatch('pass-late', 'The Passenger', 'Iggy Pop', 284, 0.98, []),
+    new RecordingMatch('pass-orig', 'The Passenger', 'Iggy Pop', 284, 0.94, []),
+]]), new FpFingerprinter(), new NoCovers(), '/music');
+$p = $en->enrichFolder([$single(90, 'Iggy Pop/Album inconnu/Iggy Pop - The Passenger.mp3', 284)], $logger)[0] ?? null;
+check('9c: original (oldest) album wins a near tie on the fingerprint score', $p?->releaseId === 'rel-lust', (string) $p?->releaseId);
 
 echo $failures === 0 ? "\nAll fingerprint tests passed.\n" : "\n{$failures} failure(s).\n";
 exit($failures === 0 ? 0 : 1);

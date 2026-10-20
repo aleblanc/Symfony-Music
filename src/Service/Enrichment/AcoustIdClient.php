@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Service\Enrichment;
 
 use Symfony\Component\Clock\ClockInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
@@ -17,6 +18,7 @@ class AcoustIdClient
 {
     private const URL = 'https://api.acoustid.org/v2/lookup';
     private const MIN_INTERVAL = 0.34;
+    private const MAX_ATTEMPTS = 3;
 
     private float $lastRequestAt = 0.0;
 
@@ -40,21 +42,40 @@ class AcoustIdClient
             return [];
         }
 
-        $this->throttle();
-        // POST: fingerprints are several KB, too long for a query string.
-        $response = $this->httpClient->request('POST', self::URL, [
-            'body' => [
-                'client' => $this->acoustidApiKey,
-                'format' => 'json',
-                'meta' => 'recordings releases',
-                'duration' => (string) $fingerprint->duration,
-                'fingerprint' => $fingerprint->fingerprint,
-            ],
-        ]);
-        if ($response->getStatusCode() !== 200) {
-            throw new EnrichmentException(\sprintf('AcoustID returned HTTP %d', $response->getStatusCode()));
+        for ($attempt = 1; ; ++$attempt) {
+            $this->throttle();
+            try {
+                // POST: fingerprints are several KB, too long for a query string.
+                $response = $this->httpClient->request('POST', self::URL, [
+                    'body' => [
+                        'client' => $this->acoustidApiKey,
+                        'format' => 'json',
+                        'meta' => 'recordings releases',
+                        'duration' => (string) $fingerprint->duration,
+                        'fingerprint' => $fingerprint->fingerprint,
+                    ],
+                    'timeout' => MusicBrainzClient::IDLE_TIMEOUT,
+                    'max_duration' => MusicBrainzClient::MAX_DURATION,
+                ]);
+                $status = $response->getStatusCode();
+                $data = $status === 200 ? $response->toArray(false) : [];
+            } catch (TransportExceptionInterface $e) {
+                // Timeouts are transient (laptop asleep, flaky Wi-Fi): retry.
+                if ($attempt < self::MAX_ATTEMPTS) {
+                    $this->clock->sleep(2 ** $attempt);
+                    continue;
+                }
+                throw new EnrichmentException('AcoustID unreachable: ' . $e->getMessage(), 0, $e);
+            }
+            if (($status === 503 || $status === 429) && $attempt < self::MAX_ATTEMPTS) {
+                $this->clock->sleep(2 ** $attempt);
+                continue;
+            }
+            if ($status !== 200) {
+                throw new EnrichmentException(\sprintf('AcoustID returned HTTP %d', $status));
+            }
+            break;
         }
-        $data = $response->toArray(false);
         if (($data['status'] ?? '') !== 'ok') {
             throw new EnrichmentException('AcoustID error: ' . ($data['error']['message'] ?? 'unknown'));
         }

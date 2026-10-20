@@ -3,7 +3,7 @@
 /*
  * Standalone test for Import\LibraryPath: where an identified file goes in
  * MUSIC_DIR — Album Artist/Album (Year)/NN Title.ext, singles and
- * compilations apart, multi-disc numbering, unsafe characters removed.
+ * compilations under the track artist, multi-disc numbering, unsafe characters removed.
  *
  * Run:  php tests/import-path-test.php   (exit 0 = pass)
  */
@@ -39,7 +39,7 @@ $disc = ['discNumber' => 2, 'discTotal' => 2, 'trackNumber' => 5] + $album;
 check('multi-disc → D-NN prefix', $p->relativePath($disc, 'mp3') === 'Radiohead/OK Computer (1997)/2-05 Paranoid Android.mp3', $p->relativePath($disc, 'mp3'));
 
 $comp = ['albumArtist' => 'Various Artists', 'artist' => 'Van Morrison', 'title' => 'Brown Eyed Girl', 'album' => 'NOW Movies', 'year' => 2013, 'trackNumber' => 19, 'trackTotal' => 20] + $album;
-check('compilation → Compilations/, artist in the file name', $p->relativePath($comp, 'mp3') === 'Compilations/NOW Movies (2013)/19 Van Morrison - Brown Eyed Girl.mp3', $p->relativePath($comp, 'mp3'));
+check('compilation → track artist folder', $p->relativePath($comp, 'mp3') === 'Van Morrison/NOW Movies (2013)/19 Brown Eyed Girl.mp3', $p->relativePath($comp, 'mp3'));
 
 $single = ['title' => 'Snake Oil', 'artist' => 'Foals'];
 check('no album → Artist/Singles/Title', $p->relativePath($single, 'mp3') === 'Foals/Singles/Snake Oil.mp3', $p->relativePath($single, 'mp3'));

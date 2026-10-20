@@ -31,7 +31,9 @@ class MetadataEnricher
     /** Below this, the album pass is ignored and files fall back to the orphan pass. */
     private const ALBUM_FLOOR = 0.5;
     /** AcoustID recordings looked up on MusicBrainz to choose among (album take vs remix/demo). */
-    private const FINGERPRINT_CHOICES = 4;
+    private const FINGERPRINT_CHOICES = 6;
+    /** Fingerprint scores this close are a tie, settled by the release (AcoustID scores are noisy). */
+    private const FINGERPRINT_TIE = 0.05;
     /** Upper bound of files fingerprinted per folder (catch-all folders). */
     private const MAX_FINGERPRINTS = 60;
     /** AcoustID recordings kept per file (remasters/editions share a fingerprint). */
@@ -195,6 +197,17 @@ class MetadataEnricher
 
         foreach ($targets as $id) {
             $album = $candidates[$id][0] ?? null;
+            // The file's own fingerprint includes the recording the album gives
+            // it: the album is confirmed, with the fingerprint's confidence
+            // (otherwise another recording of the song — on a compilation, a
+            // promo — could win alone). Albums held back for a close rival stay so.
+            $confirmation = $album !== null && !isset($album->breakdown['capped'])
+                ? $this->fingerprintConfirmation($album, $acoustMatches[$id] ?? [])
+                : null;
+            if ($album !== null && $confirmation !== null) {
+                $candidates[$id][0] = $album->withScore(max($album->score, $confirmation), ['fingerprint_confirms' => round($confirmation, 3)]);
+                continue;
+            }
             // A weak album guess is challenged by per-file identification for
             // files that carry a title or a fingerprint result (mixed folders,
             // home-made best-ofs, "Piste audio 07").
@@ -231,6 +244,26 @@ class MetadataEnricher
         }
 
         return $result;
+    }
+
+    /**
+     * AcoustID score of the album track's recording among the file's
+     * fingerprint matches, null when the fingerprint doesn't include it.
+     *
+     * @param list<RecordingMatch> $matches
+     */
+    private function fingerprintConfirmation(Proposal $album, array $matches): ?float
+    {
+        if ($album->recordingId === null) {
+            return null;
+        }
+        foreach (\array_slice($matches, 0, self::ACOUSTID_RECORDINGS) as $match) {
+            if ($match->id === $album->recordingId) {
+                return $match->score;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -286,7 +319,9 @@ class MetadataEnricher
         }
         try {
             $matches = $this->acoustId->lookup($this->fingerprinter->fingerprint($track->file));
-        } catch (EnrichmentException) {
+        } catch (EnrichmentException|HttpException) {
+            // A failed lookup (timeout, unreadable file) costs this file's
+            // fingerprint only: names and the rest of the folder still count.
             return [];
         }
 
@@ -427,16 +462,27 @@ class MetadataEnricher
         $size = \count($tracks);
         /** @var array<string, float> $weights */
         $weights = [];
-        $add = static function (string $id, float $weight) use (&$weights): void {
-            if ($id !== '') {
-                $weights[$id] = ($weights[$id] ?? 0.0) + $weight;
+        // Country editions of one album (same title, artist, track count) score
+        // identically: one stands for all, so lookups go to genuinely different
+        // editions (the 16-track one with a bonus track was crowded out by four
+        // identical 15-track ones).
+        /** @var array<string, string> $editions edition key => representative release id */
+        $editions = [];
+        $add = static function (ReleaseSummary $release, float $weight) use (&$weights, &$editions): void {
+            if ($release->id === '') {
+                return;
             }
+            $key = $release->trackCount > 0 && $release->title !== ''
+                ? mb_strtolower($release->title . "\0" . $release->artist . "\0" . $release->trackCount)
+                : $release->id;
+            $id = $editions[$key] ??= $release->id;
+            $weights[$id] = ($weights[$id] ?? 0.0) + $weight;
         };
 
         foreach ($acoustMatches as $matches) {
             foreach (\array_slice($matches, 0, 3) as $match) {
                 foreach ($this->rankReleases($match->releases, $size, null) as $release) {
-                    $add($release->id, 3.0 * $match->score);
+                    $add($release, 3.0 * $match->score);
                 }
             }
         }
@@ -448,8 +494,8 @@ class MetadataEnricher
             }
         }
         foreach (\array_slice(array_values($pairs), 0, 3) as [$artist, $album]) {
-            foreach (\array_slice($this->rankReleases($this->musicBrainz->searchReleases($artist, $album, self::RELEASE_SEARCH_LIMIT), $size, $album), 0, 3) as $release) {
-                $add($release->id, 2.0 * $release->score);
+            foreach (\array_slice($this->distinctEditions($this->rankReleases($this->musicBrainz->searchReleases($artist, $album, self::RELEASE_SEARCH_LIMIT), $size, $album)), 0, 4) as $release) {
+                $add($release, 2.0 * $release->score);
             }
         }
 
@@ -462,8 +508,8 @@ class MetadataEnricher
                 static fn(RecordingMatch $r): bool => !$r->isVariantOf($title),
             );
             foreach (\array_slice($recordings, 0, 2) as $recording) {
-                foreach (\array_slice($this->rankReleases($recording->releases, $size, null, $recording->artist), 0, 3) as $release) {
-                    $add($release->id, $recording->score);
+                foreach (\array_slice($this->distinctEditions($this->rankReleases($recording->releases, $size, null, $recording->artist)), 0, 3) as $release) {
+                    $add($release, $recording->score);
                 }
             }
         }
@@ -472,6 +518,31 @@ class MetadataEnricher
         uksort($weights, static fn(string $a, string $b): int => [$weights[$b], $a] <=> [$weights[$a], $b]);
 
         return array_keys($weights);
+    }
+
+    /**
+     * Keeps the first of each group of equivalent editions (same title,
+     * artist and track count), preserving the order.
+     *
+     * @param list<ReleaseSummary> $releases
+     *
+     * @return list<ReleaseSummary>
+     */
+    private function distinctEditions(array $releases): array
+    {
+        $seen = [];
+        $out = [];
+        foreach ($releases as $release) {
+            $key = $release->trackCount > 0 && $release->title !== ''
+                ? mb_strtolower($release->title . "\0" . $release->artist . "\0" . $release->trackCount)
+                : $release->id;
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $out[] = $release;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -496,8 +567,12 @@ class MetadataEnricher
     private function releaseRank(ReleaseSummary $r, int $fileCount, ?string $albumHint, ?string $artist = null): float
     {
         $value = (float) $r->preferenceRank();
+        // A release with fewer tracks than the folder cannot hold it; one with
+        // more is normal (partial album, bonus tracks): barely penalised.
         if ($r->trackCount > 0) {
-            $value -= min(4, abs($r->trackCount - $fileCount) / 3);
+            $value -= $r->trackCount < $fileCount
+                ? min(4, ($fileCount - $r->trackCount) / 2)
+                : min(1, ($r->trackCount - $fileCount) / 15);
         }
         // The artist's own record beats various-artists demo CDs and samplers.
         if ($artist !== null && $artist !== '' && $r->artist !== '' && $this->scorer->similarity($r->artist, $artist) >= 0.85) {
@@ -512,6 +587,12 @@ class MetadataEnricher
                 $value += 4;
                 break;
             }
+        }
+        // Single track: older first, the original album predates compilations
+        // and reissues (1977 → +2.65, 1990 → +2, 2020 → +0.5). Not for a
+        // folder: there the edition whose tracklist matches must win.
+        if ($fileCount === 1 && $r->date !== null && preg_match('/^(\d{4})/', $r->date, $m) === 1) {
+            $value += max(0, 2030 - (int) $m[1]) / 20;
         }
 
         return $value;
@@ -677,14 +758,15 @@ class MetadataEnricher
             $evaluated[] = [$recording, round($score, 3), $breakdown, $quality, $titleSim ?? 0.0];
         }
 
-        // Highest score; recordings within 0.03 are ties, settled by the album
-        // they appear on (the artist's own album beats a promo or a compilation).
+        // Highest score; recordings within FINGERPRINT_TIE are ties, settled by
+        // the album they appear on (the artist's own, original album beats a
+        // promo, a compilation or a later reissue).
         usort($evaluated, static fn(array $a, array $b): int => $b[1] <=> $a[1]);
         $best = null;
         foreach ($evaluated as $candidate) {
             if ($best === null) {
                 $best = $candidate;
-            } elseif ($best[1] - $candidate[1] <= 0.03 && [$candidate[3], $candidate[4]] > [$best[3], $best[4]]) {
+            } elseif ($best[1] - $candidate[1] <= self::FINGERPRINT_TIE && [$candidate[3], $candidate[4]] > [$best[3], $best[4]]) {
                 $best = $candidate;
             }
         }

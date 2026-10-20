@@ -121,6 +121,31 @@ check('acoustid release ids', ($matches[0]->releaseIds() ?? []) === ['rel-1']);
 check('acoustid duration rounded', $matches[0]->duration === 117);
 check('acoustid unconfigured → no call', (new AcoustIdClient($acoustHttp, new MockClock(), ''))->lookup(new Fingerprint('x', 1)) === []);
 
+// ---- Network errors (timeouts, laptop asleep) are retried, then reported ------------
+$calls = 0;
+$flaky = new MockHttpClient(static function (string $method, string $url, array $options) use (&$calls): MockResponse {
+    ++$calls;
+    check('requests carry a timeout', ($options['timeout'] ?? 0) > 0 && ($options['timeout'] ?? 0) <= 30 && ($options['max_duration'] ?? 0) > 0, json_encode([$options['timeout'] ?? null, $options['max_duration'] ?? null]));
+
+    return $calls === 1 ? new MockResponse('', ['error' => 'Idle timeout reached']) : new MockResponse(json_encode(['releases' => []]));
+});
+$mbFlaky = new MusicBrainzClient($flaky, new ArrayAdapter(), new MockClock(), 'UA');
+check('MusicBrainz: a timeout is retried', $mbFlaky->searchReleases('A', 'B') === [] && $calls === 2, (string) $calls);
+$dead = new MusicBrainzClient(new MockHttpClient(static fn(): MockResponse => new MockResponse('', ['error' => 'Connection timed out'])), new ArrayAdapter(), new MockClock(), 'UA');
+try {
+    $dead->searchReleases('A', 'C');
+    check('MusicBrainz: persistent network failure → EnrichmentException', false);
+} catch (App\Service\Enrichment\EnrichmentException $e) {
+    check('MusicBrainz: persistent network failure → EnrichmentException', str_contains($e->getMessage(), 'Connection timed out'), $e->getMessage());
+}
+$aCalls = 0;
+$acoustFlaky = new AcoustIdClient(new MockHttpClient(static function (string $method, string $url, array $options) use (&$aCalls): MockResponse {
+    ++$aCalls;
+
+    return $aCalls === 1 ? new MockResponse('', ['error' => 'Idle timeout reached']) : new MockResponse(json_encode(['status' => 'ok', 'results' => []]));
+}), new MockClock(), 'KEY');
+check('AcoustID: a timeout is retried', $acoustFlaky->lookup(new Fingerprint('x', 1)) === [] && $aCalls === 2, (string) $aCalls);
+
 // ---- Cover Art Archive ----------------------------------------------------
 $coverUrls = [];
 $coverHttp = new MockHttpClient(static function (string $method, string $url) use (&$coverUrls): MockResponse {
