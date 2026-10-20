@@ -58,7 +58,8 @@ class SpotifyMatchCommand extends Command implements SignalableCommandInterface
             ->addOption('write-tags', null, InputOption::VALUE_NONE, 'Also write the URL into the file (MP3 ID3v2 WOAF frame)')
             ->addOption('tags-only', null, InputOption::VALUE_NONE, 'No Spotify lookup: write tags for tracks already linked')
             ->addOption('min-score', null, InputOption::VALUE_REQUIRED, 'Minimum match confidence 0..1', (string) SpotifyMatcher::MIN_SCORE)
-            ->addOption('browser', null, InputOption::VALUE_NONE, 'Last resort for tracks still unmatched: Spotify\'s search page in headless Chromium (needs Node.js + Playwright)')
+            ->addOption('browser', null, InputOption::VALUE_NONE, 'Last resort for tracks still unmatched: Spotify\'s search page in headless Google Chrome (CHROME_PATH to point at another Chrome)')
+            ->addOption('browser-only', null, InputOption::VALUE_NONE, 'Skip the public sources: straight to the headless Chrome search (e.g. --retry --browser-only for the tracks not found before)')
             ->addOption('delay', null, InputOption::VALUE_REQUIRED, 'Pause between open.spotify.com page requests, in ms', '500');
     }
 
@@ -71,6 +72,12 @@ class SpotifyMatchCommand extends Command implements SignalableCommandInterface
         $minScore = (float) $input->getOption('min-score');
         $this->catalog->setEmbedDelay((int) $input->getOption('delay'));
         $limit = $input->getOption('limit') !== null ? max(1, (int) $input->getOption('limit')) : null;
+        $browserOnly = (bool) $input->getOption('browser-only');
+        if ($browserOnly && $tagsOnly) {
+            $io->error('--browser-only and --tags-only cannot be combined.');
+
+            return Command::FAILURE;
+        }
         if ($dryRun && !$output->isVerbose()) {
             // A dry run is for reviewing matches: always list them.
             $output->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
@@ -92,7 +99,7 @@ class SpotifyMatchCommand extends Command implements SignalableCommandInterface
         }
 
         $stats = ['matched' => 0, 'browser' => 0, 'unmatched' => 0, 'tagged' => 0, 'tag_skipped' => 0];
-        $useBrowser = (bool) $input->getOption('browser') && !$tagsOnly;
+        $useBrowser = ((bool) $input->getOption('browser') || $browserOnly) && !$tagsOnly;
         /** @var array<int, string> $pending id => label, unmatched tracks for the browser pass */
         $pending = [];
         $trace = static function (string $message) use ($io): void {
@@ -102,7 +109,22 @@ class SpotifyMatchCommand extends Command implements SignalableCommandInterface
             }
         };
 
-        $io->progressStart(\count($ids));
+        if ($browserOnly) {
+            // Last step only: every selected track goes to the browser search.
+            foreach ($ids as $id) {
+                $song = $this->musicRepository->find($id);
+                if ($song !== null) {
+                    $pending[$id] = \sprintf('#%d %s – %s', $id, $song->getArtist() ?? '?', $song->getDisplayTitle());
+                }
+            }
+            $stats['unmatched'] = \count($pending);
+            $this->em->clear();
+            $ids = [];
+        }
+
+        if ($ids !== []) {
+            $io->progressStart(\count($ids));
+        }
         foreach ($ids as $n => $id) {
             $song = $this->musicRepository->find($id);
             if ($song === null) {
@@ -162,7 +184,9 @@ class SpotifyMatchCommand extends Command implements SignalableCommandInterface
             }
         }
         $this->flush($dryRun);
-        $io->progressFinish();
+        if (!$browserOnly) {
+            $io->progressFinish();
+        }
 
         if ($pending !== []) {
             $status = $this->browserPass($io, $pending, $minScore, $dryRun, $writeTags, $stats);
@@ -173,7 +197,9 @@ class SpotifyMatchCommand extends Command implements SignalableCommandInterface
 
         $rows = [];
         if (!$tagsOnly) {
-            $rows[] = ['Matched (public sources)', $stats['matched']];
+            if (!$browserOnly) {
+                $rows[] = ['Matched (public sources)', $stats['matched']];
+            }
             if ($useBrowser) {
                 $rows[] = ['Matched (Spotify search, browser)', $stats['browser']];
             }
@@ -227,8 +253,25 @@ class SpotifyMatchCommand extends Command implements SignalableCommandInterface
             }
 
             foreach ($songs as $i => $song) {
+                if (!$dryRun) {
+                    $song->setSpotifyCheckedAt(time());
+                }
                 $match = $this->resolver->pickFromSearch($song, $results[$i] ?? [], $minScore);
                 if ($match === null) {
+                    // Say why: nothing on the page (no result, blocked, markup
+                    // changed) or only candidates below the threshold.
+                    $label = $batch[(int) $song->getId()] ?? '#' . $song->getId();
+                    $closest = ($results[$i] ?? []) !== [] ? $this->resolver->pickFromSearch($song, $results[$i], 0.0) : null;
+                    $this->line($io, \sprintf(
+                        '<fg=yellow>✗</> %s : %s <fg=gray>[searched "%s"]</>',
+                        $label,
+                        ($results[$i] ?? []) === []
+                            ? 'nothing on Spotify\'s search page'
+                            : ($closest !== null
+                                ? \sprintf('closest is %s – %s (%d%%, below %d%%) %s', implode(', ', $closest->track->artists), $closest->track->name, (int) round($closest->score * 100), (int) round($minScore * 100), $closest->track->url())
+                                : \sprintf('%d result(s), none by this artist / title', \count($results[$i]))),
+                        $queries[$i],
+                    ));
                     continue;
                 }
                 ++$stats['browser'];

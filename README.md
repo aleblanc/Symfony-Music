@@ -95,7 +95,7 @@ tracks outside `MUSIC_DIR` (files kept on disk).
 | `app:convert` | `--dry-run`, `--bitrate=auto\|192\|256\|320` (auto: WMA Lossless or ≥ 256 kb/s → 320, 160–255 → 256, below → 192), `--limit`, `--source` |
 | `app:import` | `--dry-run`, `--limit`, `--threshold=0.85`, `--retry`, `--only=failed,skipped,pending,unmatched`, `--source` |
 | `app:scan` | `--force` (re-read every file), `--verbose-scan` |
-| `app:spotify:match` | `-v` (list matches), `--limit`, `--retry` (tracks not found before), `--write-tags` / `--tags-only` (URL into the MP3), `--browser` (last resort, needs Node.js + Playwright) |
+| `app:spotify:match` | `-v` (list matches), `--limit`, `--retry` (tracks not found before), `--write-tags` / `--tags-only` (URL into the MP3), `--browser` (last resort: Spotify's search page in headless Google Chrome), `--browser-only` (only that step, e.g. with `--retry`) |
 | `app:enrich` | `--dry-run`, `--limit`, `--path=TEXT`, `--threshold`, `--retry`, `--all` |
 | `app:artist:fetch` | `--artist=NAME`, `--retry` (not found before), `--refresh` (all), `--limit` |
 | `app:artist:videos` | `--artist=NAME`, `-v` |
