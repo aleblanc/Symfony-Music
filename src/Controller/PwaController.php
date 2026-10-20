@@ -63,7 +63,7 @@ class PwaController extends AbstractController
             // does not attempt to cache audio streaming or any dynamic JSON/HTML
             // endpoint (range requests, non-GET requests, and anything that is not a
             // navigation or a recognizably-static file are left untouched).
-            const CACHE_NAME = 'symfony-music-cache-v1';
+            const CACHE_NAME = 'symfony-music-cache-v2';
             const APP_SHELL_URL = '/';
             const PRECACHE_URLS = [APP_SHELL_URL, '/manifest.json', '/icon.svg'];
 
@@ -111,8 +111,26 @@ class PwaController extends AbstractController
                 return;
               }
 
-              // Static assets: cache-first, populate the cache lazily from the network.
               const url = new URL(request.url);
+
+              // The app's own scripts and styles: network first (so an update is
+              // picked up on the next load), cached copy when offline.
+              if (url.origin === self.location.origin && /\.(css|js|mjs)$/i.test(url.pathname)) {
+                event.respondWith(
+                  fetch(request)
+                    .then((networkResponse) => {
+                      if (networkResponse && networkResponse.ok) {
+                        const responseToCache = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
+                      }
+                      return networkResponse;
+                    })
+                    .catch(() => caches.match(request).then((cached) => cached || Response.error()))
+                );
+                return;
+              }
+
+              // Other static assets: cache-first, populate the cache lazily from the network.
               if (url.origin === self.location.origin && STATIC_ASSET_PATTERN.test(url.pathname)) {
                 event.respondWith(
                   caches.match(request).then((cachedResponse) => {

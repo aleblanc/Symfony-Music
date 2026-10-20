@@ -1,10 +1,89 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_tracks.html.twig' as tracks %}
+{% import 'partials/_mosaic.html.twig' as tiles %}
 
 {% block title %}{{ artist }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>{{ artist }}</h1>
-    <p class="section-sub">{{ songs|length }} track{{ songs|length == 1 ? '' : 's' }}</p>
-    {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
+    {% set found = profile and profile.found %}
+    <header class="artist-hero">
+        <div class="artist-photo">
+            {% if found and profile.imageUrl %}
+                <img src="{{ profile.imageUrl }}" alt="{{ artist }}" referrerpolicy="no-referrer">
+            {% else %}
+                {{ tiles.mosaic(albums|filter(a => a.coverId)|map(a => a.coverId), artist|slice(0, 1)|upper) }}
+            {% endif %}
+        </div>
+        <div class="artist-head">
+            <h1>{{ artist }}</h1>
+            <p class="section-sub">
+                {% if found and profile.description %}{{ profile.description|capitalize }} · {% endif %}
+                {{ albums|length }} album{{ albums|length == 1 ? '' : 's' }} · {{ songs|length }} track{{ songs|length == 1 ? '' : 's' }}
+            </p>
+            {% if found and profile.summary %}
+                <p class="artist-summary">{{ profile.summary }}</p>
+            {% endif %}
+            {% if found %}
+                <div class="artist-links">
+                    {% if profile.wikipediaUrl %}<a class="btn btn-sm btn-ghost" href="{{ profile.wikipediaUrl }}" target="_blank" rel="noopener">Wikipedia ↗</a>{% endif %}
+                    {% if profile.youtubeUrl %}<a class="btn btn-sm btn-ghost artist-yt" href="{{ profile.youtubeUrl }}" target="_blank" rel="noopener">▶ YouTube ↗</a>{% endif %}
+                    {% for link in profile.links %}
+                        <a class="btn btn-sm btn-ghost" href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }} ↗</a>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% if is_granted('ROLE_ADMIN') %}
+                <form class="artist-refresh" method="post" action="{{ path('app_artist_refresh') }}">
+                    <input type="hidden" name="artist" value="{{ artist }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('artist_refresh') }}">
+                    <button class="btn btn-sm btn-ghost" type="submit">
+                        {{ profile is null ? 'Fetch photo, Wikipedia, YouTube…' : 'Refresh artist info' }}
+                    </button>
+                    {% if profile and not found %}<span class="muted">Not found on MusicBrainz.</span>{% endif %}
+                    {% if profile and profile.fetchedAt %}<span class="muted">Updated {{ profile.fetchedAt|date('d/m/Y') }}{% if profile.videosCheckedAt %} · videos checked {{ profile.videosCheckedAt|date('d/m/Y H:i') }}{% endif %}</span>{% endif %}
+                </form>
+            {% endif %}
+        </div>
+    </header>
+
+    {% if found and profile.videos is not empty %}
+        {% set videos = profile.videos|slice(0, 8) %}
+        <section class="artist-section">
+            <h2>Latest videos
+                {% if newVideoIds is not empty %}<span class="badge-new">{{ newVideoIds|length }} new</span>{% endif %}
+            </h2>
+            <div class="video-grid">
+                {% for v in videos %}
+                    <a class="video-card" href="https://www.youtube.com/watch?v={{ v.id|url_encode }}" target="_blank" rel="noopener">
+                        <span class="video-thumb">
+                            <img src="https://i.ytimg.com/vi/{{ v.id|url_encode }}/mqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">
+                            {% if v.id in newVideoIds %}<span class="badge-new">New</span>{% endif %}
+                        </span>
+                        <span class="video-title">{{ v.title }}</span>
+                        <span class="muted video-date">{{ v.published|date('d/m/Y') }}</span>
+                    </a>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    {% if albums|length > 1 %}
+        <section class="artist-section">
+            <h2>Albums</h2>
+            <div class="card-grid">
+                {% for a in albums %}
+                    <a class="card" href="{{ path('app_album', {name: a.album}) }}">
+                        {{ tiles.mosaic(a.coverId ? [a.coverId] : [], a.album|slice(0, 1)|upper) }}
+                        <div class="card-title">{{ a.album }}</div>
+                        <div class="card-sub">{% if a.year %}{{ a.year }} · {% endif %}{{ a.cnt }} track{{ a.cnt == 1 ? '' : 's' }}</div>
+                    </a>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    <section class="artist-section">
+        <h2>Tracks</h2>
+        {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
+    </section>
 {% endblock %}

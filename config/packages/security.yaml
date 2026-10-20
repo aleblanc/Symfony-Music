@@ -17,6 +17,14 @@ security:
             security: false
         main:
             lazy: true
+            # Stateless: the auto-login below authenticates every request on
+            # its own, so the security token is never stored in the session.
+            # With it in the session, every request (each cover, each stream)
+            # opened and regenerated the PHP session, whose file lock made the
+            # browser's requests wait one behind the other (links "frozen"
+            # while a page loaded its covers), and Symfony marked every
+            # response private / no-cache (covers re-downloaded each time).
+            stateless: true
             provider: app_user_provider
             # Single-user mode: every request is authenticated as one fixed
             # account (see AutoLoginAuthenticator). The login form is bypassed.

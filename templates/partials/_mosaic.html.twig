@@ -1,0 +1,17 @@
+{#
+  Square tile made of album covers: one cover when there is a single album,
+  two side by side, three (one big + two), or a 2×2 patchwork from four.
+  Without any artwork, the fallback text (initial, year...) is shown.
+#}
+{% macro mosaic(ids, fallback, fontSize = 44) %}
+    {% set ids = ids|default([])|slice(0, 4) %}
+    {% if ids is empty %}
+        <div class="mosaic mosaic-empty" style="font-size: {{ fontSize }}px">{{ fallback }}</div>
+    {% else %}
+        <div class="mosaic mosaic-{{ ids|length }}">
+            {% for id in ids %}
+                <img src="{{ path('app_cover', {id: id}) }}" alt="" loading="lazy" decoding="async">
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endmacro %}

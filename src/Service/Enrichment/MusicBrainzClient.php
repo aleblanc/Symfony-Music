@@ -52,6 +52,54 @@ class MusicBrainzClient
     }
 
     /**
+     * @return list<array{id: string, name: string, score: int, disambiguation: ?string, aliases: list<string>}>
+     */
+    public function searchArtists(string $name, int $limit = 5): array
+    {
+        $data = $this->get('artist', ['query' => 'artist:' . $this->quote($name), 'limit' => $limit]);
+
+        return array_values(array_map(static fn(array $a): array => [
+            'id' => (string) ($a['id'] ?? ''),
+            'name' => (string) ($a['name'] ?? ''),
+            'score' => (int) ($a['score'] ?? 0),
+            'disambiguation' => isset($a['disambiguation']) && $a['disambiguation'] !== '' ? (string) $a['disambiguation'] : null,
+            'aliases' => array_values(array_filter(array_map(static fn(array $al): string => (string) ($al['name'] ?? ''), $a['aliases'] ?? []))),
+        ], $data['artists'] ?? []));
+    }
+
+    /**
+     * The artist's URL relations (Wikidata, Wikipedia, YouTube, official homepage...).
+     *
+     * @return list<array{type: string, url: string}>
+     */
+    public function getArtistUrls(string $mbid): array
+    {
+        $data = $this->get('artist/' . rawurlencode($mbid), ['inc' => 'url-rels']);
+        $urls = [];
+        foreach ($data['relations'] ?? [] as $rel) {
+            $url = $rel['url']['resource'] ?? null;
+            if (\is_string($url) && ($rel['ended'] ?? false) !== true) {
+                $urls[] = ['type' => (string) ($rel['type'] ?? ''), 'url' => $url];
+            }
+        }
+
+        return $urls;
+    }
+
+    /**
+     * Titles of the artist's release groups (albums, singles...), to tell
+     * homonymous artists apart by what the library holds.
+     *
+     * @return list<string>
+     */
+    public function getArtistReleaseGroupTitles(string $mbid): array
+    {
+        $data = $this->get('release-group', ['artist' => $mbid, 'limit' => 100]);
+
+        return array_values(array_map(static fn(array $g): string => (string) ($g['title'] ?? ''), $data['release-groups'] ?? []));
+    }
+
+    /**
      * @param bool $excludeLive drop recordings whose disambiguation says "live"
      *                          (popular songs have dozens of live takes)
      *

@@ -1,0 +1,98 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Audio quality · PHP Music{% endblock %}
+
+{% block body %}
+<div class="quality-stats">
+    <h1>Audio quality</h1>
+    <p class="section-sub">
+        {{ stats.total }} track{{ stats.total == 1 ? '' : 's' }} in the library, from the worst to the best.
+        {% if stats.unscanned %}<span class="pill-count pill-warn">{{ stats.unscanned }} not analysed yet: run <code>php bin/console app:scan --force</code></span>{% endif %}
+    </p>
+
+    <section class="qs-block">
+        <h2>By quality</h2>
+        <div class="qs-stack" role="img" aria-label="Share of each quality tier">
+            {% for tier in stats.tiers|filter(t => t.count > 0) %}
+                <span class="quality-{{ tier.key }}" style="flex: {{ tier.count }}" title="{{ tier.label }}: {{ tier.count }} ({{ tier.pct }} %)"></span>
+            {% endfor %}
+        </div>
+        <table class="qs-table">
+            {% for tier in stats.tiers %}
+                <tr>
+                    <td><span class="quality-badge quality-{{ tier.key }}">{{ tier.label }}</span></td>
+                    <td class="qs-bar-cell"><span class="qs-bar quality-{{ tier.key }}" style="width: {{ tier.pct }}%"></span></td>
+                    <td class="qs-num">{{ tier.count }}</td>
+                    <td class="qs-num muted">{{ tier.pct }} %</td>
+                </tr>
+            {% endfor %}
+        </table>
+        <p class="muted qs-note">
+            Bitrates are compared per codec: MP3 is “Very low” under 128 kb/s, “Low” under 160 and never above “Standard”;
+            AAC / Vorbis are “Very low” under 64, “Low” under 96, “High” from 128, “Very high” from 224 kb/s; FLAC / ALAC / WAV are lossless.
+        </p>
+    </section>
+
+    <section class="qs-block">
+        <h2>By format</h2>
+        <table class="qs-table">
+            {% for f in stats.formats %}
+                <tr>
+                    <td><a class="link" href="#format-{{ f.key }}">{{ f.label }}</a></td>
+                    <td class="qs-bar-cell"><span class="qs-bar" style="width: {{ f.pct }}%"></span></td>
+                    <td class="qs-num">{{ f.count }}</td>
+                    <td class="qs-num muted">{{ f.pct }} %</td>
+                </tr>
+            {% endfor %}
+        </table>
+    </section>
+
+    {% for f in stats.formats %}
+        <section class="qs-block" id="format-{{ f.key }}">
+            <h2>{{ f.label }} <span class="muted">· {{ f.count }} track{{ f.count == 1 ? '' : 's' }}, {{ f.lossless ? 'by resolution' : 'by bitrate' }}</span></h2>
+            <table class="qs-table">
+                {% for b in f.buckets %}
+                    <tr>
+                        <td>
+                            {% if not f.lossless and b.min is not null %}
+                                <a class="link" href="{{ path('app_quality_stats', {format: f.key, min: b.min, max: b.max}|filter(v => v is not null)) }}#tracks">{{ b.label }}</a>
+                            {% else %}
+                                {{ b.label }}
+                            {% endif %}
+                        </td>
+                        <td class="qs-bar-cell"><span class="qs-bar quality-{{ b.quality ?? 'unknown' }}" style="width: {{ b.pct }}%"></span></td>
+                        <td class="qs-num">{{ b.count }}</td>
+                        <td class="qs-num muted">{{ b.pct }} %</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </section>
+    {% endfor %}
+
+    <section class="qs-block" id="tracks">
+        <h2>{{ listTitle }} <span class="muted">· lowest bitrate first{% if tracks|length >= listLimit %}, first {{ listLimit }}{% endif %}</span></h2>
+        {% if filtered %}<p><a class="link" href="{{ path('app_quality_stats') }}#tracks">← Back to the worst tracks</a></p>{% endif %}
+        {% if tracks is empty %}
+            <p class="muted">No track here.</p>
+        {% else %}
+            <table class="qs-tracks">
+                <thead><tr><th>Bitrate</th><th>Format</th><th>Title</th><th>Artist</th><th>Album</th></tr></thead>
+                <tbody>
+                    {% for t in tracks %}
+                        <tr>
+                            <td class="qs-num">
+                                {% if t.bitrate %}{{ (t.bitrate / 1000)|round }} kb/s{% if t.bitrateMode %} <span class="muted">{{ t.bitrateMode|upper }}</span>{% endif %}{% else %}?{% endif %}
+                                {% if t.quality %}<span class="quality-badge quality-{{ t.quality.value }}">{{ t.quality.label }}</span>{% endif %}
+                            </td>
+                            <td>{{ t.formatLabel }}</td>
+                            <td><a class="link" href="{{ path('app_song', {id: t.id}) }}">{{ t.title ?: t.file|split('/')|last }}</a></td>
+                            <td>{{ t.artist }}</td>
+                            <td class="muted">{{ t.album }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

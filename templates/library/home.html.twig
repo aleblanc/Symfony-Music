@@ -37,6 +37,10 @@
                          data-track-id="{{ song.id }}"
                          data-track-title="{{ song.displayTitle }}"
                          data-track-artist="{{ song.artist }}"
+                         data-track-album="{{ song.album }}"
+                         data-track-url="{{ path('app_song', {id: song.id}) }}"
+                         data-track-artist-url="{{ song.artist ? path('app_artist', {name: song.artist}) }}"
+                         data-track-album-url="{{ song.album ? path('app_album', {name: song.album}) }}"
                          data-track-stream="{{ path('app_stream', {id: song.id}) }}"
                          data-track-cover="{{ path('app_cover', {id: song.id}) }}">
                         <div class="card-art">

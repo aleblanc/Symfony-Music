@@ -33,6 +33,7 @@ services:
             int $maxUploadBytes: '%app.max_upload_bytes%'
             string $acoustidApiKey: '%env(ACOUSTID_API_KEY)%'
             string $fpcalcPath: '%env(FPCALC_PATH)%'
+            string $ffmpegPath: '%env(FFMPEG_PATH)%'
             string $musicbrainzUserAgent: '%env(MUSICBRAINZ_USER_AGENT)%'
             string $importDir: '%app.import_dir%'
             string $projectDir: '%kernel.project_dir%'

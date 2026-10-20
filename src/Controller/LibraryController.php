@@ -3,12 +3,15 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Repository\ArtistProfileRepository;
 use App\Repository\FavoriteRepository;
 use App\Repository\HistoryRepository;
 use App\Repository\ListenLaterRepository;
 use App\Repository\MusicRepository;
 use App\Repository\OfflineSongRepository;
 use App\Repository\PlayCountRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -107,6 +110,7 @@ class LibraryController extends AbstractController
     {
         return $this->render('library/years.html.twig', [
             'years' => $music->listYears($user),
+            'covers' => $music->albumCoverIds('year', $user),
         ]);
     }
 
@@ -128,23 +132,47 @@ class LibraryController extends AbstractController
     }
 
     #[Route('/artists', name: 'app_artists')]
-    public function artists(#[CurrentUser] ?User $user, MusicRepository $music): Response
+    public function artists(#[CurrentUser] ?User $user, MusicRepository $music, ArtistProfileRepository $profiles, ClockInterface $clock): Response
     {
+        $now = $clock->now();
+        $newVideos = [];
+        foreach ($profiles->findWithYoutube() as $profile) {
+            if (($n = \count($profile->newVideos($now))) > 0) {
+                $newVideos[$profile->getName()] = $n;
+            }
+        }
+
         return $this->render('library/artists.html.twig', [
             'artists' => $music->listArtists($user),
+            'covers' => $music->albumCoverIds('artist', $user),
+            'newVideos' => $newVideos,
         ]);
     }
 
     #[Route('/artist/{name}', name: 'app_artist', requirements: ['name' => '.+'])]
-    public function artist(string $name, #[CurrentUser] ?User $user, MusicRepository $music): Response
+    public function artist(string $name, #[CurrentUser] ?User $user, MusicRepository $music, ArtistProfileRepository $profiles, EntityManagerInterface $em, ClockInterface $clock): Response
     {
         $songs = $music->findByArtist($name, $user);
         if ($songs === []) {
             throw $this->createNotFoundException('Artist not found or has no visible tracks.');
         }
 
+        // Videos are "new" until this visit: flagged now, not on the next one.
+        $profile = $profiles->findOneByName($name);
+        $newVideoIds = [];
+        if ($profile !== null) {
+            $newVideoIds = array_column($profile->newVideos($clock->now()), 'id');
+            if ($profile->getVideos() !== []) {
+                $profile->markVideosSeen($clock->now());
+                $em->flush();
+            }
+        }
+
         return $this->render('library/artist.html.twig', [
             'artist' => $name,
+            'profile' => $profile,
+            'newVideoIds' => $newVideoIds,
+            'albums' => $music->albumsOfArtist($name, $user),
             'songs' => $songs,
             'favoriteIds' => $this->favoriteIds($user),
             'listenLaterIds' => $this->listenLaterIds($user),

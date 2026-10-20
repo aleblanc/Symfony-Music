@@ -8,14 +8,15 @@ namespace App\Enum;
  * Raw bitrates are not comparable across codecs (AAC/Vorbis/Opus sound better
  * than MP3 at the same bitrate), so each codec family has its own thresholds:
  *
- *   MP3 (and unknown lossy): < 160 kbps low, otherwise standard — MP3 tops out
- *                            at "standard" even at 320 kbps.
- *   AAC / Vorbis:            < 96 low, < 128 standard, < 224 high, else very high.
- *   Opus (most efficient):   < 64 low, < 96 standard, < 160 high, else very high.
+ *   MP3 (and unknown lossy): < 128 kbps very low, < 160 low, otherwise standard —
+ *                            MP3 tops out at "standard" even at 320 kbps.
+ *   AAC / Vorbis:            < 64 very low, < 96 low, < 128 standard, < 224 high, else very high.
+ *   Opus (most efficient):   < 48 very low, < 64 low, < 96 standard, < 160 high, else very high.
  *   FLAC / ALAC / WAV (PCM): lossless, whatever the bitrate.
  */
 enum AudioQuality: string
 {
+    case VeryLow = 'very_low';
     case Low = 'low';
     case Standard = 'standard';
     case High = 'high';
@@ -38,6 +39,7 @@ enum AudioQuality: string
 
         return match ($dataformat) {
             'opus' => match (true) {
+                $kbps < 48 => self::VeryLow,
                 $kbps < 64 => self::Low,
                 $kbps < 96 => self::Standard,
                 $kbps < 160 => self::High,
@@ -46,18 +48,24 @@ enum AudioQuality: string
             // M4A without the lossless flag is AAC (getID3 reports 'mp4');
             // 'm4a'/'ogg' only appear when the extension was the fallback.
             'mp4', 'aac', 'm4a', 'vorbis', 'ogg' => match (true) {
+                $kbps < 64 => self::VeryLow,
                 $kbps < 96 => self::Low,
                 $kbps < 128 => self::Standard,
                 $kbps < 224 => self::High,
                 default => self::VeryHigh,
             },
-            default => $kbps < 160 ? self::Low : self::Standard,
+            default => match (true) {
+                $kbps < 128 => self::VeryLow,
+                $kbps < 160 => self::Low,
+                default => self::Standard,
+            },
         };
     }
 
     public function label(): string
     {
         return match ($this) {
+            self::VeryLow => 'Very low',
             self::Low => 'Low',
             self::Standard => 'Standard',
             self::High => 'High quality',

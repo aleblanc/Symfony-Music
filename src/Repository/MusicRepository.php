@@ -220,6 +220,88 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
+     * One cover per album (the album's first track that has artwork), grouped
+     * by artist or by year, at most $perGroup albums each: the mosaics of the
+     * Artists and Years tiles.
+     *
+     * @param 'artist'|'year' $field
+     *
+     * @return array<string, list<int>> group value (artist name, or year as a string) => track ids
+     */
+    public function albumCoverIds(string $field, ?User $viewer, int $perGroup = 4): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->select("m.{$field} AS grp", 'MIN(m.id) AS id')
+            ->andWhere("m.{$field} IS NOT NULL")
+            ->andWhere('m.image IS NOT NULL')
+            ->groupBy("m.{$field}")->addGroupBy('m.album')
+            ->orderBy("m.{$field}", 'ASC')->addOrderBy('MIN(m.year)', 'DESC')->addOrderBy('m.album', 'ASC');
+        $this->applyVisibility($qb, $viewer);
+
+        $covers = [];
+        foreach ($qb->getQuery()->getArrayResult() as $row) {
+            $group = (string) $row['grp'];
+            if (\count($covers[$group] ?? []) < $perGroup) {
+                $covers[$group][] = (int) $row['id'];
+            }
+        }
+
+        return $covers;
+    }
+
+    /**
+     * Every artist of the library (whole library: admin commands) with its
+     * album titles.
+     *
+     * @return array<string, list<string>>
+     */
+    public function artistAlbums(): array
+    {
+        $rows = $this->createQueryBuilder('m')
+            ->select('m.artist AS artist', 'm.album AS album')
+            ->andWhere("m.artist IS NOT NULL AND m.artist != ''")
+            ->groupBy('m.artist')->addGroupBy('m.album')
+            ->orderBy('m.artist', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $artists = [];
+        foreach ($rows as $row) {
+            $artists[(string) $row['artist']] ??= [];
+            if (\is_string($row['album']) && $row['album'] !== '') {
+                $artists[(string) $row['artist']][] = $row['album'];
+            }
+        }
+
+        return $artists;
+    }
+
+    /**
+     * Albums of one artist for the artist page tiles: cover track, year,
+     * track count; newest first.
+     *
+     * @return list<array{album: string, year: ?int, cnt: int, coverId: ?int}>
+     */
+    public function albumsOfArtist(string $artist, ?User $viewer): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->select('m.album AS album', 'MAX(m.year) AS year', 'COUNT(m.id) AS cnt', 'MIN(CASE WHEN m.image IS NOT NULL THEN m.id ELSE :none END) AS coverId')
+            ->setParameter('none', \PHP_INT_MAX)
+            ->andWhere('m.artist = :artist')->setParameter('artist', $artist)
+            ->andWhere("m.album IS NOT NULL AND m.album != ''")
+            ->groupBy('m.album')
+            ->orderBy('year', 'DESC')->addOrderBy('m.album', 'ASC');
+        $this->applyVisibility($qb, $viewer);
+
+        return array_map(static fn(array $r) => [
+            'album' => (string) $r['album'],
+            'year' => $r['year'] !== null ? (int) $r['year'] : null,
+            'cnt' => (int) $r['cnt'],
+            'coverId' => (int) $r['coverId'] !== \PHP_INT_MAX ? (int) $r['coverId'] : null,
+        ], array_values($qb->getQuery()->getArrayResult()));
+    }
+
+    /**
      * Most recently indexed tracks. Music has no creation timestamp, but ids
      * are autoincremented as the scan/upload inserts rows, so the highest ids
      * are the newest additions.
@@ -849,5 +931,58 @@ class MusicRepository extends ServiceEntityRepository
         }
 
         return null;
+    }
+
+    /**
+     * Whole library (no visibility filter: admin stats) grouped by the
+     * fields QualityStats needs, bitrate rounded to kb/s.
+     *
+     * @return list<array{format: ?string, lossless: ?bool, kbps: ?int, sampleRate: ?int, bitsPerSample: ?int, n: int}>
+     */
+    public function qualityRows(): array
+    {
+        $rows = $this->createQueryBuilder('m')
+            ->select('m.audioFormat AS format', 'm.lossless AS lossless', '((m.bitrate + 500) / 1000) AS kbps', 'm.sampleRate AS sampleRate', 'm.bitsPerSample AS bitsPerSample', 'COUNT(m.id) AS n')
+            ->groupBy('format')->addGroupBy('lossless')->addGroupBy('kbps')->addGroupBy('sampleRate')->addGroupBy('bitsPerSample')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn(array $r) => [
+            'format' => \is_string($r['format']) ? $r['format'] : null,
+            'lossless' => $r['lossless'] === null ? null : (bool) $r['lossless'],
+            'kbps' => $r['kbps'] === null ? null : (int) $r['kbps'],
+            'sampleRate' => $r['sampleRate'] === null ? null : (int) $r['sampleRate'],
+            'bitsPerSample' => $r['bitsPerSample'] === null ? null : (int) $r['bitsPerSample'],
+            'n' => (int) $r['n'],
+        ], array_values($rows));
+    }
+
+    /**
+     * Lossy tracks, lowest bitrate first: of one format and bitrate range
+     * (kb/s, bounds included), or of every format under $maxKbps.
+     *
+     * @return list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string}>
+     */
+    public function lossyTracksByBitrate(?string $format, ?int $minKbps, ?int $maxKbps, int $limit): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->select('m.id', 'm.title', 'm.artist', 'm.album', 'm.file', 'm.audioFormat AS format', 'm.lossless', 'm.bitrate', 'm.bitrateMode')
+            ->andWhere('m.audioFormat IS NOT NULL')
+            ->andWhere('m.lossless IS NULL OR m.lossless = false')
+            ->andWhere("m.audioFormat NOT IN ('flac', 'alac', 'wav', 'aiff')")
+            ->orderBy('m.bitrate', 'ASC')->addOrderBy('m.artist', 'ASC')->addOrderBy('m.id', 'ASC')
+            ->setMaxResults($limit);
+        if ($format !== null) {
+            $qb->andWhere('m.audioFormat = :format')->setParameter('format', $format);
+        }
+        if ($minKbps !== null) {
+            $qb->andWhere('(m.bitrate + 500) / 1000 >= :min')->setParameter('min', $minKbps);
+        }
+        if ($maxKbps !== null) {
+            $qb->andWhere('(m.bitrate + 500) / 1000 <= :max')->setParameter('max', $maxKbps);
+        }
+
+        /** @var list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string}> */
+        return $qb->getQuery()->getArrayResult();
     }
 }

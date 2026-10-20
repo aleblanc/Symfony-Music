@@ -78,9 +78,9 @@ Everything at once:
 
 ```bash
 # macOS
-brew install atomicparsley flac chromaprint vorbis-tools
+brew install atomicparsley flac chromaprint vorbis-tools ffmpeg
 # Debian/Ubuntu
-sudo apt install atomicparsley flac libchromaprint-tools vorbis-tools
+sudo apt install atomicparsley flac libchromaprint-tools vorbis-tools ffmpeg
 ```
 
 All of them are located automatically (PATH, `/opt/homebrew/bin`,
@@ -100,6 +100,7 @@ whose PATH lacks Homebrew.
 |---|---|---|---|
 | `fpcalc` (Chromaprint) | `brew install chromaprint` | `apt install libchromaprint-tools` | audio fingerprinting in `app:enrich` / `app:import` (strongly recommended: identifies files with no usable name) |
 | `vorbiscomment` | `brew install vorbis-tools` | `apt install vorbis-tools` | writing tags into **Ogg Vorbis** files |
+| `ffmpeg` | `brew install ffmpeg` | `apt install ffmpeg` | `app:convert`: WMA → M4A (AAC) before the import (`FFMPEG_PATH` to force a location) |
 
 MP3 tags are written in pure PHP. M4A tags (cover and MusicBrainz ids
 included, as Picard's `----:com.apple.iTunes` atoms) are written by
@@ -328,6 +329,7 @@ other). One command per step, run one after the other:
 
 ```bash
 php bin/console doctrine:migrations:migrate   # once: import_item table
+php bin/console app:convert                   # only if IMPORT_DIR holds WMA files: → M4A (AAC), tags kept
 php bin/console app:import --dry-run          # preview: what would be tagged and where it would be filed
 php bin/console app:import                    # tag + file the confident files, store the candidates of the others
 php bin/console app:scan                      # index the new files of MUSIC_DIR
@@ -343,6 +345,22 @@ php bin/console app:spotify:match             # link them to Spotify
 | `--limit=N` | at most N files |
 | `--source=DIR` | import another folder than `IMPORT_DIR` |
 
+`app:import` ignores WMA (browsers cannot play it, getID3 cannot tag it):
+`app:convert` turns every WMA of `IMPORT_DIR` into an M4A (AAC) next to it,
+keeping title, artist, album, album artist, track, year, genre and cover. The
+AAC bitrate follows the source: WMA Lossless or ≥ 256 kb/s → 320 kb/s,
+160–255 kb/s → 256 kb/s, below → 192 kb/s. Each M4A is checked (audio, same
+duration) before the original is moved to `IMPORT_DIR/_wma/` (same relative
+path, never deleted; delete it yourself once happy). An existing `.m4a` of the
+same name is never overwritten.
+
+| `app:convert` option | Effect |
+|---|---|
+| `--dry-run` | list the files and the chosen bitrate, convert nothing |
+| `--bitrate=auto` | `192`, `256` or `320` to force one bitrate for every file |
+| `--limit=N` | at most N files |
+| `--source=DIR` | convert another folder than `IMPORT_DIR` |
+
 When MusicBrainz rate-limits (the limit is per IP, shared with every client on
 the machine), the album lookup of a folder is retried once after 30 s before
 falling back to files one by one.
@@ -352,6 +370,35 @@ falling back to files one by one.
 Done: identification with candidates, `FileImporter` + `LibraryPath`,
 `import_item` entity + migration, the `app:import` command, the
 `/admin/import` web page.
+
+## Artist pages (photo, Wikipedia, YouTube)
+
+Each artist page shows a photo, the Wikipedia summary (French first, then
+English), links (official site, YouTube, Spotify, Deezer, Bandcamp,
+Instagram, MusicBrainz…), the latest YouTube videos (**New** badge for those
+published since your last visit of the page), the albums as tiles, then the
+tracks. The Artists list flags the artists with new videos. Free sources, no
+API key: MusicBrainz → Wikidata (photo from Wikimedia Commons, YouTube
+channel) → Wikipedia, and the public RSS feed of the YouTube channel.
+Homonyms are told apart by the albums of the library.
+
+```bash
+php bin/console doctrine:migrations:migrate   # once: artist_profile table
+php bin/console app:artist:fetch              # photo, summary, links (new artists only; --retry, --refresh, --artist=NAME, --limit=N)
+php bin/console app:artist:videos             # latest YouTube videos (run it regularly, e.g. cron every hour)
+```
+
+Cron example: `0 * * * * cd /path/to/project && php bin/console app:artist:videos -q`.
+Admins also get a "Refresh artist info" button on each artist page.
+
+## Audio quality stats (`/admin/quality`)
+
+Admin page (also linked from Library): tracks per quality tier (Low →
+Lossless, thresholds per codec as in `AudioQuality`), per format, and per
+bitrate range inside each format (FLAC/ALAC by resolution), always from the
+worst to the best. Click a range to list its tracks; by default the page lists
+the worst tracks (lowest bitrate first), to know what to replace. Figures come
+from the scan: run `app:scan --force` once if tracks show as not analysed.
 
 ## Tests
 

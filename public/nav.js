@@ -32,20 +32,48 @@
         });
     }
 
+    // Only the latest click counts: a new navigation aborts the one in
+    // flight, so a slow page can never swap in over a newer one. A page that
+    // does not answer within SLOW_MS is loaded the normal way instead, so a
+    // stuck request never leaves the links looking dead.
+    const SLOW_MS = 10000;
+    let current = null;
+
     async function navigate(href, { push = true, method = 'GET', body = null } = {}) {
+        if (current) current.abort();
+        const controller = new AbortController();
+        current = controller;
+        let slow = false;
+        const timer = setTimeout(() => { slow = true; controller.abort(); }, SLOW_MS);
+        document.documentElement.classList.add('nav-loading');
+        const done = () => {
+            clearTimeout(timer);
+            if (current === controller) {
+                current = null;
+                document.documentElement.classList.remove('nav-loading');
+            }
+        };
+
         let res;
+        let html;
         try {
-            res = await fetch(href, { method, body, headers: { 'X-Requested-With': 'fetch' }, redirect: 'follow' });
+            res = await fetch(href, { method, body, headers: { 'X-Requested-With': 'fetch' }, redirect: 'follow', signal: controller.signal });
+            html = (res.headers.get('Content-Type') || '').includes('text/html') ? await res.text() : null;
         } catch {
-            location.href = href; // network error: fall back to a hard load
+            done();
+            // Superseded by a newer click: nothing to do. Too slow, or a
+            // network error: fall back to a hard load (a POST is not replayed).
+            if (!slow && controller.signal.aborted) return;
+            if (method === 'GET') location.href = href;
             return;
         }
+        done();
+        if (controller.signal.aborted) return;
 
         const finalUrl = res.url || href;
-        const ct = res.headers.get('Content-Type') || '';
-        if (!ct.includes('text/html')) { location.href = finalUrl; return; } // downloads, JSON, etc.
+        if (html === null) { location.href = finalUrl; return; } // downloads, JSON, etc.
 
-        const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+        const doc = new DOMParser().parseFromString(html, 'text/html');
         const newMain = doc.querySelector('main.content');
         if (!newMain) { location.href = finalUrl; return; } // unexpected shape: hard load
 
@@ -62,7 +90,12 @@
         if (push) history.pushState({ nav: true }, '', finalUrl);
         window.scrollTo(0, 0);
 
-        if (typeof window.appPageInit === 'function') window.appPageInit();
+        // A page script error must not break the next navigations.
+        try {
+            if (typeof window.appPageInit === 'function') window.appPageInit();
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     // ---- Link interception ----

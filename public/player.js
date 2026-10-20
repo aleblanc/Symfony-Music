@@ -43,6 +43,8 @@ if (audio && bar) {
         cover: document.getElementById('player-cover'),
         title: document.getElementById('player-title'),
         artist: document.getElementById('player-artist'),
+        album: document.getElementById('player-album'),
+        albumSep: document.getElementById('player-album-sep'),
         toggle: document.getElementById('player-toggle'),
         prev: document.getElementById('player-prev'),
         next: document.getElementById('player-next'),
@@ -69,6 +71,10 @@ if (audio && bar) {
             id: el.dataset.trackId,
             title: el.dataset.trackTitle || 'Unknown',
             artist: el.dataset.trackArtist || '',
+            album: el.dataset.trackAlbum || '',
+            url: el.dataset.trackUrl || '',
+            artistUrl: el.dataset.trackArtistUrl || '',
+            albumUrl: el.dataset.trackAlbumUrl || '',
             stream: el.dataset.trackStream,
             cover: el.dataset.trackCover || '',
             el,
@@ -91,8 +97,19 @@ if (audio && bar) {
         recorded = false;
         const t = queue[i];
         audio.src = t.stream;
-        els.title.textContent = t.title;
-        els.artist.textContent = t.artist;
+        // Title → track details, artist / album → their pages (nav.js keeps
+        // playback going while browsing there).
+        const link = (a, text, href) => {
+            a.textContent = text;
+            if (href) a.setAttribute('href', href); else a.removeAttribute('href');
+        };
+        link(els.title, t.title, t.url);
+        link(els.artist, t.artist, t.artistUrl);
+        if (els.album) {
+            link(els.album, t.album, t.albumUrl);
+            els.album.hidden = !t.album;
+            els.albumSep.hidden = !t.album || !t.artist;
+        }
         if (t.cover) { els.cover.src = t.cover; els.cover.style.visibility = 'visible'; }
         else { els.cover.removeAttribute('src'); }
         bar.hidden = false;
@@ -111,6 +128,7 @@ if (audio && bar) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: t ? t.title : (els.title.textContent || ''),
                 artist: t ? t.artist : (els.artist.textContent || ''),
+                album: t ? (t.album || '') : (els.album ? els.album.textContent : ''),
                 artwork: (t && t.cover) ? [{ src: t.cover, sizes: '512x512' }] : [],
             });
         } catch { /* MediaMetadata unavailable */ }
