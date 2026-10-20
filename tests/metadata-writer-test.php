@@ -197,7 +197,8 @@ try {
         . $frame('WXXX', "\x00Site\x00")
         . $frame('COMM', "\x00eng\x00first comment")
         . $frame('COMM', "\x00eng\x00duplicate comment")
-        . $frame('RVA2', "track\x00\x01\x00\x10\x00");
+        . $frame('RVA2', "track\x00\x01\x00\x10\x00")
+        . $frame('COMM', "\x00\\\\\\desc\x00comment with a garbage language code");
     $size = strlen($frames);
     $syncsafe = chr(($size >> 21) & 0x7F) . chr(($size >> 14) & 0x7F) . chr(($size >> 7) & 0x7F) . chr($size & 0x7F);
     $bad = sys_get_temp_dir() . '/mw-bad-' . bin2hex(random_bytes(4)) . '.mp3';
@@ -210,8 +211,11 @@ try {
         check('malformed frames: picture kept, mime fixed to image/jpeg', ($info['id3v2']['APIC'][0]['mime'] ?? '') === 'image/jpeg' && ($info['id3v2']['APIC'][0]['data'] ?? '') === $jpeg, json_encode($info['id3v2']['APIC'][0]['mime'] ?? null));
         check('malformed frames: GEOB kept with a generic mime', ($info['id3v2']['GEOB'][0]['objectdata'] ?? '') === 'OBJECT');
         check('malformed frames: empty WXXX dropped (getID3 drops it anyway)', !isset($info['id3v2']['WXXX']));
-        check('malformed frames: duplicate COMM (same language + description) → first kept', count($info['id3v2']['COMM'] ?? []) === 1 && ($info['id3v2']['COMM'][0]['data'] ?? '') === 'first comment', json_encode(array_column($info['id3v2']['COMM'] ?? [], 'data')));
+        $eng = array_values(array_filter($info['id3v2']['COMM'] ?? [], static fn(array $c): bool => strtolower((string) $c['language']) === 'eng'));
+        check('malformed frames: duplicate COMM (same language + description) → first kept', count($eng) === 1 && ($eng[0]['data'] ?? '') === 'first comment', json_encode(array_column($info['id3v2']['COMM'] ?? [], 'data')));
         check('malformed frames: unwritable RVA2 (parsed without raw data) dropped, no warning', !isset($info['id3v2']['RVA2']));
+        $langs = array_map(static fn(array $c): string => strtolower((string) $c['language']), $info['id3v2']['COMM'] ?? []);
+        check('malformed frames: COMM with a garbage language code kept as "xxx" (unknown)', in_array('xxx', $langs, true), json_encode($langs));
     } finally {
         @unlink($bad);
     }

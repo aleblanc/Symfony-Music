@@ -109,6 +109,8 @@ class Id3TagRebuilder
 
         try {
             $major = $this->majorVersion($info);
+            // Frames we set ourselves must be written, never dropped.
+            $ours = $changedFrames;
             $changedFrames = array_merge($changedFrames, $this->repair($frames, $major));
             // Frames this ID3v2 version does not define (or non-standard ones)
             // are refused by the writer: drop them and try again.
@@ -121,7 +123,7 @@ class Id3TagRebuilder
                     break;
                 }
                 $refused = $this->refusedFrames($writer->errors);
-                if ($refused === [] || $round >= 5) {
+                if ($refused === [] || $round >= 5 || array_intersect($refused, $ours) !== []) {
                     throw new \RuntimeException('getID3: ' . implode('; ', $writer->errors));
                 }
                 foreach ($refused as $id) {
@@ -210,6 +212,14 @@ class Id3TagRebuilder
                 $keep($id, static fn(array $f): bool => \array_key_exists('data', $f));
             }
         }
+        // Garbage language codes (three backslashes seen in downloads) become "XXX", the ID3 code for unknown.
+        foreach (['COMM', 'USLT'] as $id) {
+            foreach ($frames[$id] ?? [] as $i => $frame) {
+                if (\getid3_id3v2::LanguageLookup((string) ($frame['language'] ?? ''), true) === '') {
+                    $frames[$id][$i]['language'] = 'XXX';
+                }
+            }
+        }
         // Only one COMM / USLT per language + description (ID3v2 rule some
         // taggers break): the first one is kept.
         foreach (['COMM', 'USLT'] as $id) {
@@ -246,7 +256,7 @@ class Id3TagRebuilder
 
     /**
      * Frame ids the writer refused ("Frame not allowed in ID3v2.3: RVA2",
-     * 'Frame "XXXX" is NOT allowed').
+     * 'Frame "XXXX" is NOT allowed', 'GenerateID3v2FrameData() failed for "XXXX"').
      *
      * @param list<string> $errors
      *
@@ -256,8 +266,10 @@ class Id3TagRebuilder
     {
         $ids = [];
         foreach ($errors as $error) {
-            if (preg_match('/Frame not allowed in ID3v2\.\d: ([A-Z0-9]{4})|Frame "([A-Z0-9]{4})" is NOT allowed/', strip_tags((string) $error), $m) === 1) {
-                $ids[] = $m[1] !== '' ? $m[1] : $m[2];
+            // Last resort for malformed frames nothing else repaired:
+            // 'GenerateID3v2FrameData() failed for "COMM"'.
+            if (preg_match('/Frame not allowed in ID3v2\.\d: ([A-Z0-9]{4})|Frame "([A-Z0-9]{4})" is NOT allowed|failed for "([A-Z0-9]{4})"/', strip_tags((string) $error), $m) === 1) {
+                $ids[] = $m[1] !== '' ? $m[1] : ($m[2] !== '' ? $m[2] : $m[3]);
             }
         }
 
