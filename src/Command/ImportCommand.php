@@ -11,6 +11,7 @@ use App\Service\Import\AudioFileReader;
 use App\Service\Import\FileImporter;
 use App\Service\Import\ImportResult;
 use App\Service\Import\LibraryPath;
+use App\Service\MetadataWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -40,6 +41,7 @@ class ImportCommand extends Command
         private readonly MetadataEnricher $enricher,
         private readonly FileImporter $filer,
         private readonly LibraryPath $libraryPath,
+        private readonly MetadataWriter $writer,
         private readonly ImportItemRepository $items,
         private readonly EntityManagerInterface $em,
         private readonly string $importDir,
@@ -199,7 +201,8 @@ class ImportCommand extends Command
             return 'unmatched';
         }
 
-        $ext = pathinfo($file, \PATHINFO_EXTENSION);
+        // Same extension FileImporter will use: the real format's.
+        $ext = $this->writer->detectFormat($file) ?? pathinfo($file, \PATHINFO_EXTENSION);
         $tag = \sprintf('%.2f %s%s', $best->score, $best->source, $best->cover !== null ? ' +cover' : '');
         if ($best->score < $threshold) {
             $io->writeln(\sprintf('  <comment>?</comment> %s → %s <fg=gray>[%s, %d candidate(s) → web page]</>', $name, $this->libraryPath->relativePath($best->fields, $ext), $tag, \count($list)));

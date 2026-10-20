@@ -43,7 +43,8 @@ class FileImporter
             throw new \InvalidArgumentException(\sprintf('"%s" is not inside the import folder.', $file));
         }
 
-        $ext = strtolower(pathinfo($file, \PATHINFO_EXTENSION));
+        // The real format decides the extension (an AAC file named .mp3 is filed as .m4a).
+        $ext = $this->writer->detectFormat($file) ?? strtolower(pathinfo($file, \PATHINFO_EXTENSION));
         $jpeg = $cover !== null ? ($this->images->toJpeg($cover) ?? $cover) : null;
         $relative = $this->libraryPath->relativePath($proposal->fields, $ext);
         $destination = rtrim($this->musicDir, '/') . '/' . $relative;

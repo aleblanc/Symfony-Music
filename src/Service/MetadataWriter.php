@@ -111,7 +111,9 @@ class MetadataWriter
             return false;
         }
 
-        $ext = strtolower(pathinfo($file, \PATHINFO_EXTENSION));
+        // The content decides, not the extension: AAC bought on iTunes is
+        // sometimes renamed .mp3.
+        $ext = $this->detectFormat($file) ?? strtolower(pathinfo($file, \PATHINFO_EXTENSION));
         if ($ext === 'mp3') {
             return $this->writeId3($file, $fields, $cover);
         }
@@ -204,6 +206,28 @@ class MetadataWriter
         }
 
         return $ok;
+    }
+
+    /**
+     * Audio format of the file's content (mp3, m4a, flac, ogg, wav), null when
+     * getID3 does not recognise it.
+     */
+    public function detectFormat(string $file): ?string
+    {
+        if (!is_file($file)) {
+            return null;
+        }
+        class_exists(\getID3::class);
+        $info = (new \getID3())->analyze($file);
+
+        return match ($info['fileformat'] ?? null) {
+            'mp3' => 'mp3',
+            'mp4', 'quicktime' => 'm4a',
+            'flac' => 'flac',
+            'ogg' => 'ogg',
+            'riff', 'wav' => 'wav',
+            default => null,
+        };
     }
 
     /** Why the last {@see writeTags()} call failed, null after a success. */

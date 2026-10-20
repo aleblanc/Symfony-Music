@@ -239,6 +239,24 @@ try {
         @unlink($flac);
     }
 
+    // 9) Extension lies: FLAC content named .mp3 (seen: AAC bought on iTunes renamed
+    //    .mp3). The format is taken from the content, not the extension.
+    $bits = sprintf('%020b%03b%05b%036b', 44100, 1, 15, 0);
+    $packed = '';
+    foreach (str_split($bits, 8) as $b) {
+        $packed .= chr(bindec($b));
+    }
+    $fake = sys_get_temp_dir() . '/mw-flac-named-mp3-' . bin2hex(random_bytes(4)) . '.mp3';
+    file_put_contents($fake, "fLaC\x80\x00\x00\x22" . pack('nn', 4096, 4096) . str_repeat("\x00", 6) . $packed . str_repeat("\x00", 16) . str_repeat("\x00", 256));
+    try {
+        check('format detected from the content (.mp3 holding FLAC → flac)', $writer->detectFormat($fake) === 'flac', var_export($writer->detectFormat($fake), true));
+        $ok = $writer->writeTags($fake, ['title' => 'x']);
+        check('written as FLAC, not refused as "not an MP3"', $ok || !str_contains((string) $writer->lastError(), 'not an MP3'), (string) $writer->lastError());
+        check('detectFormat of a real MP3', $writer->detectFormat($file) === 'mp3');
+    } finally {
+        @unlink($fake);
+    }
+
     check('missing file → false', $writer->writeTags($file . '.nope', ['title' => 'x']) === false);
 } finally {
     @unlink($file);

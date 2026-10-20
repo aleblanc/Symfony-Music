@@ -17,6 +17,14 @@ namespace App\Service;
  */
 class Id3TagRebuilder
 {
+    /**
+     * Technical frames whose loss is accepted when getID3 cannot write them
+     * back: CD table of contents (MCDI), MusicMatch data (NCON), play counter,
+     * buffer/seek/audio-seek-point indexes, signatures, encryption, grouping
+     * and linked-information registrations, position sync.
+     */
+    private const TECHNICAL_FRAMES = ['MCDI', 'NCON', 'PCNT', 'RBUF', 'SEEK', 'ASPI', 'SIGN', 'ENCR', 'GRID', 'AENC', 'LINK', 'POSS'];
+
     public function __construct(
         private readonly string $getid3Dir,
     ) {}
@@ -148,7 +156,8 @@ class Id3TagRebuilder
             $after = $this->frameCounts($this->analyze($file));
             $lost = [];
             foreach ($before as $frame => $count) {
-                if (!\in_array($frame, $changedFrames, true) && ($after[$frame] ?? 0) !== $count) {
+                if (!\in_array($frame, $changedFrames, true) && !\in_array($frame, self::TECHNICAL_FRAMES, true)
+                    && ($after[$frame] ?? 0) !== $count) {
                     $lost[] = $frame;
                 }
             }

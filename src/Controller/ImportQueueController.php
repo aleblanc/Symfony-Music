@@ -9,6 +9,7 @@ use App\Service\Import\AudioFileReader;
 use App\Service\Import\FileImporter;
 use App\Service\Import\ImportResult;
 use App\Service\Import\LibraryPath;
+use App\Service\MetadataWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -31,7 +32,7 @@ class ImportQueueController extends AbstractController
     ) {}
 
     #[Route('/admin/import', name: 'app_import_queue', methods: ['GET'])]
-    public function queue(Request $request, AudioFileReader $reader, LibraryPath $libraryPath): Response
+    public function queue(Request $request, AudioFileReader $reader, LibraryPath $libraryPath, MetadataWriter $writer): Response
     {
         $id = $request->query->getInt('id');
         $item = $id > 0 ? $this->items->find($id) : $this->items->findNextPending();
@@ -46,7 +47,7 @@ class ImportQueueController extends AbstractController
             $exists = is_file($item->getPath());
             $tags = $exists ? $reader->read($item->getPath()) : null;
             $candidates = $item->getCandidates();
-            $ext = pathinfo($item->getPath(), \PATHINFO_EXTENSION);
+            $ext = ($exists ? $writer->detectFormat($item->getPath()) : null) ?? pathinfo($item->getPath(), \PATHINFO_EXTENSION);
             foreach ($candidates as $i => $candidate) {
                 $destinations[$i] = $libraryPath->relativePath($candidate->fields, $ext);
             }
