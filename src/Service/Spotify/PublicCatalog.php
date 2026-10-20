@@ -25,7 +25,15 @@ class PublicCatalog
     private float $lastEmbedCall = 0.0;
     private int $embedIntervalUs = 500_000;
 
-    public function __construct(private readonly HttpClientInterface $httpClient) {}
+    /**
+     * @param string $musicbrainzUserAgent MUSICBRAINZ_USER_AGENT: MusicBrainz throttles
+     *                                     clients that do not identify themselves
+     *                                     ("App/1.0 ( contact )")
+     */
+    public function __construct(
+        private readonly HttpClientInterface $httpClient,
+        private readonly string $musicbrainzUserAgent = self::USER_AGENT,
+    ) {}
 
     public function setEmbedDelay(int $milliseconds): void
     {
@@ -123,7 +131,7 @@ class PublicCatalog
         $unpaced = 0.0;
         $data = $this->requestJson('Wikidata', 'https://query.wikidata.org/sparql', [
             'query' => ['query' => $sparql],
-            'headers' => ['Accept' => 'application/sparql-results+json', 'User-Agent' => self::USER_AGENT],
+            'headers' => ['Accept' => 'application/sparql-results+json', 'User-Agent' => $this->userAgent()],
             'timeout' => 30,
         ], $unpaced);
 
@@ -220,7 +228,7 @@ class PublicCatalog
     {
         return $this->requestJson('MusicBrainz', self::MB_URL . $path, [
             'query' => $query + ['fmt' => 'json'],
-            'headers' => ['User-Agent' => self::USER_AGENT, 'Accept' => 'application/json'],
+            'headers' => ['User-Agent' => $this->userAgent(), 'Accept' => 'application/json'],
             'timeout' => 20,
         ], $this->lastMusicBrainzCall, self::MB_INTERVAL_US);
     }
@@ -228,8 +236,10 @@ class PublicCatalog
     /**
      * GET returning decoded JSON; [] for a definitive answer without data
      * (404, bad JSON). Overload/rate-limit responses (429, 5xx) and transport
-     * errors are retried with backoff (~2 min in total), then reported: a transient failure
-     * must not be mistaken for "this artist has no Spotify id".
+     * errors are retried with a growing backoff, waiting at least what the
+     * server asks (Retry-After, X-RateLimit-Reset; at most 5 min per wait,
+     * ~15 min in total), then reported: a transient failure must not be
+     * mistaken for "this artist has no Spotify id".
      *
      * @param array<string, mixed> $options
      *
@@ -240,14 +250,20 @@ class PublicCatalog
     private function requestJson(string $service, string $url, array $options, float &$lastCall, int $intervalUs = 0): array
     {
         $error = '';
-        foreach ([0, 5, 15, 30, 60] as $backoff) { // MusicBrainz throttles an IP for a while after bursts
-            sleep($backoff);
+        $asked = 0;
+        foreach ([0, 5, 15, 30, 60, 120, 180, 300, 300] as $backoff) { // MusicBrainz throttles an IP (and a User-Agent) for a while after bursts
+            sleep(min(300, max($backoff, $asked)));
+            $asked = 0;
             $this->wait($lastCall, $intervalUs);
             try {
                 $response = $this->httpClient->request('GET', $url, $options);
                 $status = $response->getStatusCode();
                 if ($status === 429 || $status >= 500) {
                     $error = 'HTTP ' . $status;
+                    $headers = $response->getHeaders(false);
+                    $retryAfter = (int) ($headers['retry-after'][0] ?? 0);
+                    $reset = (int) ($headers['x-ratelimit-reset'][0] ?? 0);
+                    $asked = max($retryAfter, $reset > time() ? $reset - time() : 0);
                     continue;
                 }
 
@@ -260,6 +276,11 @@ class PublicCatalog
         }
 
         throw new SpotifyException(\sprintf('%s unavailable (%s), try again later.', $service, $error));
+    }
+
+    private function userAgent(): string
+    {
+        return trim($this->musicbrainzUserAgent) !== '' ? $this->musicbrainzUserAgent : self::USER_AGENT;
     }
 
     private function luceneEscape(string $s): string
