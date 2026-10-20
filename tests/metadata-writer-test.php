@@ -198,7 +198,9 @@ try {
         . $frame('COMM', "\x00eng\x00first comment")
         . $frame('COMM', "\x00eng\x00duplicate comment")
         . $frame('RVA2', "track\x00\x01\x00\x10\x00")
-        . $frame('COMM', "\x00\\\\\\desc\x00comment with a garbage language code");
+        . $frame('COMM', "\x00\\\\\\desc\x00comment with a garbage language code")
+        . $frame('TXXX', "\x00Rating\x00" . "5")
+        . $frame('TXXX', "\x00Rating\x00" . "4");
     $size = strlen($frames);
     $syncsafe = chr(($size >> 21) & 0x7F) . chr(($size >> 14) & 0x7F) . chr(($size >> 7) & 0x7F) . chr($size & 0x7F);
     $bad = sys_get_temp_dir() . '/mw-bad-' . bin2hex(random_bytes(4)) . '.mp3';
@@ -216,8 +218,25 @@ try {
         check('malformed frames: unwritable RVA2 (parsed without raw data) dropped, no warning', !isset($info['id3v2']['RVA2']));
         $langs = array_map(static fn(array $c): string => strtolower((string) $c['language']), $info['id3v2']['COMM'] ?? []);
         check('malformed frames: COMM with a garbage language code kept as "xxx" (unknown)', in_array('xxx', $langs, true), json_encode($langs));
+        $ratings = array_values(array_filter($info['id3v2']['TXXX'] ?? [], static fn(array $t): bool => ($t['description'] ?? '') === 'Rating'));
+        check('malformed frames: duplicate TXXX "Rating" → first kept', count($ratings) === 1 && ($ratings[0]['data'] ?? '') === '5', json_encode(array_column($ratings, 'data')));
     } finally {
         @unlink($bad);
+    }
+
+    // 8) FLAC/Ogg need metaflac / vorbiscomment (getID3 shells out to them): when the
+    //    tool is missing, a clear error naming the package to install.
+    $flac = sys_get_temp_dir() . '/mw-' . bin2hex(random_bytes(4)) . '.flac';
+    file_put_contents($flac, 'fLaC' . str_repeat("\x00", 64));
+    try {
+        if ((new App\Service\BinaryLocator())->find('metaflac') !== null) {
+            echo "  --  metaflac installed: skipping the missing-tool check\n";
+        } else {
+            $ok = $writer->writeTags($flac, ['title' => 'x']);
+            check('FLAC without metaflac → clear error naming the package', !$ok && str_contains((string) $writer->lastError(), 'brew install flac'), (string) $writer->lastError());
+        }
+    } finally {
+        @unlink($flac);
     }
 
     check('missing file → false', $writer->writeTags($file . '.nope', ['title' => 'x']) === false);

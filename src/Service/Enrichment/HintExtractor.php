@@ -89,6 +89,8 @@ final class HintExtractor
         // for spaces and end with a release-group tag.
         $scene = str_contains($stem, '_');
         $stem = trim(str_replace('_', ' ', $stem));
+        // Copies made by the OS: "Song(1)", "Song (2)", "Song - Copie", "Song - Copy (3)".
+        $stem = trim((string) preg_replace('/\s*-\s*(?:copie|copy)(?:\s*\(?\d+\)?)?$|\s*\(\d{1,2}\)$/iu', '', $stem));
         $disc = $track = null;
         $rest = $stem;
 

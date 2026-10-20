@@ -74,18 +74,31 @@ Dev: `phpstan/phpstan-doctrine`, `phpstan/phpstan-symfony`,
 
 ### External tools
 
+Everything at once:
+
+```bash
+# macOS
+brew install atomicparsley flac chromaprint vorbis-tools
+# Debian/Ubuntu
+sudo apt install atomicparsley flac libchromaprint-tools vorbis-tools
+```
+
+All of them are located automatically (PATH, `/opt/homebrew/bin`,
+`/usr/local/bin`, `~/.local/bin`…), also when PHP runs under a web server
+whose PATH lacks Homebrew.
+
 **Required**
 
 | Tool | macOS | Debian/Ubuntu | Needed for |
 |---|---|---|---|
 | `AtomicParsley` | `brew install atomicparsley` | `apt install atomicparsley` | writing tags into **M4A** files (getID3 cannot): editor, `app:enrich`, import |
+| `metaflac` | `brew install flac` | `apt install flac` | writing tags into **FLAC** files (getID3 shells out to it); without it FLAC files fail with "metaflac not found" |
 
 **Optional, per feature**
 
 | Tool | macOS | Debian/Ubuntu | Needed for |
 |---|---|---|---|
-| `fpcalc` (Chromaprint) | `brew install chromaprint` | `apt install libchromaprint-tools` | audio fingerprinting in `app:enrich` (identifies files with no usable name) |
-| `metaflac` | `brew install flac` | `apt install flac` | writing tags into **FLAC** files (getID3 shells out to it) |
+| `fpcalc` (Chromaprint) | `brew install chromaprint` | `apt install libchromaprint-tools` | audio fingerprinting in `app:enrich` / `app:import` (strongly recommended: identifies files with no usable name) |
 | `vorbiscomment` | `brew install vorbis-tools` | `apt install vorbis-tools` | writing tags into **Ogg Vorbis** files |
 
 MP3 tags are written in pure PHP. M4A tags (cover and MusicBrainz ids
@@ -326,6 +339,7 @@ php bin/console app:spotify:match             # link them to Spotify
 | `--dry-run` | print the decisions, write and move nothing |
 | `--threshold=0.85` | score needed to file automatically; below it the file waits (`pending`) |
 | `--retry` | also retry files already tried and unchanged since |
+| `--only=failed,skipped` | only files already tried with these statuses (`failed`, `skipped`, `pending`, `unmatched`); new files are left alone |
 | `--limit=N` | at most N files |
 | `--source=DIR` | import another folder than `IMPORT_DIR` |
 

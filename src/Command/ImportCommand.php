@@ -32,6 +32,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class ImportCommand extends Command
 {
     private const DEFAULT_THRESHOLD = 0.85;
+    /** Statuses --only can select (imported and duplicate files left the import folder). */
+    private const RETRYABLE_STATUSES = [ImportItem::FAILED, ImportItem::SKIPPED, ImportItem::PENDING, ImportItem::UNMATCHED];
 
     public function __construct(
         private readonly AudioFileReader $reader,
@@ -53,6 +55,7 @@ class ImportCommand extends Command
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Show what would be tagged and where it would be filed; change nothing')
             ->addOption('threshold', null, InputOption::VALUE_REQUIRED, 'Minimum score (0-1) to tag and file automatically; below it the candidates wait in the web page', (string) self::DEFAULT_THRESHOLD)
             ->addOption('retry', null, InputOption::VALUE_NONE, 'Also retry files already tried (unchanged since)')
+            ->addOption('only', null, InputOption::VALUE_REQUIRED, 'Only files already tried with these statuses, comma-separated: failed, skipped, pending, unmatched (e.g. --only=failed,skipped)')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Process at most this many files');
     }
 
@@ -67,6 +70,16 @@ class ImportCommand extends Command
         $retry = (bool) $input->getOption('retry');
         $threshold = (float) $input->getOption('threshold');
         $limit = $input->getOption('limit') !== null ? max(1, (int) $input->getOption('limit')) : null;
+        $only = null;
+        if ($input->getOption('only') !== null) {
+            $only = array_values(array_filter(array_map('trim', explode(',', strtolower((string) $input->getOption('only'))))));
+            $unknown = array_diff($only, self::RETRYABLE_STATUSES);
+            if ($only === [] || $unknown !== []) {
+                $io->error(\sprintf('--only accepts: %s.', implode(', ', self::RETRYABLE_STATUSES)));
+
+                return Command::FAILURE;
+            }
+        }
 
         if (!is_dir($source)) {
             $io->error(\sprintf('Import folder "%s" does not exist (set IMPORT_DIR in .env.local).', $source));
@@ -98,26 +111,33 @@ class ImportCommand extends Command
             }
 
             // Every file of the folder helps the album match; only those not
-            // already tried (or changed since) are targets.
-            $tracks = [];
+            // already tried (or changed since) — or, with --only, those with
+            // the requested statuses — are targets.
+            $targets = [];
             $byId = [];
             foreach ($files as $i => $file) {
                 $size = (int) filesize($file);
                 $mtime = (int) filemtime($file);
                 $item = $this->items->findOneByPath($file);
-                $target = ($retry || $item === null || !$item->isUnchanged($size, $mtime))
-                    && ($limit === null || $processed < $limit);
-                if ($target) {
+                $wanted = $only !== null
+                    ? $item !== null && \in_array($item->getStatus(), $only, true)
+                    : $retry || $item === null || !$item->isUnchanged($size, $mtime);
+                $targets[$i] = $wanted && ($limit === null || $processed < $limit);
+                if ($targets[$i]) {
                     ++$processed;
-                } else {
+                } elseif ($only === null) {
                     ++$stats['skipped'];
                 }
-                $tags = $this->reader->read($file);
-                $tracks[] = new EnrichmentTrack($i, $file, $tags['title'], $tags['artist'], $tags['album'], $tags['genre'], $tags['duration'], $tags['trackNumber'], $tags['hasImage'], $target);
                 $byId[$i] = [$file, $size, $mtime, $item];
             }
-            if (array_filter($tracks, static fn(EnrichmentTrack $t): bool => $t->target) === []) {
+            // Tags are read only for folders with something to do.
+            if (!\in_array(true, $targets, true)) {
                 continue;
+            }
+            $tracks = [];
+            foreach ($files as $i => $file) {
+                $tags = $this->reader->read($file);
+                $tracks[] = new EnrichmentTrack($i, $file, $tags['title'], $tags['artist'], $tags['album'], $tags['genre'], $tags['duration'], $tags['trackNumber'], $tags['hasImage'], $targets[$i]);
             }
 
             $io->writeln(\sprintf('<comment>%s</comment>', substr($dir, \strlen($source) + 1) ?: '.'));

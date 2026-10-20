@@ -119,6 +119,9 @@ class MetadataWriter
             return $this->writeMp4($file, $fields, $cover);
         }
         $vorbis = \in_array($ext, ['flac', 'ogg'], true);
+        if ($vorbis && !$this->prepareVorbisTool($ext)) {
+            return false;
+        }
 
         $getID3 = new \getID3();
         $getID3->setOption(['encoding' => 'UTF-8']);
@@ -442,6 +445,29 @@ class MetadataWriter
                 @unlink($output);
             }
             clearstatcache(true, $file);
+        }
+
+        return true;
+    }
+
+    /**
+     * getID3 runs `metaflac` (FLAC) / `vorbiscomment` (Ogg) from the PATH,
+     * which a web server's PATH may lack (Homebrew): locate the tool, put its
+     * folder on the PATH, or explain what to install.
+     */
+    private function prepareVorbisTool(string $ext): bool
+    {
+        [$tool, $package] = $ext === 'flac' ? ['metaflac', 'flac'] : ['vorbiscomment', 'vorbis-tools'];
+        $binary = (new BinaryLocator())->find($tool);
+        if ($binary === null) {
+            $this->lastError = \sprintf('%s not found: install it to write %s tags (brew install %s / apt install %s)', $tool, strtoupper($ext), $package, $package);
+
+            return false;
+        }
+        $dir = \dirname($binary);
+        $path = (string) getenv('PATH');
+        if (!\in_array($dir, explode(\PATH_SEPARATOR, $path), true)) {
+            putenv('PATH=' . $dir . ($path !== '' ? \PATH_SEPARATOR . $path : ''));
         }
 
         return true;

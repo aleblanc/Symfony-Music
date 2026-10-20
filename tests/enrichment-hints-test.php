@@ -151,6 +151,11 @@ check('outside the root: artist guess is the artist folder', $h->artistGuess() =
 $h = $x->extract('/Volumes/Disk/Downloads/2019/Radiohead/OK Computer/CD1/Track 1.mp3', '/home/me/MusicOK', title: 'Track 1', artist: '', album: '', duration: 0);
 check('outside the root: artist/album/disc kept, the rest dropped', $h->pathSegments === ['OK Computer', 'Radiohead'] && $h->discNumber === 1, json_encode([$h->pathSegments, $h->discNumber]));
 
+$h = $x->extract("{$lib}/Danakil/Entre Les Lignes/08 Ne Touche Pas(1).mp3", $lib, title: '08 Ne Touche Pas(1)', artist: '', album: '', duration: 299);
+check('copy marker "(1)" stripped from the title', $h->filenameTitle === 'Ne Touche Pas' && $h->trackNumber === 8, json_encode([$h->filenameTitle, $h->trackNumber]));
+$h = $x->extract("{$lib}/x/Song Name - Copie.mp3", $lib, title: 'x', artist: '', album: '', duration: 0);
+check('"- Copie" / "- Copy" stripped', $h->filenameTitle === 'Song Name', var_export($h->filenameTitle, true));
+
 // ---- Search pairs ------------------------------------------------------------
 $h = $x->extract("{$root}/2020/Radiohead/OK Computer/Track 4.mp3", $root, title: 'Track 4', artist: 'Unknown Artist', album: 'Unknown Album', duration: 0);
 $pairs = $h->albumSearchPairs();

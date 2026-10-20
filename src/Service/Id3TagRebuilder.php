@@ -220,6 +220,16 @@ class Id3TagRebuilder
                 }
             }
         }
+        // Only one TXXX per description ("Rating" twice seen in downloads).
+        $seenTxxx = [];
+        $keep('TXXX', function (array $f) use (&$seenTxxx): bool {
+            $key = mb_strtolower($this->decode((string) ($f['description'] ?? ''), (int) ($f['encodingid'] ?? 0)));
+            if (isset($seenTxxx[$key])) {
+                return false;
+            }
+
+            return $seenTxxx[$key] = true;
+        });
         // Only one COMM / USLT per language + description (ID3v2 rule some
         // taggers break): the first one is kept.
         foreach (['COMM', 'USLT'] as $id) {
@@ -274,6 +284,19 @@ class Id3TagRebuilder
         }
 
         return array_values(array_unique($ids));
+    }
+
+    /** A raw ID3v2 text (ISO-8859-1, UTF-16 + BOM, UTF-16BE, UTF-8) as UTF-8. */
+    private function decode(string $raw, int $encodingId): string
+    {
+        $from = match ($encodingId) {
+            1 => 'UTF-16',
+            2 => 'UTF-16BE',
+            3 => 'UTF-8',
+            default => 'ISO-8859-1',
+        };
+
+        return $from === 'UTF-8' ? $raw : (string) @iconv($from, 'UTF-8//IGNORE', $raw);
     }
 
     private function imageMime(string $declared, string $bytes): string

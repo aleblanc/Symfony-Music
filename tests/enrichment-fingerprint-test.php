@@ -413,5 +413,26 @@ $en = new MetadataEnricher(new HintExtractor(), new MatchScorer(), new FpMusicBr
 $p = $en->enrichFolder([$single(90, 'Iggy Pop/Album inconnu/Iggy Pop - The Passenger.mp3', 284)], $logger)[0] ?? null;
 check('9c: original (oldest) album wins a near tie on the fingerprint score', $p?->releaseId === 'rel-lust', (string) $p?->releaseId);
 
+// ---- 10. Names agree: folder artist + folder album + title + track number ---------
+// "Danakil/Entre Les Lignes/08 Ne Touche Pas(1).mp3": only 2 of the album's 14 tracks
+// are there, so the album score is low — but every name agrees: confident.
+$dkTracks = [];
+foreach (['Intro' => 120, 'Mali Mali' => 281, 'A' => 200, 'B' => 210, 'C' => 220, 'D' => 230, 'E' => 240, 'Ne touche pas' => 308, 'F' => 250, 'G' => 260, 'H' => 270, 'I' => 280, 'J' => 290, 'K' => 300] as $t => $d) {
+    $dkTracks[] = new ReleaseTrack(1, count($dkTracks) + 1, $t, 'Danakil', $d, 'dk-' . (count($dkTracks) + 1));
+}
+$dk = new ReleaseCandidate('rel-dk', 'Entre les lignes', 'Danakil', 2014, null, 'rg-dk', $dkTracks, false, 'Official');
+$en = new MetadataEnricher(new HintExtractor(), new MatchScorer(), new FpMusicBrainz([new ReleaseSummary('rel-dk', 'Entre les lignes', 'Danakil', '2014-02-24', 'Official', 'Album', [], 14)], ['rel-dk' => $dk]), new FpAcoustId(), new FpFingerprinter(), new NoCovers(), '/music');
+$p = $byId($en->enrichFolder([
+    new EnrichmentTrack(101, '/music/Danakil/Entre Les Lignes/02 Mali Mali.mp3', '02 Mali Mali', null, null, null, 281, null, true, true),
+    new EnrichmentTrack(102, '/music/Danakil/Entre Les Lignes/08 Ne Touche Pas(1).mp3', '08 Ne Touche Pas(1)', null, null, null, 299, null, true, true),
+], $logger));
+check('10: every name agrees with the album → confident despite a partial folder', ($p[102]->releaseId ?? '') === 'rel-dk' && ($p[102]->fields['trackNumber'] ?? 0) === 8 && ($p[102]->score ?? 0) >= 0.85, json_encode([$p[102]->releaseId ?? null, $p[102]->score ?? null]));
+$en = new MetadataEnricher(new HintExtractor(), new MatchScorer(), new FpMusicBrainz([new ReleaseSummary('rel-dk', 'Entre les lignes', 'Danakil', '2014-02-24', 'Official', 'Album', [], 14)], ['rel-dk' => $dk]), new FpAcoustId(), new FpFingerprinter(), new NoCovers(), '/music');
+$p = $byId($en->enrichFolder([
+    new EnrichmentTrack(103, '/music/Danakil/Entre Les Lignes/02 Mali Mali.mp3', '02 Mali Mali', null, null, null, 281, null, true, true),
+    new EnrichmentTrack(104, '/music/Danakil/Entre Les Lignes/08 Ne Touche Pas.mp3', '08 Ne Touche Pas', null, null, null, 240, null, true, true),
+], $logger));
+check('10: names agree but the length is far off → not boosted', ($p[104] ?? null) === null || $p[104]->score < 0.85, json_encode([$p[104]->score ?? null]));
+
 echo $failures === 0 ? "\nAll fingerprint tests passed.\n" : "\n{$failures} failure(s).\n";
 exit($failures === 0 ? 0 : 1);

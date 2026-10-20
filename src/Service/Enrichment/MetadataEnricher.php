@@ -26,6 +26,8 @@ use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpException;
  */
 class MetadataEnricher
 {
+    /** Confidence given when every name of the file agrees with the album track. */
+    private const NAMES_AGREE_SCORE = 0.9;
     /** Candidates kept per doubtful file for the web page. */
     private const MAX_CANDIDATES = 5;
     /** Below this, the album pass is ignored and files fall back to the orphan pass. */
@@ -187,9 +189,20 @@ class MetadataEnricher
                 foreach ([$match, ...$this->albumAlternatives] as $albumMatch) {
                     foreach ($targets as $id) {
                         $releaseTrack = $albumMatch->assignments[$id] ?? null;
-                        if ($releaseTrack !== null) {
-                            $candidates[$id][] = $this->proposal($byId[$id], $albumMatch->release, $releaseTrack, $albumMatch->score, Proposal::SOURCE_ALBUM, $albumMatch->breakdown);
+                        if ($releaseTrack === null) {
+                            continue;
                         }
+                        $score = $albumMatch->score;
+                        $breakdown = $albumMatch->breakdown;
+                        // A partial folder (2 files of a 14-track album) scores low on
+                        // track count; when the folders and the file name already say
+                        // this artist, this album, this title, this number, it is sure.
+                        if ($albumMatch === $match && !isset($match->breakdown['capped'])
+                            && $this->namesAgree($hints[$id], $albumMatch->release, $releaseTrack)) {
+                            $score = max($score, self::NAMES_AGREE_SCORE);
+                            $breakdown['names_agree'] = 1.0;
+                        }
+                        $candidates[$id][] = $this->proposal($byId[$id], $albumMatch->release, $releaseTrack, $score, Proposal::SOURCE_ALBUM, $breakdown);
                     }
                 }
             }
@@ -244,6 +257,32 @@ class MetadataEnricher
         }
 
         return $result;
+    }
+
+    /**
+     * The names the file carries — folder or tag artist, folder or tag album,
+     * title, track number — all designate this release track, and its length
+     * is consistent.
+     */
+    private function namesAgree(TrackHints $hints, ReleaseCandidate $release, ReleaseTrack $track): bool
+    {
+        $title = $hints->bestTitle();
+        $artist = $hints->bestArtist() ?? $hints->folderArtist();
+        $nearest = $hints->pathSegments[0] ?? null;
+        $album = $hints->tagAlbum ?? ($nearest !== null ? (TrackHints::splitArtistDash($nearest)[1] ?? $nearest) : null);
+        if ($title === null || $artist === null || $album === null) {
+            return false;
+        }
+        if ($hints->trackNumber !== null && $hints->trackNumber !== $track->position) {
+            return false;
+        }
+        if ($hints->duration > 0 && $track->duration !== null && abs($hints->duration - $track->duration) > 15) {
+            return false;
+        }
+
+        return $this->scorer->similarity($title, $track->title) >= 0.85
+            && $this->scorer->similarity($album, $release->title) >= 0.85
+            && max($this->scorer->similarity($artist, $release->artist), $this->scorer->similarity($artist, $track->artist)) >= 0.85;
     }
 
     /**
