@@ -11,6 +11,9 @@ namespace App\Service\Enrichment;
  */
 final readonly class TrackHints
 {
+    /** " - " separator: a dash with a space on at least one side, never a bare hyphen ("Jay-Z"). */
+    public const DASH_SEPARATOR = '/\s+[-–—]\s*|\s*[-–—]\s+/u';
+
     /**
      * @param list<string> $pathSegments cleaned folder names, nearest folder first
      */
@@ -50,6 +53,22 @@ final readonly class TrackHints
         if ($artist !== null) {
             return $artist;
         }
+        foreach ($this->pathSegments as $segment) {
+            $parts = self::splitArtistDash($segment);
+            if ($parts !== null) {
+                return $parts[0];
+            }
+        }
+
+        return $this->pathSegments === [] ? null : $this->pathSegments[\count($this->pathSegments) - 1];
+    }
+
+    /**
+     * Artist named by the folders only (outermost folder, or the left side of
+     * an "Artist - Album" folder), ignoring tags and file name.
+     */
+    public function folderArtist(): ?string
+    {
         foreach ($this->pathSegments as $segment) {
             $parts = self::splitArtistDash($segment);
             if ($parts !== null) {
@@ -127,7 +146,7 @@ final readonly class TrackHints
      */
     public static function splitArtistDash(string $value): ?array
     {
-        $parts = preg_split('/\s+[-–—]\s+/u', $value);
+        $parts = preg_split(self::DASH_SEPARATOR, $value);
         if ($parts === false || \count($parts) < 2) {
             return null;
         }

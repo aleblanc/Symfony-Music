@@ -80,7 +80,7 @@ check('D.NN. Title: track', $h->trackNumber === 5, var_export($h->trackNumber, t
 check('D.NN. Title: title', $h->filenameTitle === 'Yesterday', var_export($h->filenameTitle, true));
 
 // ---- Real cases from the library (Windows Media Player rips, web downloads) ---
-$lib = '/Users/aleblanc/Documents/Music';
+$lib = '/home/me/Music';
 
 $h = $x->extract("{$lib}/Coldplay/Mylo Xyloto/07-coldplay-every_teardrop_is_a_waterfall.mp3", $lib, title: '07-coldplay-every_teardrop_is_a_waterfall', artist: 'Coldplay/Coldplay [2.Bia2Voice.biz]', album: 'Mylo Xyloto', duration: 240);
 check('NN-artist-title: track', $h->trackNumber === 7, var_export($h->trackNumber, true));
@@ -110,6 +110,11 @@ $h = $x->extract("{$lib}/Interprète inconnu/Album inconnu/parov stelar - all ni
 check('"Interprète inconnu" is unknown + noise', $h->tagArtist === null && $h->pathSegments === [], json_encode([$h->tagArtist, $h->pathSegments]));
 check('artist from file name when folders are noise', $h->artistGuess() === 'parov stelar');
 
+// macOS stores file names decomposed (NFD: "e" + U+0300), the scanner keeps them as is.
+$nfd = Normalizer::normalize("{$lib}/Interprète inconnu/Album inconnu/Daft Punk - Digital Love.mp3", Normalizer::FORM_D);
+$h = $x->extract($nfd, Normalizer::normalize($lib, Normalizer::FORM_D), title: Normalizer::normalize('Interprète inconnu', Normalizer::FORM_D), artist: Normalizer::normalize('Interprète inconnu', Normalizer::FORM_D), album: 'Album inconnu', duration: 300);
+check('NFD (macOS) names: noise folders and unknown tags still recognised', $h->pathSegments === [] && $h->tagArtist === null, json_encode([$h->pathSegments, $h->tagArtist], JSON_UNESCAPED_UNICODE));
+
 $h = $x->extract("{$lib}/mp3lio.com/mp3hup.com/Queen - Bohemian Rhapsody.mp3", $lib, title: 'Queen - Bohemian Rhapsody', artist: '', album: '', duration: 355);
 check('download-site folders are noise', $h->pathSegments === [], json_encode($h->pathSegments));
 
@@ -132,6 +137,19 @@ check('"track 05b" is a placeholder', $h->titleIsPlaceholder && $h->trackNumber 
 
 $h = $x->extract("{$lib}/2019/Radiohead/OK Computer/Track 4.mp3", $lib, title: 'Track 4', artist: '', album: '', duration: 0);
 check('artist guess skips the album folder', $h->artistGuess() === 'Radiohead', var_export($h->artistGuess(), true));
+
+$h = $x->extract("{$lib}/x/Bing Crosby -Accentuate The Positive (OST Fallout 4) www.mp3lio.net .mp3", $lib, title: 'x', artist: '', album: '', duration: 100);
+check('one-sided dash, OST note and site name stripped', $h->filenameArtist === 'Bing Crosby' && $h->filenameTitle === 'Accentuate The Positive', json_encode([$h->filenameArtist, $h->filenameTitle]));
+$h = $x->extract("{$lib}/x/American Idiot (Montreal, QC) -(shuvosky.com).mp3", $lib, title: 'x', artist: '', album: '', duration: 100);
+check('"(site.com)" stripped', $h->filenameTitle === 'American Idiot (Montreal, QC)', var_export($h->filenameTitle, true));
+
+// File outside the library root (MUSIC_DIR changed, or a file in the import folder):
+// system folders must not become hints ("Users" was guessed as the artist).
+$h = $x->extract('/home/me/Music/Linkin Park/Album inconnu/01 Papercut.mp3', '/home/me/MusicOK', title: '01 Papercut', artist: 'Unknown Artist', album: 'Unknown Album', duration: 185);
+check('outside the root: only the last folder levels are hints', $h->pathSegments === ['Linkin Park'], json_encode($h->pathSegments));
+check('outside the root: artist guess is the artist folder', $h->artistGuess() === 'Linkin Park', var_export($h->artistGuess(), true));
+$h = $x->extract('/Volumes/Disk/Downloads/2019/Radiohead/OK Computer/CD1/Track 1.mp3', '/home/me/MusicOK', title: 'Track 1', artist: '', album: '', duration: 0);
+check('outside the root: artist/album/disc kept, the rest dropped', $h->pathSegments === ['OK Computer', 'Radiohead'] && $h->discNumber === 1, json_encode([$h->pathSegments, $h->discNumber]));
 
 // ---- Search pairs ------------------------------------------------------------
 $h = $x->extract("{$root}/2020/Radiohead/OK Computer/Track 4.mp3", $root, title: 'Track 4', artist: 'Unknown Artist', album: 'Unknown Album', duration: 0);

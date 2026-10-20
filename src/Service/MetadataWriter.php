@@ -15,18 +15,26 @@ use App\Entity\Music;
  * code did with `require_once __DIR__ . '/getid3/write.php';`.
  *
  * getID3 replaces the whole tag on write (`overwrite_tags=false` is
- * unsupported), so existing fields are read first and merged: a partial
- * update no longer wipes the year, track number, cover or POPM star rating.
+ * unsupported). MP3 tags are therefore rebuilt from every existing frame by
+ * {@see Id3TagRebuilder} (TXXX, UFID, WOAF Spotify link, POPM rating, extra
+ * pictures...) with a backup and a lost-frame check; Vorbis comments are
+ * merged key by key.
  */
 class MetadataWriter
 {
-    /** ID3v2 text fields carried over from the existing tag on a partial write. */
-    private const ID3V2_KEPT_FIELDS = [
-        'title', 'artist', 'album', 'band', 'year', 'track_number', 'part_of_a_set', 'genre', 'comment',
-        'composer', 'publisher', 'copyright_message', 'encoded_by', 'bpm', 'unsynchronised_lyric',
-        'original_artist', 'conductor', 'initial_key', 'language', 'content_group_description', 'subtitle',
-        'url_file', // WOAF: the open.spotify.com link written by app:spotify:match
+    /** Picard's conventions for MusicBrainz ids. */
+    private const MB_UFID_OWNER = 'http://musicbrainz.org';
+    private const MB_TXXX = [
+        'musicbrainzReleaseId' => 'MusicBrainz Album Id',
+        'musicbrainzReleaseGroupId' => 'MusicBrainz Release Group Id',
     ];
+    private const MB_VORBIS = [
+        'musicbrainzRecordingId' => 'musicbrainz_trackid',
+        'musicbrainzReleaseId' => 'musicbrainz_albumid',
+        'musicbrainzReleaseGroupId' => 'musicbrainz_releasegroupid',
+    ];
+
+    private ?string $lastError = null;
 
     /** Vorbis comment names carried as binary picture blocks, rewritten separately. */
     private const VORBIS_SKIPPED_FIELDS = ['metadata_block_picture', 'coverart', 'coverartmime'];
@@ -58,21 +66,28 @@ class MetadataWriter
      * Updates only the given fields, merged with the tags already in the file.
      *
      * Keys: title, artist, album, albumArtist, genre, year, trackNumber,
-     * trackTotal, discNumber, discTotal, lyrics. A key that is absent is left
-     * as is; null or '' removes the field.
+     * trackTotal, discNumber, discTotal, lyrics, musicbrainzRecordingId,
+     * musicbrainzReleaseId, musicbrainzReleaseGroupId. A key that is absent is
+     * left as is; null or '' removes the field.
      *
      * @param array<string, string|int|null> $fields
-     * @param string|null $cover raw JPEG/PNG bytes for the front cover, or null to keep the current one
+     * @param string|null $cover raw JPEG/PNG bytes for the front cover, null to keep the current one, '' to remove it
      *
-     * @return bool true if at least one tag format was written successfully
+     * @return bool true if the tags were written; see {@see lastError()} otherwise
      */
     public function writeTags(string $file, array $fields, ?string $cover = null): bool
     {
+        $this->lastError = null;
         if (!is_file($file) || !$this->loadWriter()) {
+            $this->lastError = 'file missing or getID3 write module unavailable';
+
             return false;
         }
 
         $ext = strtolower(pathinfo($file, \PATHINFO_EXTENSION));
+        if ($ext === 'mp3') {
+            return $this->writeId3($file, $fields, $cover);
+        }
         $vorbis = \in_array($ext, ['flac', 'ogg'], true);
 
         $getID3 = new \getID3();
@@ -80,8 +95,16 @@ class MetadataWriter
         $info = $getID3->analyze($file);
         \getid3_lib::CopyTagsToComments($info);
 
-        $data = $vorbis ? $this->existingVorbis($info) : $this->existingId3v2($info);
-        foreach ($this->mapFields($fields, $vorbis) as $key => $value) {
+        $data = $vorbis ? $this->existingVorbis($info) : [];
+        $mapped = $this->mapFields($fields, $vorbis);
+        if ($vorbis) {
+            foreach (self::MB_VORBIS as $field => $key) {
+                if (\array_key_exists($field, $fields)) {
+                    $mapped[$key] = $fields[$field];
+                }
+            }
+        }
+        foreach ($mapped as $key => $value) {
             if ($value === null || $value === '') {
                 unset($data[$key]);
             } else {
@@ -89,6 +112,7 @@ class MetadataWriter
             }
         }
 
+        // null keeps the current cover, '' removes it.
         $picture = $cover ?? ($info['comments']['picture'][0]['data'] ?? null);
         if (\is_string($picture) && $picture !== '') {
             $data['attached_picture'] = [[
@@ -99,14 +123,25 @@ class MetadataWriter
             ]];
         }
 
-        // WMP keeps its star rating in a POPM frame (see RatingReader).
-        $popm = $info['id3v2']['POPM'][0] ?? null;
-        if (!$vorbis && \is_array($popm) && isset($popm['email'], $popm['rating'])) {
-            $data['popularimeter'] = ['email' => $popm['email'], 'rating' => $popm['rating'], 'data' => $popm['counter'] ?? 0];
+        // getID3 hands Ogg files to `vorbiscomment` through shell_exec() with
+        // the file name only wrapped in double quotes (write.vorbiscomment.php):
+        // a downloaded "x$(cmd).ogg" would run cmd. Tags are written on a copy
+        // with a safe temporary name, which then replaces the original.
+        $target = $file;
+        $workCopy = null;
+        if ($ext === 'ogg') {
+            $workCopy = tempnam(sys_get_temp_dir(), 'tagw');
+            if ($workCopy === false || !rename($workCopy, $workCopy . '.ogg') || !copy($file, $workCopy . '.ogg')) {
+                $this->lastError = 'could not create a working copy for tag writing';
+
+                return false;
+            }
+            $workCopy .= '.ogg';
+            $target = $workCopy;
         }
 
         $writer = new \getid3_writetags();
-        $writer->filename = $file;
+        $writer->filename = $target;
         $writer->tagformats = $this->tagFormatsFor($ext);
         $writer->overwrite_tags = true;
         $writer->tag_encoding = 'UTF-8';
@@ -122,9 +157,97 @@ class MetadataWriter
             $ok = $writer->WriteTags();
         }
 
+        if ($workCopy !== null) {
+            if ($ok && !copy($workCopy, $file)) {
+                $ok = false;
+                $writer->errors[] = 'could not replace the original file';
+            }
+            @unlink($workCopy);
+        }
+
         clearstatcache(true, $file);
+        if (!$ok) {
+            $this->lastError = 'getID3: ' . implode('; ', $writer->errors);
+        }
 
         return $ok;
+    }
+
+    /** Why the last {@see writeTags()} call failed, null after a success. */
+    public function lastError(): ?string
+    {
+        return $this->lastError;
+    }
+
+    /**
+     * @param array<string, string|int|null> $fields
+     */
+    private function writeId3(string $file, array $fields, ?string $cover): bool
+    {
+        $rebuilder = new Id3TagRebuilder($this->getid3Dir);
+
+        try {
+            $info = $rebuilder->analyze($file);
+            $data = $rebuilder->rebuild($info);
+            $changed = [];
+
+            foreach ($this->mapFields($fields, false) as $key => $value) {
+                $changed[] = $rebuilder->frameId($key);
+                if ($value === null || $value === '') {
+                    unset($data[$key]);
+                } else {
+                    $data[$key] = [(string) $value];
+                }
+            }
+
+            if (\array_key_exists('musicbrainzRecordingId', $fields)) {
+                $changed[] = 'UFID';
+                $id = (string) $fields['musicbrainzRecordingId'];
+                if ($id === '') {
+                    unset($data['unique_file_identifier']);
+                } else {
+                    $data['unique_file_identifier'] = ['ownerid' => self::MB_UFID_OWNER, 'data' => $id];
+                }
+            }
+            foreach (self::MB_TXXX as $field => $description) {
+                if (!\array_key_exists($field, $fields)) {
+                    continue;
+                }
+                $changed[] = 'TXXX';
+                $texts = array_values(array_filter($data['text'] ?? [], static fn(array $t): bool => ($t['description'] ?? '') !== $description));
+                if ((string) $fields[$field] !== '') {
+                    $texts[] = ['description' => $description, 'data' => (string) $fields[$field]];
+                }
+                $data['text'] = $texts;
+                if ($texts === []) {
+                    unset($data['text']);
+                }
+            }
+
+            // null keeps the pictures; otherwise only the front cover is
+            // replaced ('' removes it), back covers & co. stay.
+            if ($cover !== null) {
+                $changed[] = 'APIC';
+                $pictures = array_values(array_filter($data['attached_picture'] ?? [], static fn(array $p): bool => (int) ($p['picturetypeid'] ?? 3) !== 3));
+                if ($cover !== '') {
+                    array_unshift($pictures, ['data' => $cover, 'picturetypeid' => 3, 'description' => 'Cover', 'mime' => $this->imageMime($cover)]);
+                }
+                $data['attached_picture'] = $pictures;
+                if ($pictures === []) {
+                    unset($data['attached_picture']);
+                }
+            }
+
+            $rebuilder->write($file, $info, $data, array_values(array_unique(array_filter($changed))));
+        } catch (\RuntimeException $e) {
+            $this->lastError = $e->getMessage();
+
+            return false;
+        }
+
+        clearstatcache(true, $file);
+
+        return true;
     }
 
     /**
@@ -146,34 +269,6 @@ class MetadataWriter
         }
 
         return true;
-    }
-
-    /**
-     * @param array<string, mixed> $info
-     *
-     * @return array<string, list<string>>
-     */
-    private function existingId3v2(array $info): array
-    {
-        $data = [];
-        foreach (self::ID3V2_KEPT_FIELDS as $key) {
-            $values = $info['tags']['id3v2'][$key] ?? $info['tags']['id3v1'][$key] ?? null;
-            if ($key === 'track_number' && $values === null) {
-                $values = $info['tags']['id3v1']['track'] ?? null;
-            }
-            $values = $this->stringValues($values);
-            if ($values !== []) {
-                $data[$key] = $values;
-            }
-        }
-
-        // getID3 splits TRCK "7/12" into track_number + totaltracks on read.
-        $total = $this->stringValues($info['tags']['id3v2']['totaltracks'] ?? null)[0] ?? null;
-        if ($total !== null && isset($data['track_number'][0]) && !str_contains($data['track_number'][0], '/')) {
-            $data['track_number'][0] .= '/' . $total;
-        }
-
-        return $data;
     }
 
     /**

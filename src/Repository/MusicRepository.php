@@ -264,6 +264,38 @@ class MusicRepository extends ServiceEntityRepository
         return array_map('intval', $qb->getQuery()->getSingleColumnResult());
     }
 
+    /**
+     * Every track as plain rows for app:enrich (no cover bytes hydrated).
+     * Not visibility filtered: this is a library maintenance task.
+     *
+     * @return list<array{id: int, file: string, title: ?string, artist: ?string, album: ?string, genre: ?string, duration: ?int, trackNumber: ?int, hasImage: bool, enrichedAt: ?\DateTimeImmutable}>
+     */
+    public function findEnrichmentRows(): array
+    {
+        $rows = $this->createQueryBuilder('m')
+            ->select('m.id, m.file, m.title, m.artist, m.album, m.genre, m.duration, m.trackNumber, m.enrichedAt')
+            ->addSelect('CASE WHEN m.image IS NULL THEN 0 ELSE 1 END AS hasImage')
+            ->orderBy('m.file', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $nullableString = static fn(mixed $v): ?string => \is_string($v) ? $v : null;
+        $nullableInt = static fn(mixed $v): ?int => is_numeric($v) ? (int) $v : null;
+
+        return array_values(array_map(static fn(array $r): array => [
+            'id' => (int) $r['id'],
+            'file' => (string) $r['file'],
+            'title' => $nullableString($r['title']),
+            'artist' => $nullableString($r['artist']),
+            'album' => $nullableString($r['album']),
+            'genre' => $nullableString($r['genre']),
+            'duration' => $nullableInt($r['duration']),
+            'trackNumber' => $nullableInt($r['trackNumber']),
+            'hasImage' => (int) $r['hasImage'] === 1,
+            'enrichedAt' => $r['enrichedAt'] instanceof \DateTimeImmutable ? $r['enrichedAt'] : null,
+        ], $rows));
+    }
+
     public function countAll(?User $viewer): int
     {
         $qb = $this->createQueryBuilder('m')->select('COUNT(m.id)');

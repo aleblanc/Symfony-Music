@@ -25,6 +25,9 @@ final class HintExtractor
         'interprète inconnu', 'interprete inconnu',
     ];
 
+    /** Folder levels kept as hints for a file outside the library root. */
+    private const OUTSIDE_ROOT_LEVELS = 3;
+
     private const UNKNOWN_VALUES = ['', 'unknown', 'unknown artist', 'unknown album', 'unknown genre', 'artist', 'album', 'inconnu', 'artiste inconnu', 'album inconnu', 'non spécifié', 'non specifie', 'interprète inconnu', 'interprete inconnu'];
 
     /**
@@ -32,6 +35,8 @@ final class HintExtractor
      */
     public function extract(string $filePath, string $musicDir, ?string $title, ?string $artist, ?string $album, int $duration, ?int $knownTrackNumber = null): TrackHints
     {
+        // macOS file names are decomposed (NFD); compare everything composed.
+        [$filePath, $musicDir, $title, $artist, $album] = array_map(self::nfc(...), [$filePath, $musicDir, $title, $artist, $album]);
         $stem = pathinfo($filePath, \PATHINFO_FILENAME);
         [$segments, $segmentDisc, $year] = $this->parseDirectories($filePath, $musicDir);
         $tagArtist = $this->known($artist);
@@ -107,7 +112,7 @@ final class HintExtractor
 
         // "Artist - Album - 07 - Title", "Game OST - Artist - Title"...
         $parts = array_values(array_filter(
-            array_map('trim', preg_split('/\s+[-–—]\s+/u', $rest) ?: [$rest]),
+            array_map('trim', preg_split(TrackHints::DASH_SEPARATOR, $rest) ?: [$rest]),
             static fn(string $p): bool => $p !== '',
         ));
         if (\count($parts) >= 2) {
@@ -177,11 +182,18 @@ final class HintExtractor
     {
         $dir = \dirname(str_replace('\\', '/', $filePath));
         $root = rtrim(str_replace('\\', '/', $musicDir), '/');
-        $relative = str_starts_with($dir . '/', $root . '/') ? substr($dir, \strlen($root)) : $dir;
+        $inside = $root !== '' && str_starts_with($dir . '/', $root . '/');
+        $parts = array_values(array_filter(explode('/', $inside ? substr($dir, \strlen($root)) : $dir), static fn(string $s): bool => $s !== ''));
+        // Outside the library root (import folder, MUSIC_DIR changed...), only
+        // the last levels (artist/album/disc) can describe the music: never
+        // "Users", the account name or "Volumes".
+        if (!$inside) {
+            $parts = \array_slice($parts, -self::OUTSIDE_ROOT_LEVELS);
+        }
 
         $segments = [];
         $disc = $year = null;
-        foreach (array_reverse(array_filter(explode('/', $relative), static fn(string $s): bool => $s !== '')) as $raw) {
+        foreach (array_reverse($parts) as $raw) {
             $value = trim(str_replace('_', ' ', $raw));
             if (preg_match('/^(?:cd|disc|disk|disque|dvd)\s*(\d{1,2})$/iu', $value, $m) === 1) {
                 $disc ??= (int) $m[1];
@@ -210,11 +222,23 @@ final class HintExtractor
     {
         $value = str_replace('_', ' ', $value);
         $value = preg_replace('/\[[^\]]*\]|\{[^}]*\}/u', ' ', $value) ?? $value;
-        $value = preg_replace('/\((?:(?:19|20)\d{2}|[^)]*\b(?:official|video|clip|lyrics?|audio|hd|hq|remaster(?:ed)?\s*\d*|kbps|explicit|visualizer)\b[^)]*)\)/iu', ' ', $value) ?? $value;
+        // Download-site stamps: "www.mp3lio.net", "(shuvosky.com)".
+        $value = preg_replace('/\(?\s*(?:www\.)?[\w-]+\.(?:com|net|org|biz|info|us|ru|fr|to|cc)\b\s*\)?|\bwww\.\S+/iu', ' ', $value) ?? $value;
+        $value = preg_replace('/\((?:(?:19|20)\d{2}|[^)]*\b(?:official|video|clip|lyrics?|audio|hd|hq|remaster(?:ed)?\s*\d*|kbps|explicit|visualizer|ost|soundtrack|trailer|trejler)\b[^)]*)\)/iu', ' ', $value) ?? $value;
         $value = preg_replace('/\b\d{3}\s*kbps\b/iu', ' ', $value) ?? $value;
         $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
 
         return trim($value, " \t\n\r\0\x0B-–—.");
+    }
+
+    /** @return ($value is null ? null : string) */
+    public static function nfc(?string $value): ?string
+    {
+        if ($value === null || !class_exists(\Normalizer::class)) {
+            return $value;
+        }
+
+        return \Normalizer::normalize($value, \Normalizer::FORM_C) ?: $value;
     }
 
     private function known(?string $value): ?string

@@ -108,6 +108,49 @@ try {
     check('track without total', ($info['tags']['id3v2']['track_number'][0] ?? null) === '3' && !isset($info['tags']['id3v2']['totaltracks']));
     check('title untouched by unrelated write', ($info['comments']['title'][0] ?? null) === 'Fitter Happier (Remastered)');
 
+    // 4) Frames the writer doesn't manage must survive: Spotify URL (WOAF, written by
+    //    app:spotify:match), custom TXXX, MusicBrainz UFID, a second (back) picture.
+    $w = new getid3_writetags();
+    $w->filename = $file;
+    $w->tagformats = ['id3v2.3'];
+    $w->tag_encoding = 'UTF-8';
+    $w->tag_data = [
+        'title' => ['Before'], 'artist' => ['Radiohead'], 'year' => ['1997'],
+        'url_file' => ['https://open.spotify.com/track/0123456789abcdefghijkl'],
+        'text' => [['description' => 'MusicBrainz Album Id', 'data' => 'b1392450-e666-3926-a536-22c65f834433'], ['description' => 'MOOD', 'data' => 'calm']],
+        'unique_file_identifier' => ['ownerid' => 'http://musicbrainz.org', 'data' => '9c3d7f2e-0000-4000-8000-000000000001'],
+        'attached_picture' => [
+            ['data' => $jpeg, 'picturetypeid' => 3, 'description' => 'front', 'mime' => 'image/jpeg'],
+            ['data' => $jpeg . 'back', 'picturetypeid' => 4, 'description' => 'back', 'mime' => 'image/jpeg'],
+        ],
+    ];
+    check('fixture with foreign frames written', $w->WriteTags(), implode('; ', $w->errors));
+    $ok = $writer->writeTags($file, ['title' => 'After', 'trackNumber' => 5]);
+    $info = readTags($file);
+    check('foreign frames: write succeeds', $ok, (string) $writer->lastError());
+    check('foreign frames: title updated', ($info['comments']['title'][0] ?? null) === 'After');
+    check('foreign frames: Spotify URL (WOAF) kept', ($info['comments']['url_file'][0] ?? null) === 'https://open.spotify.com/track/0123456789abcdefghijkl', json_encode($info['comments']['url_file'] ?? null));
+    check('foreign frames: TXXX kept', count($info['id3v2']['TXXX'] ?? []) === 2);
+    check('foreign frames: UFID kept', ($info['id3v2']['UFID'][0]['data'] ?? null) === '9c3d7f2e-0000-4000-8000-000000000001');
+    check('foreign frames: both pictures kept', count($info['id3v2']['APIC'] ?? []) === 2);
+    // A new front cover replaces the front one only.
+    $writer->writeTags($file, [], $jpeg . 'new');
+    $info = readTags($file);
+    $types = array_map(static fn(array $a): string => $a['picturetypeid'] . ':' . (str_ends_with($a['data'], 'new') ? 'new' : (str_ends_with($a['data'], 'back') ? 'back' : 'old')), $info['id3v2']['APIC'] ?? []);
+    sort($types);
+    check('new front cover replaces only the front picture', $types === ['3:new', '4:back'], json_encode($types));
+
+    // 5) MusicBrainz ids, Picard-style (UFID + TXXX).
+    $writer->writeTags($file, ['musicbrainzRecordingId' => 'aaaaaaaa-0000-4000-8000-000000000001', 'musicbrainzReleaseId' => 'bbbbbbbb-0000-4000-8000-000000000002', 'musicbrainzReleaseGroupId' => 'cccccccc-0000-4000-8000-000000000003']);
+    $info = readTags($file);
+    $txxx = [];
+    foreach ($info['id3v2']['TXXX'] ?? [] as $t) {
+        $txxx[$t['description']] = $t['data'];
+    }
+    check('MBID: recording id in UFID (http://musicbrainz.org)', ($info['id3v2']['UFID'][0]['data'] ?? null) === 'aaaaaaaa-0000-4000-8000-000000000001');
+    check('MBID: release + release group in TXXX', ($txxx['MusicBrainz Album Id'] ?? null) === 'bbbbbbbb-0000-4000-8000-000000000002' && ($txxx['MusicBrainz Release Group Id'] ?? null) === 'cccccccc-0000-4000-8000-000000000003', json_encode($txxx));
+    check('MBID: other TXXX untouched', ($txxx['MOOD'] ?? null) === 'calm');
+
     check('missing file → false', $writer->writeTags($file . '.nope', ['title' => 'x']) === false);
 } finally {
     @unlink($file);

@@ -56,6 +56,8 @@ check('artist recovered from title when tag is unknown', $t === 'Fight Till You 
 check('multiple artists split', $a === ['Angèle', 'Justice'], json_encode($a));
 [$t, $a] = $matcher->searchTerms('Pennywise- California Dreaming', 'Pennywise');
 check('artist prefix stripped from title', $t === 'California Dreaming', $t);
+[$t, $a] = $matcher->searchTerms('04-coldplay-charlie_brown', 'Coldplay/Coldplay [2.Bia2Voice.biz]');
+check('file-name title + site junk in artist cleaned', $t === 'charlie brown' && $a === ['Coldplay'], json_encode([$t, $a]));
 [$t, $a] = $matcher->searchTerms('Get Low', 'Lil Jon & The East Side Boyz');
 check('"&" splits artists', $a === ['Lil Jon', 'The East Side Boyz'], json_encode($a));
 
@@ -74,6 +76,12 @@ $s = $matcher->score('Blind', ['Korn'], 258, track('Twisted Transistor', ['Korn'
 check('same artist, other title → rejected', $s === null, var_export($s, true));
 $s = $matcher->score('Pennywise- California Dreaming', ['Pennywise'], 190, track('Pennywise', ['Pennywise'], 190));
 check('short title inside a long one → rejected', $s === null, var_export($s, true));
+$s = $matcher->score('Help Me Lose My Mind (Mazde Remix)', ['Disclosure'], 240, track('Help Me Lose My Mind', ['Disclosure', 'London Grammar'], 240));
+check('a remix does not match the original', $s === null, var_export($s, true));
+$s = $matcher->score('Help Me Lose My Mind (Mazde Remix)', ['Disclosure'], 240, track('Help Me Lose My Mind - Mazde Remix', ['Disclosure', 'London Grammar'], 240));
+check('a remix matches the same remix', $s !== null && $s > 0.9, var_export($s, true));
+$s = $matcher->score('Help Me Lose My Mind (Mazde Remix)', ['Disclosure'], 240, track('Help Me Lose My Mind - SOHN Remix', ['Disclosure', 'SOHN'], 240));
+check('another remixer\'s remix → rejected', $s === null, var_export($s, true));
 $s = $matcher->score('Sum Luv', [], 200, track('Sum Luv', ['Shaka Ponk'], 201));
 check('unknown artist: exact title + same length accepted', $s !== null && $s >= SpotifyMatcher::MIN_SCORE, var_export($s, true));
 $s = $matcher->score('Sum Luv', [], 200, track('Sum Luv', ['Shaka Ponk'], 320));

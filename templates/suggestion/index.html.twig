@@ -1,0 +1,104 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Metadata suggestions · PHP Music{% endblock %}
+
+{% macro value(v) %}{{ v is same as(null) or v == '' ? '—' : v }}{% endmacro %}
+
+{% block body %}
+    {% import _self as m %}
+    <h1>Metadata suggestions</h1>
+    <p class="section-sub">
+        Proposed by <code>bin/console app:enrich</code> from MusicBrainz / AcoustID.
+        Confident matches are applied automatically; the others wait here.
+    </p>
+
+    <nav class="sort-bar" aria-label="Status">
+        {% for s in statuses %}
+            <a href="{{ path('app_suggestions', {status: s.value}) }}" class="{{ s == status ? 'active' }}">
+                {{ s.value|capitalize }} <span class="muted">{{ counts[s.value] ?? 0 }}</span>
+            </a>
+        {% endfor %}
+    </nav>
+
+    {% if groups is empty %}
+        <p class="muted">Nothing here.</p>
+    {% endif %}
+
+    {% for key, items in groups %}
+        {% set first = items|first %}
+        <section class="suggestion-group">
+            <header class="suggestion-group-head">
+                {% if first.hasCover %}
+                    <img src="{{ path('app_suggestion_cover', {id: first.id}) }}" alt="" width="64" height="64">
+                {% endif %}
+                <div>
+                    <strong>{{ m.value(first.proposedValue('album')) }}</strong>
+                    <div class="muted">
+                        {{ m.value(first.proposedValue('albumArtist') ?? first.proposedValue('artist')) }}
+                        {% if first.proposedValue('year') %} · {{ first.proposedValue('year') }}{% endif %}
+                        {% if first.releaseId %} · <a class="link" href="https://musicbrainz.org/release/{{ first.releaseId }}" target="_blank" rel="noopener">MusicBrainz ↗</a>{% endif %}
+                    </div>
+                </div>
+                {% if status.value == 'pending' and first.releaseId and items|length > 1 %}
+                    <form method="post" action="{{ path('app_suggestion_accept_release', {releaseId: first.releaseId, status: status.value}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('suggestion_release_' ~ first.releaseId) }}">
+                        <button class="btn btn-sm" type="submit">Accept album ({{ items|length }})</button>
+                    </form>
+                {% endif %}
+            </header>
+
+            <table class="suggestion-table">
+                <thead>
+                    <tr><th>File</th><th>Current</th><th>Proposed</th><th>Score</th><th></th></tr>
+                </thead>
+                <tbody>
+                {% for s in items %}
+                    {% set song = s.music %}
+                    {% set before = s.previous ?? {
+                        title: song.title, artist: song.artist, album: song.album,
+                        trackNumber: song.trackNumber, year: song.year,
+                    } %}
+                    <tr>
+                        <td class="file" title="{{ song.file }}">{{ song.file|split('/')|last }}</td>
+                        <td>
+                            {% if before.trackNumber %}{{ '%02d'|format(before.trackNumber) }}. {% endif %}{{ m.value(before.title) }}
+                            <div class="muted">{{ m.value(before.artist) }} · {{ m.value(before.album) }}{% if before.year %} ({{ before.year }}){% endif %}</div>
+                        </td>
+                        <td>
+                            {% if s.proposedValue('trackNumber') %}{{ '%02d'|format(s.proposedValue('trackNumber')) }}. {% endif %}{{ m.value(s.proposedValue('title')) }}
+                            <div class="muted">
+                                {{ m.value(s.proposedValue('artist')) }} · {{ m.value(s.proposedValue('album')) }}
+                                {% if s.proposedValue('year') %} ({{ s.proposedValue('year') }}){% endif %}
+                                {% if s.proposedValue('genre') %} · {{ s.proposedValue('genre') }}{% endif %}
+                                {% if s.hasCover %} · +cover{% endif %}
+                            </div>
+                            {% if s.error %}<div class="flash-error suggestion-error">{{ s.error }}</div>{% endif %}
+                        </td>
+                        <td>
+                            <span class="score {{ s.score >= 0.85 ? 'score-high' : (s.score >= 0.65 ? 'score-mid' : 'score-low') }}">{{ (s.score * 100)|round }}%</span>
+                            <div class="muted">{{ s.source }}</div>
+                        </td>
+                        <td class="actions">
+                            {% if s.pending %}
+                                <form method="post" action="{{ path('app_suggestion_accept', {id: s.id, status: status.value}) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('suggestion_' ~ s.id) }}">
+                                    <button class="btn btn-sm" type="submit">Accept</button>
+                                </form>
+                                <form method="post" action="{{ path('app_suggestion_reject', {id: s.id, status: status.value}) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('suggestion_' ~ s.id) }}">
+                                    <button class="btn btn-sm btn-ghost" type="submit">Reject</button>
+                                </form>
+                            {% elseif s.status.value == 'applied' %}
+                                <form method="post" action="{{ path('app_suggestion_revert', {id: s.id, status: status.value}) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('suggestion_' ~ s.id) }}">
+                                    <button class="btn btn-sm btn-danger" type="submit">Revert</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    {% endfor %}
+{% endblock %}

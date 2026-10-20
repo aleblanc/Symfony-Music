@@ -261,6 +261,6 @@ class MetadataSuggestion
             return $value === false ? null : $value;
         }
 
-        return $value;
+        return \is_string($value) ? $value : null;
     }
 }

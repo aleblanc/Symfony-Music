@@ -77,11 +77,45 @@ final class FakeMusicBrainz extends MusicBrainzClient
             : [];
     }
 
-    public function searchRecordings(?string $artist, string $title, int $limit = 5): array
+    public function searchRecordings(?string $artist, string $title, int $limit = 5, bool $excludeLive = false): array
     {
         $this->calls[] = "searchRecordings({$artist}, {$title})";
 
-        return [];
+        // Real case: the first release MusicBrainz lists for "Faint" is a live bootleg.
+        if (mb_strtolower($title) === 'somewhere i belong') {
+            // Live bonus recording on an official anniversary edition, listed first.
+            return [
+                new RecordingMatch('rec-sib-live', 'Somewhere I Belong', 'Linkin Park', 215, 1.0, [
+                    new ReleaseSummary('rel-meteora-20', 'Meteora (20th anniversary edition)', 'Linkin Park', '2023-04-07', 'Official', 'Album', [], 36),
+                ], 'live, 2004-08-03: Projekt Revolution, Denver'),
+                new RecordingMatch('rec-sib', 'Somewhere I Belong', 'Linkin Park', 214, 1.0, [
+                    new ReleaseSummary('rel-meteora-20', 'Meteora (20th anniversary edition)', 'Linkin Park', '2023-04-07', 'Official', 'Album', [], 36),
+                    new ReleaseSummary('rel-meteora', 'Meteora', 'Linkin Park', '2003-03-25', 'Official', 'Album', [], 12),
+                ]),
+            ];
+        }
+        if (mb_strtolower($title) === 'crawling') {
+            // An early promo with the same status/type lists before the album.
+            return [new RecordingMatch('rec-crawling', 'Crawling', 'Linkin Park', 209, 1.0, [
+                new ReleaseSummary('rel-6tracks', '6 Tracks', 'Linkin Park', '2000-01-01', 'Official', 'Album', [], 6),
+                new ReleaseSummary('rel-meteora', 'Meteora', 'Linkin Park', '2003-03-25', 'Official', 'Album', [], 12),
+            ])];
+        }
+        if ($artist === 'Linkin Park' && mb_strtolower($title) === 'numb encore') {
+            return [new RecordingMatch('rec-numb-encore', 'Numb/Encore', 'Jay-Z & Linkin Park', 205, 1.0, [
+                new ReleaseSummary('rel-collision', 'Collision Course', 'Jay-Z & Linkin Park', '2004-11-29', 'Official', 'EP', [], 6),
+            ])];
+        }
+
+        // The live performance is its own recording, only released on bootlegs.
+        return mb_strtolower($title) === 'faint' ? [
+            new RecordingMatch('rec-faint-live', 'Faint', 'Linkin Park', 162, 1.0, [
+                new ReleaseSummary('rel-live', '2002-02-02: Colorado Springs, CO, USA', 'Linkin Park', '2002-02-02', 'Bootleg', 'Album', ['Live'], 20),
+            ]),
+            new RecordingMatch('rec-faint', 'Faint', 'Linkin Park', 162, 1.0, [
+                new ReleaseSummary('rel-meteora', 'Meteora', 'Linkin Park', '2003-03-25', 'Official', 'Album', [], 12),
+            ]),
+        ] : [];
     }
 
     public function getRecording(string $id): ?RecordingMatch
@@ -98,6 +132,34 @@ final class FakeMusicBrainz extends MusicBrainzClient
     public function getRelease(string $id): ?ReleaseCandidate
     {
         $this->calls[] = "getRelease({$id})";
+
+        $single = static fn(string $title, int $pos, string $recording, int $d, string $artist = 'Linkin Park'): ReleaseCandidate
+            => new ReleaseCandidate($id, $title, $artist, 2003, null, "rg-{$id}", [new ReleaseTrack(1, $pos, ucfirst(str_replace('rec-', '', $recording)), $artist, $d, $recording)], false, 'Official');
+        if ($id === 'rel-meteora-20') {
+            return new ReleaseCandidate($id, 'Meteora (20th anniversary edition)', 'Linkin Park', 2023, null, 'rg-m20', [
+                new ReleaseTrack(1, 3, 'Somewhere I Belong', 'Linkin Park', 214, 'rec-sib'),
+                new ReleaseTrack(2, 25, 'Somewhere I Belong (live in Denver)', 'Linkin Park', 215, 'rec-sib-live'),
+            ], false, 'Official');
+        }
+        if ($id === 'rel-meteora') {
+            return new ReleaseCandidate($id, 'Meteora', 'Linkin Park', 2003, null, 'rg-meteora', [
+                new ReleaseTrack(1, 3, 'Somewhere I Belong', 'Linkin Park', 214, 'rec-sib'),
+                new ReleaseTrack(1, 7, 'Faint', 'Linkin Park', 162, 'rec-faint'),
+                new ReleaseTrack(1, 10, 'Crawling', 'Linkin Park', 209, 'rec-crawling'),
+            ], false, 'Official');
+        }
+        if ($id === 'rel-6tracks') {
+            return $single('6 Tracks', 3, 'rec-crawling', 209);
+        }
+        if ($id === 'rel-collision') {
+            return $single('Collision Course', 4, 'rec-numb-encore', 205, 'Jay-Z & Linkin Park');
+        }
+        if ($id === 'rel-live') {
+            $live = $id === 'rel-live';
+
+            return new ReleaseCandidate($id, $live ? 'Colorado Springs' : 'Meteora', 'Linkin Park', $live ? 2002 : 2003, null, "rg-{$id}",
+                [new ReleaseTrack(1, $live ? 13 : 7, 'Faint', 'Linkin Park', 162, $live ? 'rec-faint-live' : 'rec-faint')], false, $live ? 'Bootleg' : 'Official', $live ? ['Live'] : []);
+        }
 
         return str_starts_with($id, 'rel-okc') ? okc($id) : null;
     }
@@ -197,6 +259,33 @@ check('B: source acoustid', $p?->source === 'acoustid');
 check('B: studio album preferred over compilation, oldest edition', $p?->releaseId === 'rel-okc', (string) $p?->releaseId);
 check('B: track number from the release, not from "Track 1"', ($p?->fields['trackNumber'] ?? null) === 4);
 check('B: confident', ($p?->score ?? 0) >= 0.85, (string) $p?->score);
+
+// ---- D. Live bootlegs are never chosen (unless the folder says "live") -------
+$enricher = new MetadataEnricher(new HintExtractor(), new MatchScorer(), $mb, new FakeAcoustId(), new FakeFingerprinter(false), new FakeCovers(), $root);
+$p = $enricher->enrichFolder([new EnrichmentTrack(20, "{$root}/Linkin Park/Album inconnu/07 Faint.mp3", '07 Faint', 'Unknown Artist', 'Unknown Album', '', 162, null, true, true)], $logger)[0] ?? null;
+check('D: studio album instead of the live bootleg', $p?->releaseId === 'rel-meteora' && ($p->fields['album'] ?? null) === 'Meteora', (string) $p?->releaseId);
+$p = $enricher->enrichFolder([new EnrichmentTrack(21, "{$root}/Linkin Park/Live in Colorado/07 Faint.mp3", '07 Faint', 'Unknown Artist', 'Unknown Album', '', 162, null, true, true)], $logger)[0] ?? null;
+check('D: live release allowed when the folder says live', $p !== null && $p->releaseId !== null, (string) $p?->releaseId);
+
+// ---- E. Live bonus recording, folder coherence, mashup file names ----------
+$enricher = new MetadataEnricher(new HintExtractor(), new MatchScorer(), $mb, new FakeAcoustId(), new FakeFingerprinter(false), new FakeCovers(), $root);
+$res = [];
+foreach ($enricher->enrichFolder([
+    new EnrichmentTrack(30, "{$root}/Linkin Park/Album inconnu/03 Somewhere I Belong.mp3", '03 Somewhere I Belong', 'Unknown Artist', 'Unknown Album', '', 214, null, true, true),
+    new EnrichmentTrack(31, "{$root}/Linkin Park/Album inconnu/05 Crawling.mp3", '05 Crawling', 'Unknown Artist', 'Unknown Album', '', 209, null, true, true),
+    new EnrichmentTrack(32, "{$root}/Linkin Park/Album inconnu/04 Numb - Encore.mp3", '04 Numb - Encore', 'Unknown Artist', 'Unknown Album', '', 205, null, true, true),
+], $logger) as $p) {
+    $res[$p->musicId] = $p;
+}
+check('E: studio recording preferred over a live bonus with a longer title', ($res[30]->recordingId ?? null) === 'rec-sib', (string) ($res[30]->recordingId ?? '-'));
+check('E: original album preferred over the anniversary edition', ($res[30]->fields['album'] ?? null) === 'Meteora', (string) ($res[30]->fields['album'] ?? '-'));
+check('E: folder coherence: Crawling joins the album its siblings matched', ($res[31]->fields['album'] ?? null) === 'Meteora', (string) ($res[31]->fields['album'] ?? '-'));
+check('E: "Numb - Encore" retried as a title by the folder artist', ($res[32]->recordingId ?? null) === 'rec-numb-encore' && ($res[32]->fields['album'] ?? null) === 'Collision Course', json_encode($res[32]->fields ?? null));
+
+$extended = new RecordingMatch('r', 'All Night (extended club version)', 'Parov Stelar', 300, 1.0, []);
+check('F: extended club version is a variant of "all night"', $extended->isVariantOf('all night'));
+check('F: not a variant when the file asks for it', !$extended->isVariantOf('All Night (Extended Club Version)'));
+check('F: plain title is not a variant', !(new RecordingMatch('r', 'All Night', 'Parov Stelar', 300, 1.0, []))->isVariantOf('all night'));
 
 // ---- C. Remote failure is logged, never thrown --------------------------------
 $mb->fail = true;

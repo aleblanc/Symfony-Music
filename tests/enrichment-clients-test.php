@@ -36,10 +36,11 @@ function check(string $label, bool $ok, string $detail = ''): void
 
 $release = [
     'id' => 'rel-1',
-    'title' => 'OK Computer',
+    'title' => 'OK Computer (Collector\'s Edition)',
     'date' => '2009-03-24',
     'artist-credit' => [['name' => 'Radiohead', 'joinphrase' => '']],
-    'release-group' => ['id' => 'rg-1', 'primary-type' => 'Album', 'secondary-types' => [], 'first-release-date' => '1997-05-21'],
+    'status' => 'Official',
+    'release-group' => ['id' => 'rg-1', 'title' => 'OK Computer', 'primary-type' => 'Album', 'secondary-types' => [], 'first-release-date' => '1997-05-21'],
     'genres' => [['name' => 'art rock', 'count' => 3], ['name' => 'alternative rock', 'count' => 9]],
     'media' => [
         ['position' => 1, 'tracks' => [
@@ -72,7 +73,8 @@ $t0 = (float) $clock->now()->format('U.u');
 $mb = new MusicBrainzClient($http, new ArrayAdapter(), $clock, 'SymfonyMusic/1.0 ( test )');
 
 $r = $mb->getRelease('rel-1');
-check('release parsed after a 503 retry', $r !== null && $r->title === 'OK Computer');
+check('release parsed after a 503 retry; album title from the release group (no edition suffix)', $r !== null && $r->title === 'OK Computer', (string) $r?->title);
+check('status + secondary types parsed', $r?->status === 'Official' && $r->secondaryTypes === [] && !$r->isUnwanted(false));
 check('two HTTP calls (503 then 200)', \count($requests) === 2, (string) \count($requests));
 check('User-Agent sent', in_array('User-Agent: SymfonyMusic/1.0 ( test )', $requests[0]['options']['headers'] ?? [], true), json_encode($requests[0]['options']['headers'] ?? []));
 check('json format + includes requested', str_contains($requests[0]['url'], 'fmt=json') && str_contains(urldecode($requests[0]['url']), 'inc=recordings+artist-credits'));

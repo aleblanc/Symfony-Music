@@ -24,6 +24,9 @@ class SpotifyMatcher
     public function searchTerms(string $title, string $artist): array
     {
         $artists = $this->splitArtists($artist);
+        // File-name style titles: "04-coldplay-charlie_brown".
+        $title = trim(str_replace('_', ' ', $title));
+        $title = preg_replace('/^\d{1,3}\s*[-._]\s*/u', '', $title) ?? $title;
         if ($artists === [] && preg_match('/^(.+?)\s+-\s+(.+)$/u', $title, $m)) {
             $artists = $this->splitArtists($m[1]);
             $title = $m[2];
@@ -47,7 +50,16 @@ class SpotifyMatcher
      */
     public function score(string $title, array $artists, ?int $duration, SpotifyTrack $candidate): ?float
     {
-        $titleSim = $this->similarity($this->normalize($title), $this->normalize($this->cleanTitle($candidate->name)));
+        $ours = $this->normalize($title);
+        $theirs = $this->normalize($this->cleanTitle($candidate->name));
+        $isRemix = static fn (string $s): bool => preg_match('/\b(remix|rmx|bootleg|vip)\b/', $s) === 1;
+        if ($isRemix($ours) !== $isRemix($theirs)) {
+            return null; // original vs remix: different recordings
+        }
+        $titleSim = $this->similarity($ours, $theirs);
+        if ($isRemix($ours) && $titleSim < 0.95) {
+            return null; // remixes differ by a single name ("Mazde Remix" vs "SOHN Remix")
+        }
 
         $durationSim = 0.5; // unknown duration: neutral
         if ($duration !== null && $duration > 0 && $candidate->durationSeconds !== null) {
@@ -88,11 +100,12 @@ class SpotifyMatcher
      */
     public function cleanTitle(string $title): string
     {
-        $noise = 'remaster|remastered|live|version|edit|mono|stereo|mix|feat\.?|ft\.?|featuring|official|video|audio|lyrics?|explicit|bonus|deluxe|clip';
+        // "Remix" is NOT noise: a remix must only match the same remix.
+        $noise = 'remaster|remastered|live|version|edit|mono|stereo|radio mix|original mix|album mix|feat\.?|ft\.?|featuring|official|video|audio|lyrics?|explicit|bonus|deluxe|clip';
         $title = preg_replace('/\s*[\(\[][^)\]]*\b(' . $noise . ')\b[^)\]]*[\)\]]/iu', '', $title) ?? $title;
         $title = preg_replace('/\s+-\s+(\d{4}\s+)?(remaster(ed)?|live|radio edit|single version|album version|mono|stereo|bonus track)\b.*$/iu', '', $title) ?? $title;
         $title = preg_replace('/\s+(feat\.?|ft\.?|featuring)\s+.*$/iu', '', $title) ?? $title;
-        $title = preg_replace('/^\d{1,2}\s*[-.]\s+/u', '', $title) ?? $title; // "01 - Title"
+        $title = preg_replace('/^\d{1,3}\s*[-.]\s+/u', '', $title) ?? $title; // "01 - Title"
 
         return trim($title);
     }
@@ -105,9 +118,18 @@ class SpotifyMatcher
         if (\in_array(mb_strtolower(trim($artist)), self::UNKNOWN_ARTISTS, true)) {
             return [];
         }
+        // Download-site junk: "Coldplay [2.Bia2Voice.biz]".
+        $artist = preg_replace('/\s*\[[^\]]*\]/u', '', $artist) ?? $artist;
         $parts = preg_split('/\s*(?:,|;|\/|\s&\s|\sand\s|\bfeat\.?\s|\bft\.?\s|\bfeaturing\s|\bvs\.?\s)\s*/iu', $artist) ?: [$artist];
 
-        return array_values(array_filter(array_map('trim', $parts), static fn (string $p): bool => $p !== ''));
+        $unique = [];
+        foreach (array_map('trim', $parts) as $part) {
+            if ($part !== '' && !isset($unique[mb_strtolower($part)])) {
+                $unique[mb_strtolower($part)] = $part;
+            }
+        }
+
+        return array_values($unique);
     }
 
     private function normalize(string $s): string

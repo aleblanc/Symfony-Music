@@ -22,7 +22,8 @@ class MusicBrainzClient
 {
     private const BASE_URL = 'https://musicbrainz.org/ws/2/';
     private const MIN_INTERVAL = 1.05;
-    private const MAX_ATTEMPTS = 4;
+    private const MAX_ATTEMPTS = 6;
+    private const MAX_BACKOFF = 30;
     private const CACHE_TTL = 30 * 86400;
 
     private float $lastRequestAt = 0.0;
@@ -42,18 +43,22 @@ class MusicBrainzClient
         $query = 'release:' . $this->quote($album) . ($artist !== null ? ' AND artist:' . $this->quote($artist) : '');
         $data = $this->get('release', ['query' => $query, 'limit' => $limit]);
 
-        return array_map(fn(array $r): ReleaseSummary => $this->releaseSummary($r), $data['releases'] ?? []);
+        return array_values(array_map(fn(array $r): ReleaseSummary => $this->releaseSummary($r), $data['releases'] ?? []));
     }
 
     /**
+     * @param bool $excludeLive drop recordings whose disambiguation says "live"
+     *                          (popular songs have dozens of live takes)
+     *
      * @return list<RecordingMatch>
      */
-    public function searchRecordings(?string $artist, string $title, int $limit = 5): array
+    public function searchRecordings(?string $artist, string $title, int $limit = 5, bool $excludeLive = false): array
     {
-        $query = 'recording:' . $this->quote($title) . ($artist !== null ? ' AND artist:' . $this->quote($artist) : '');
+        $query = 'recording:' . $this->quote($title) . ($artist !== null ? ' AND artist:' . $this->quote($artist) : '')
+            . ($excludeLive ? ' AND NOT comment:live' : '');
         $data = $this->get('recording', ['query' => $query, 'limit' => $limit]);
 
-        return array_map(fn(array $r): RecordingMatch => $this->recording($r), $data['recordings'] ?? []);
+        return array_values(array_map(fn(array $r): RecordingMatch => $this->recording($r), $data['recordings'] ?? []));
     }
 
     public function getRecording(string $id): ?RecordingMatch
@@ -95,13 +100,17 @@ class MusicBrainzClient
 
         return new ReleaseCandidate(
             id: (string) $data['id'],
-            title: (string) ($data['title'] ?? ''),
+            // The release group title is the canonical album name, without
+            // edition suffixes like "(20th Anniversary Edition)".
+            title: (string) ($group['title'] ?? $data['title'] ?? ''),
             artist: $albumArtist,
             year: preg_match('/^(\d{4})/', (string) $date, $m) === 1 ? (int) $m[1] : null,
             genre: isset($genres[0]['name']) ? ucwords((string) $genres[0]['name']) : null,
             releaseGroupId: $group['id'] ?? null,
             tracks: $tracks,
             isCompilation: \in_array('Compilation', $secondary, true) || mb_strtolower($albumArtist) === 'various artists',
+            status: $data['status'] ?? null,
+            secondaryTypes: $secondary,
         );
     }
 
@@ -137,9 +146,11 @@ class MusicBrainzClient
             if ($status === 404) {
                 return [];
             }
-            // 503 = rate limited / overloaded: back off and retry.
+            // 503 = rate limited / overloaded (the limit is per IP, shared with
+            // any other MusicBrainz client on this machine): back off and retry.
             if (($status === 503 || $status === 429) && $attempt < self::MAX_ATTEMPTS) {
-                $this->clock->sleep(2 ** $attempt);
+                $retryAfter = (int) ($response->getHeaders(false)['retry-after'][0] ?? 0);
+                $this->clock->sleep(min(self::MAX_BACKOFF, max($retryAfter, 2 ** $attempt)));
                 continue;
             }
             if ($status !== 200) {
@@ -177,6 +188,7 @@ class MusicBrainzClient
             secondaryTypes: $group['secondary-types'] ?? [],
             trackCount: (int) ($r['track-count'] ?? 0),
             score: isset($r['score']) ? ((int) $r['score']) / 100 : 1.0,
+            formats: array_values(array_filter(array_map(static fn(array $m): string => (string) ($m['format'] ?? ''), $r['media'] ?? []))),
         );
     }
 
@@ -191,7 +203,8 @@ class MusicBrainzClient
             artist: $this->artistCredit($r['artist-credit'] ?? []),
             duration: isset($r['length']) ? (int) round($r['length'] / 1000) : null,
             score: isset($r['score']) ? ((int) $r['score']) / 100 : 1.0,
-            releases: array_map(fn(array $rel): ReleaseSummary => $this->releaseSummary($rel), $r['releases'] ?? []),
+            releases: array_values(array_map(fn(array $rel): ReleaseSummary => $this->releaseSummary($rel), $r['releases'] ?? [])),
+            disambiguation: (string) ($r['disambiguation'] ?? ''),
         );
     }
 

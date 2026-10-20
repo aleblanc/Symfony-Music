@@ -73,7 +73,7 @@ class AcoustIdClient
                     artist: $artist,
                     duration: isset($recording['duration']) ? (int) round((float) $recording['duration']) : null,
                     score: $score,
-                    releases: array_map(static fn(array $r): ReleaseSummary => new ReleaseSummary(
+                    releases: array_values(array_map(static fn(array $r): ReleaseSummary => new ReleaseSummary(
                         id: (string) ($r['id'] ?? ''),
                         title: (string) ($r['title'] ?? ''),
                         artist: '',
@@ -82,7 +82,7 @@ class AcoustIdClient
                         primaryType: null,
                         secondaryTypes: [],
                         trackCount: (int) ($r['track_count'] ?? 0),
-                    ), $recording['releases'] ?? []),
+                    ), $recording['releases'] ?? [])),
                 );
             }
         }

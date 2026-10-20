@@ -3,7 +3,6 @@
 namespace App\Service\Spotify;
 
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
  * Account-free sources of Spotify ids:
@@ -38,7 +37,9 @@ class PublicCatalog
      */
     public function findArtist(string $name): ?array
     {
-        $search = $this->musicBrainz('/artist', ['query' => 'artist:"' . str_replace('"', '', $name) . '"', 'limit' => 5]);
+        // Plain query (name + aliases + sort name): a quoted artist:"…" phrase
+        // misses names written with typographic characters ("blink‐182").
+        $search = $this->musicBrainz('/artist', ['query' => $this->luceneEscape($name), 'limit' => 5]);
         $wanted = $this->key($name);
         $artist = null;
         foreach (\is_array($search['artists'] ?? null) ? $search['artists'] : [] as $candidate) {
@@ -80,7 +81,7 @@ class PublicCatalog
     public function musicBrainzAlbumIds(string $artistMbid, string $album): array
     {
         $search = $this->musicBrainz('/release-group', [
-            'query' => \sprintf('releasegroup:"%s" AND arid:%s', str_replace('"', '', $album), $artistMbid),
+            'query' => \sprintf('releasegroup:(%s) AND arid:%s', $this->luceneEscape($album), $artistMbid),
             'limit' => 3,
         ]);
         $group = null;
@@ -119,11 +120,12 @@ class PublicCatalog
             . '?item wdt:P175 wd:%s ; ?p ?sid . OPTIONAL { ?item rdfs:label ?label . FILTER(LANG(?label) = "en") } }',
             preg_replace('/[^Q0-9]/', '', $qid),
         );
-        $data = $this->json($this->httpClient->request('GET', 'https://query.wikidata.org/sparql', [
+        $unpaced = 0.0;
+        $data = $this->requestJson('Wikidata', 'https://query.wikidata.org/sparql', [
             'query' => ['query' => $sparql],
             'headers' => ['Accept' => 'application/sparql-results+json', 'User-Agent' => self::USER_AGENT],
             'timeout' => 30,
-        ]));
+        ], $unpaced);
 
         $albums = $tracks = [];
         foreach (\is_array($data['results']['bindings'] ?? null) ? $data['results']['bindings'] : [] as $row) {
@@ -211,28 +213,58 @@ class PublicCatalog
      * @param array<string, scalar> $query
      *
      * @return array<mixed>
+     *
+     * @throws SpotifyException when MusicBrainz stays unavailable
      */
     private function musicBrainz(string $path, array $query): array
     {
-        $this->wait($this->lastMusicBrainzCall, self::MB_INTERVAL_US);
-
-        return $this->json($this->httpClient->request('GET', self::MB_URL . $path, [
+        return $this->requestJson('MusicBrainz', self::MB_URL . $path, [
             'query' => $query + ['fmt' => 'json'],
             'headers' => ['User-Agent' => self::USER_AGENT, 'Accept' => 'application/json'],
             'timeout' => 20,
-        ]));
+        ], $this->lastMusicBrainzCall, self::MB_INTERVAL_US);
     }
 
     /**
-     * @return array<mixed> empty on any HTTP/transport/JSON error
+     * GET returning decoded JSON; [] for a definitive answer without data
+     * (404, bad JSON). Overload/rate-limit responses (429, 5xx) and transport
+     * errors are retried with backoff (~2 min in total), then reported: a transient failure
+     * must not be mistaken for "this artist has no Spotify id".
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<mixed>
+     *
+     * @throws SpotifyException
      */
-    private function json(ResponseInterface $response): array
+    private function requestJson(string $service, string $url, array $options, float &$lastCall, int $intervalUs = 0): array
     {
-        try {
-            return $response->getStatusCode() === 200 ? $response->toArray(false) : [];
-        } catch (\Throwable) {
-            return [];
+        $error = '';
+        foreach ([0, 5, 15, 30, 60] as $backoff) { // MusicBrainz throttles an IP for a while after bursts
+            sleep($backoff);
+            $this->wait($lastCall, $intervalUs);
+            try {
+                $response = $this->httpClient->request('GET', $url, $options);
+                $status = $response->getStatusCode();
+                if ($status === 429 || $status >= 500) {
+                    $error = 'HTTP ' . $status;
+                    continue;
+                }
+
+                return $status === 200 ? $response->toArray(false) : [];
+            } catch (\JsonException) {
+                return [];
+            } catch (\Throwable $e) {
+                $error = $e->getMessage();
+            }
         }
+
+        throw new SpotifyException(\sprintf('%s unavailable (%s), try again later.', $service, $error));
+    }
+
+    private function luceneEscape(string $s): string
+    {
+        return addcslashes($s, '+-&|!(){}[]^"~*?:\\/');
     }
 
     /**

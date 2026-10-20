@@ -11,6 +11,9 @@ parameters:
     # <project>/var/library when the MUSIC_DIR env var is empty.
     app.music_dir: '%env(default:app.music_dir_default:MUSIC_DIR)%'
     app.music_dir_default: '%kernel.project_dir%/var/library'
+    # Import folder (new music to identify and file into MUSIC_DIR); defaults to <project>/var/import.
+    app.import_dir: '%env(default:app.import_dir_default:IMPORT_DIR)%'
+    app.import_dir_default: '%kernel.project_dir%/var/import'
     # Vendored getID3 library location, used by MetadataWriter to require the
     # tag-writing module (`write.php`) that composer does not classmap.
     app.getid3_dir: '%kernel.project_dir%/lib/getid3'
@@ -28,6 +31,10 @@ services:
             string $musicDir: '%app.music_dir%'
             string $getid3Dir: '%app.getid3_dir%'
             int $maxUploadBytes: '%app.max_upload_bytes%'
+            string $acoustidApiKey: '%env(ACOUSTID_API_KEY)%'
+            string $fpcalcPath: '%env(FPCALC_PATH)%'
+            string $musicbrainzUserAgent: '%env(MUSICBRAINZ_USER_AGENT)%'
+            string $projectDir: '%kernel.project_dir%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name

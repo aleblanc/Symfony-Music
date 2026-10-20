@@ -15,6 +15,7 @@
             <input type="hidden" name="_token" value="{{ csrf_token('admin_rescan') }}">
             <button class="btn btn-ghost" type="submit" name="force" value="0">Rescan library</button>
             <button class="btn btn-ghost" type="submit" name="force" value="1">Force full rescan</button>
+            <a class="btn btn-ghost" href="{{ path('app_suggestions') }}">Metadata suggestions</a>
         </form>
     {% endif %}
 

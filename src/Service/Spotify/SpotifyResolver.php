@@ -12,6 +12,9 @@ use App\Entity\Music;
  *  2. the tracks of the album named in the tags (Wikidata or MusicBrainz → embed)
  *  3. the tracks of the artist's other albums known to Wikidata
  *
+ * (app:spotify:match --browser then tries Spotify's own search page for what
+ * is left, see {@see HeadlessSearch}.)
+ *
  * Coverage is partial (well-documented artists only); everything fetched is
  * cached per artist/album for the run, so later songs of the same artist are
  * almost free.
@@ -85,6 +88,28 @@ class SpotifyResolver
         }
 
         return null;
+    }
+
+    /**
+     * Query typed into Spotify's search page by the --browser fallback.
+     */
+    public function searchQuery(Music $song): ?string
+    {
+        [$title, $artists] = $this->matcher->searchTerms($song->getDisplayTitle(), (string) $song->getArtist());
+
+        return $title === '' ? null : trim($title . ' ' . ($artists[0] ?? ''));
+    }
+
+    /**
+     * Best confident match among Spotify search results for $song.
+     *
+     * @param list<SpotifyTrack> $tracks
+     */
+    public function pickFromSearch(Music $song, array $tracks, float $minScore = SpotifyMatcher::MIN_SCORE): ?SpotifyMatch
+    {
+        [$title, $artists] = $this->matcher->searchTerms($song->getDisplayTitle(), (string) $song->getArtist());
+
+        return $this->best($title, $artists, $song->getDuration(), $tracks, $minScore, 'spotify search (browser)');
     }
 
     /**

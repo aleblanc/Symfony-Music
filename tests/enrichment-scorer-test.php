@@ -103,6 +103,43 @@ for ($n = 1; $n <= 20; ++$n) {
 $c = $scorer->score($many, $okc, null);
 check('catch-all folder vs 8-track album scores low', $c->score < 0.5, (string) $c->score);
 
+// A file with a real title must not be aligned by number/duration onto a different song
+// ("10 Forgotten" landed on "Faint" of a live album with a similar length).
+$titled = [new FolderTrack(501, $x->extract('/m/Linkin Park/Album inconnu/10 Forgotten.mp3', '/m', '10 Forgotten', '', '', 230))];
+$t = $scorer->score($titled, $okc, null);
+check('title contradiction blocks number/duration alignment', !isset($t->assignments[501]), json_encode(array_map(static fn($r) => $r->title, $t->assignments)));
+$ok = [new FolderTrack(502, $x->extract('/m/x/08 Electioneering.mp3', '/m', '08 Electioneering', '', '', 231))];
+check('matching title still aligns', ($scorer->score($ok, $okc, null)->assignments[502] ?? null)?->title === 'Electioneering');
+
+// Multi-disc release, rip numbered continuously (disc 1 has 4 tracks, "Piste audio 05" = disc 2 track 1).
+$twoDiscs = new ReleaseCandidate('2cd', 'Gorillaz', 'Gorillaz', 2001, null, null, [
+    new ReleaseTrack(1, 1, 'Re-Hash', 'Gorillaz', 217, 'r1'), new ReleaseTrack(1, 2, '5/4', 'Gorillaz', 159, 'r2'),
+    new ReleaseTrack(1, 3, 'Tomorrow Comes Today', 'Gorillaz', 192, 'r3'), new ReleaseTrack(1, 4, 'New Genious', 'Gorillaz', 237, 'r4'),
+    new ReleaseTrack(2, 1, 'Clint Eastwood', 'Gorillaz', 340, 'r5'), new ReleaseTrack(2, 2, 'Man Research', 'Gorillaz', 270, 'r6'),
+]);
+$rip = [];
+foreach ([1 => 218, 5 => 341, 6 => 271] as $n => $d) {
+    $rip[] = new FolderTrack(600 + $n, $x->extract(sprintf('/m/Gorillaz/Gorillaz/Piste audio %02d.mp3', $n), '/m', sprintf('Piste audio %02d', $n), 'Gorillaz', 'Gorillaz', $d));
+}
+$g = $scorer->score($rip, $twoDiscs, null);
+check('continuous numbering across discs: #5 → disc 2 track 1', ($g->assignments[605] ?? null)?->title === 'Clint Eastwood' && ($g->assignments[606] ?? null)?->title === 'Man Research', json_encode(array_map(static fn($r) => $r->title, $g->assignments)));
+
+// A known track number is not overridden by a duration coincidence.
+$numbered = [new FolderTrack(701, $x->extract('/m/x/Piste audio 06.mp3', '/m', 'Piste audio 06', '', '', 230))];
+$n = $scorer->score($numbered, $okc, null); // OK Computer #6 Karma Police = 264 s, #8 Electioneering = 230 s
+check('known number blocks duration alignment onto another number', !isset($n->assignments[701]), json_encode(array_map(static fn($r) => $r->title, $n->assignments)));
+
+// Optimal assignment (beets-style), not greedy: closest pair first would strand a file.
+$near = new ReleaseCandidate('near', 'Near', 'X', null, null, null, [
+    new ReleaseTrack(1, 1, 'Song X', 'X', 203, 'rx'), new ReleaseTrack(1, 2, 'Song Y', 'X', 208, 'ry'),
+]);
+$pair = [
+    new FolderTrack(801, $x->extract('/m/x/Track.mp3', '/m', 'Track', '', '', 200)),
+    new FolderTrack(802, $x->extract('/m/x/Untitled.mp3', '/m', 'Untitled', '', '', 205)),
+];
+$h = $scorer->score($pair, $near, null);
+check('optimal assignment: 200→203 and 205→208 (greedy strands one)', ($h->assignments[801] ?? null)?->title === 'Song X' && ($h->assignments[802] ?? null)?->title === 'Song Y', json_encode(array_map(static fn($r) => $r->title, $h->assignments)));
+
 check('similarity: accents/case/punctuation', $scorer->similarity('Beyoncé', 'beyonce') === 1.0);
 check('similarity: containment', $scorer->similarity('OK Computer', 'Radiohead - OK Computer') >= 0.85);
 check('similarity: unrelated', $scorer->similarity('OK Computer', 'Pablo Honey') < 0.5);

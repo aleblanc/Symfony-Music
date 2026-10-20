@@ -173,7 +173,7 @@ class MusicScanner
     }
 
     /**
-     * @return array{title:string, artist:string, album:string, genre:string, year:int, duration:int, format:AudioFormat, image:?string, imageType:?string, lyrics:?string}
+     * @return array{title:string, artist:string, album:string, genre:string, year:int, duration:int, format:AudioFormat, image:?string, imageType:?string, lyrics:?string, albumArtist:?string, trackNumber:?int, discNumber:?int}
      */
     private function analyze(\getID3 $getID3, string $filePath): array
     {
@@ -194,6 +194,10 @@ class MusicScanner
             // sniffed from the bytes when served, so none is recorded at scan time.
             'imageType' => null,
             'lyrics' => $this->tag($comments, 'unsynchronised_lyric', '') ?: null,
+            // ID3v2 names first (TPE2 "band", TRCK, TPOS), then Vorbis/MP4 ones.
+            'albumArtist' => $this->firstTag($comments, ['band', 'albumartist', 'album_artist', 'album artist']),
+            'trackNumber' => $this->positionTag($comments, ['track_number', 'tracknumber', 'track']),
+            'discNumber' => $this->positionTag($comments, ['part_of_a_set', 'discnumber', 'disc_number', 'disc']),
         ];
     }
 
@@ -207,6 +211,9 @@ class MusicScanner
         $music->setAlbum($meta['album']);
         $music->setGenre($meta['genre']);
         $music->setYear($meta['year'] ?: null);
+        $music->setAlbumArtist($meta['albumArtist']);
+        $music->setTrackNumber($meta['trackNumber']);
+        $music->setDiscNumber($meta['discNumber']);
         $music->setDuration($meta['duration']);
         $music->applyAudioFormat($meta['format']);
         $music->setLastModified($mtime);
@@ -244,6 +251,38 @@ class MusicScanner
         }
 
         return $raw;
+    }
+
+    /**
+     * @param array<string, mixed> $comments
+     * @param list<string> $keys
+     */
+    private function firstTag(array $comments, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            $value = $this->tag($comments, $key, '');
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Track/disc position: "7", "07" or "7/12" → 7.
+     *
+     * @param array<string, mixed> $comments
+     * @param list<string> $keys
+     */
+    private function positionTag(array $comments, array $keys): ?int
+    {
+        $value = $this->firstTag($comments, $keys);
+        if ($value === null || preg_match('/^\s*(\d+)/', $value, $m) !== 1) {
+            return null;
+        }
+
+        return (int) $m[1] ?: null;
     }
 
     /**

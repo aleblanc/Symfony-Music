@@ -4,6 +4,7 @@ namespace App\Command;
 
 use App\Entity\Music;
 use App\Repository\MusicRepository;
+use App\Service\Spotify\HeadlessSearch;
 use App\Service\Spotify\PublicCatalog;
 use App\Service\Spotify\SpotifyException;
 use App\Service\Spotify\SpotifyMatcher;
@@ -31,11 +32,13 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class SpotifyMatchCommand extends Command
 {
     private const BATCH_SIZE = 20;
+    private const BROWSER_BATCH_SIZE = 25;
 
     public function __construct(
         private readonly MusicRepository $musicRepository,
         private readonly SpotifyResolver $resolver,
         private readonly PublicCatalog $catalog,
+        private readonly HeadlessSearch $headlessSearch,
         private readonly SpotifyTagWriter $tagWriter,
         private readonly EntityManagerInterface $em,
     ) {
@@ -53,6 +56,7 @@ class SpotifyMatchCommand extends Command
             ->addOption('write-tags', null, InputOption::VALUE_NONE, 'Also write the URL into the file (MP3 ID3v2 WOAF frame)')
             ->addOption('tags-only', null, InputOption::VALUE_NONE, 'No Spotify lookup: write tags for tracks already linked')
             ->addOption('min-score', null, InputOption::VALUE_REQUIRED, 'Minimum match confidence 0..1', (string) SpotifyMatcher::MIN_SCORE)
+            ->addOption('browser', null, InputOption::VALUE_NONE, 'Last resort for tracks still unmatched: Spotify\'s search page in headless Chromium (needs Node.js + Playwright)')
             ->addOption('delay', null, InputOption::VALUE_REQUIRED, 'Pause between open.spotify.com page requests, in ms', '500');
     }
 
@@ -85,7 +89,10 @@ class SpotifyMatchCommand extends Command
             return Command::SUCCESS;
         }
 
-        $stats = ['matched' => 0, 'unmatched' => 0, 'tagged' => 0, 'tag_skipped' => 0, 'errors' => 0];
+        $stats = ['matched' => 0, 'browser' => 0, 'unmatched' => 0, 'tagged' => 0, 'tag_skipped' => 0];
+        $useBrowser = (bool) $input->getOption('browser') && !$tagsOnly;
+        /** @var array<int, string> $pending id => label, unmatched tracks for the browser pass */
+        $pending = [];
         $trace = static function (string $message) use ($io): void {
             if ($io->isVeryVerbose()) {
                 $io->writeln('');
@@ -108,7 +115,7 @@ class SpotifyMatchCommand extends Command
                 } catch (SpotifyException $e) {
                     $io->progressFinish();
                     $io->error($e->getMessage());
-                    $this->em->flush();
+                    $this->flush($dryRun); // keep the tracks done so far (never in a dry run)
 
                     return Command::FAILURE;
                 }
@@ -128,6 +135,9 @@ class SpotifyMatchCommand extends Command
                 } else {
                     ++$stats['unmatched'];
                     $this->line($io, '<fg=yellow>✗</> ' . $label . ' : not found in the public sources');
+                    if ($useBrowser) {
+                        $pending[$id] = $label;
+                    }
                 }
                 if (!$dryRun) {
                     $song->setSpotifyCheckedAt(time());
@@ -146,9 +156,19 @@ class SpotifyMatchCommand extends Command
         $this->flush($dryRun);
         $io->progressFinish();
 
+        if ($pending !== []) {
+            $status = $this->browserPass($io, $pending, $minScore, $dryRun, $writeTags, $stats);
+            if ($status !== Command::SUCCESS) {
+                return $status;
+            }
+        }
+
         $rows = [];
         if (!$tagsOnly) {
-            $rows[] = ['Matched', $stats['matched']];
+            $rows[] = ['Matched (public sources)', $stats['matched']];
+            if ($useBrowser) {
+                $rows[] = ['Matched (Spotify search, browser)', $stats['browser']];
+            }
             $rows[] = ['No confident match', $stats['unmatched']];
         }
         if ($writeTags) {
@@ -159,6 +179,70 @@ class SpotifyMatchCommand extends Command
         if ($stats['unmatched'] > 0 && !$dryRun) {
             $io->note('Unmatched tracks keep the "Find on Spotify" search button and are skipped next time (--retry to try again). Paste the exact link in the song\'s "Edit metadata" page to fix one by hand.');
         }
+
+        return Command::SUCCESS;
+    }
+
+    /**
+     * Spotify's own search page (headless Chromium) for the tracks the public
+     * sources missed, by batches of one browser session each.
+     *
+     * @param array<int, string> $pending id => label
+     * @param array<string, int> $stats
+     */
+    private function browserPass(SymfonyStyle $io, array $pending, float $minScore, bool $dryRun, bool $writeTags, array &$stats): int
+    {
+        $io->section(\sprintf('Spotify search in a headless browser (%d track(s), ~3 s each)', \count($pending)));
+        $io->progressStart(\count($pending));
+
+        foreach (array_chunk($pending, self::BROWSER_BATCH_SIZE, true) as $batch) {
+            $songs = $queries = [];
+            foreach (array_keys($batch) as $id) {
+                $song = $this->musicRepository->find($id);
+                $query = $song !== null ? $this->resolver->searchQuery($song) : null;
+                if ($song !== null && $query !== null) {
+                    $songs[] = $song;
+                    $queries[] = $query;
+                } else {
+                    $io->progressAdvance();
+                }
+            }
+
+            try {
+                $results = $this->headlessSearch->search($queries, 1500, static fn () => $io->progressAdvance());
+            } catch (SpotifyException $e) {
+                $io->progressFinish();
+                $io->error($e->getMessage());
+                $this->flush($dryRun);
+
+                return Command::FAILURE;
+            }
+
+            foreach ($songs as $i => $song) {
+                $match = $this->resolver->pickFromSearch($song, $results[$i] ?? [], $minScore);
+                if ($match === null) {
+                    continue;
+                }
+                ++$stats['browser'];
+                --$stats['unmatched'];
+                $song->setSpotifyId($match->track->id);
+                $label = $batch[(int) $song->getId()] ?? '#' . $song->getId();
+                $this->line($io, \sprintf(
+                    '<info>✓</info> %s → %s – %s <comment>(%d%%, %s)</comment> %s',
+                    $label,
+                    implode(', ', $match->track->artists),
+                    $match->track->name,
+                    (int) round($match->score * 100),
+                    $match->source,
+                    $match->track->url(),
+                ));
+                if ($writeTags && !$dryRun) {
+                    $this->writeTags($io, $song, $label, $stats);
+                }
+            }
+            $this->flush($dryRun);
+        }
+        $io->progressFinish();
 
         return Command::SUCCESS;
     }

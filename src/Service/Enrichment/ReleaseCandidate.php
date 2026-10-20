@@ -9,6 +9,7 @@ final readonly class ReleaseCandidate
 {
     /**
      * @param list<ReleaseTrack> $tracks
+     * @param list<string> $secondaryTypes release-group secondary types
      */
     public function __construct(
         public string $id,
@@ -21,7 +22,14 @@ final readonly class ReleaseCandidate
         public ?string $releaseGroupId,
         public array $tracks,
         public bool $isCompilation = false,
+        public ?string $status = null,
+        public array $secondaryTypes = [],
     ) {}
+
+    public function isUnwanted(bool $allowLive): bool
+    {
+        return ReleaseSummary::unwanted($this->status, $this->secondaryTypes, $allowLive);
+    }
 
     public function trackCount(): int
     {

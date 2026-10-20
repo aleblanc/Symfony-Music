@@ -528,3 +528,20 @@ a.chip:hover { background: var(--bg-hover); color: var(--text); }
 .field small { display: block; margin-top: 6px; font-size: 12px; }
 /* A flash message sits above the song hero: don't pull the hero under it. */
 .flash ~ .song-detail .song-hero { margin-top: 0; border-radius: var(--radius); }
+
+/* Metadata suggestions review (/admin/suggestions) */
+.suggestion-group { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 18px; }
+.suggestion-group-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.suggestion-group-head img { border-radius: 6px; object-fit: cover; }
+.suggestion-group-head form { margin-left: auto; }
+.suggestion-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.suggestion-table th { text-align: left; color: var(--text-dim); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.suggestion-table td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.suggestion-table td.file { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim); }
+.suggestion-table td.actions { white-space: nowrap; text-align: right; }
+.suggestion-table td.actions form { display: inline-block; margin-left: 4px; }
+.suggestion-error { margin-top: 6px; padding: 4px 8px; border-radius: 6px; font-size: 12px; }
+.score { font-weight: 700; }
+.score-high { color: #8ff0b5; }
+.score-mid { color: #ffd479; }
+.score-low { color: #ff9a9a; }
