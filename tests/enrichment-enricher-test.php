@@ -290,7 +290,7 @@ check('F: plain title is not a variant', !(new RecordingMatch('r', 'All Night', 
 // ---- C. Remote failure is logged, never thrown --------------------------------
 $mb->fail = true;
 $log = [];
-$enricher = new MetadataEnricher(new HintExtractor(), new MatchScorer(), $mb, new FakeAcoustId(), new FakeFingerprinter(false), new FakeCovers(), $root);
+$enricher = new MetadataEnricher(new HintExtractor(), new MatchScorer(), $mb, new FakeAcoustId(), new FakeFingerprinter(false), new FakeCovers(), $root, new MockClock());
 try {
     $proposals = $enricher->enrichFolder($folder, $logger);
     check('C: failure → no proposals', $proposals === []);

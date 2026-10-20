@@ -3,6 +3,8 @@
 namespace App\Service;
 
 use App\Entity\Music;
+use Symfony\Component\Process\Exception\ExceptionInterface as ProcessException;
+use Symfony\Component\Process\Process;
 
 /**
  * Writes ID3/Vorbis/FLAC/MP4 tags to a physical audio file. Ported from the
@@ -19,6 +21,10 @@ use App\Entity\Music;
  * {@see Id3TagRebuilder} (TXXX, UFID, WOAF Spotify link, POPM rating, extra
  * pictures...) with a backup and a lost-frame check; Vorbis comments are
  * merged key by key.
+ *
+ * getID3 cannot write MP4 (M4A) tags: those go through the `AtomicParsley`
+ * binary (`brew install atomicparsley` / `apt install atomicparsley`), which
+ * only touches the atoms it is given.
  */
 class MetadataWriter
 {
@@ -28,6 +34,13 @@ class MetadataWriter
         'musicbrainzReleaseId' => 'MusicBrainz Album Id',
         'musicbrainzReleaseGroupId' => 'MusicBrainz Release Group Id',
     ];
+    /** Picard's MP4 names, as "----:com.apple.iTunes:<name>" atoms. */
+    private const MB_MP4 = [
+        'musicbrainzRecordingId' => 'MusicBrainz Track Id',
+        'musicbrainzReleaseId' => 'MusicBrainz Album Id',
+        'musicbrainzReleaseGroupId' => 'MusicBrainz Release Group Id',
+    ];
+    private const MP4_EXTENSIONS = ['m4a', 'mp4', 'm4b'];
     private const MB_VORBIS = [
         'musicbrainzRecordingId' => 'musicbrainz_trackid',
         'musicbrainzReleaseId' => 'musicbrainz_albumid',
@@ -39,9 +52,23 @@ class MetadataWriter
     /** Vorbis comment names carried as binary picture blocks, rewritten separately. */
     private const VORBIS_SKIPPED_FIELDS = ['metadata_block_picture', 'coverart', 'coverartmime'];
 
+    private string|false|null $atomicParsley = false;
+
     public function __construct(
         private readonly string $getid3Dir,
+        private readonly string $atomicParsleyPath = '',
     ) {}
+
+    /** Whether tags can be written into files of this extension on this machine. */
+    public function canWrite(string $extension): bool
+    {
+        $ext = strtolower(ltrim($extension, '.'));
+        if (\in_array($ext, self::MP4_EXTENSIONS, true)) {
+            return $this->atomicParsleyBinary() !== null;
+        }
+
+        return \in_array($ext, ['mp3', 'flac', 'ogg'], true);
+    }
 
     /**
      * Writes title/artist/album/genre/lyrics (and optionally a cover image)
@@ -87,6 +114,9 @@ class MetadataWriter
         $ext = strtolower(pathinfo($file, \PATHINFO_EXTENSION));
         if ($ext === 'mp3') {
             return $this->writeId3($file, $fields, $cover);
+        }
+        if (\in_array($ext, self::MP4_EXTENSIONS, true)) {
+            return $this->writeMp4($file, $fields, $cover);
         }
         $vorbis = \in_array($ext, ['flac', 'ogg'], true);
 
@@ -248,6 +278,132 @@ class MetadataWriter
         clearstatcache(true, $file);
 
         return true;
+    }
+
+    /**
+     * MP4 atoms through AtomicParsley. The new file is written next to the
+     * original, checked with getID3, then renamed over it: a failure never
+     * leaves a half-written file behind.
+     *
+     * @param array<string, string|int|null> $fields
+     */
+    private function writeMp4(string $file, array $fields, ?string $cover): bool
+    {
+        $binary = $this->atomicParsleyBinary();
+        if ($binary === null) {
+            $this->lastError = 'AtomicParsley not found: install it (brew install atomicparsley / apt install atomicparsley) to write M4A tags';
+
+            return false;
+        }
+
+        $args = [];
+        $options = [
+            'title' => '--title',
+            'artist' => '--artist',
+            'album' => '--album',
+            'albumArtist' => '--albumArtist',
+            'genre' => '--genre',
+            'year' => '--year',
+            'lyrics' => '--lyrics',
+        ];
+        foreach ($options as $field => $option) {
+            // '' deletes the atom.
+            if (\array_key_exists($field, $fields)) {
+                array_push($args, $option, trim((string) $fields[$field]));
+            }
+        }
+        foreach (['track' => '--tracknum', 'disc' => '--disk'] as $prefix => $option) {
+            if (!\array_key_exists($prefix . 'Number', $fields)) {
+                continue;
+            }
+            $number = (int) $fields[$prefix . 'Number'];
+            $total = (int) ($fields[$prefix . 'Total'] ?? 0);
+            if ($number > 0) {
+                array_push($args, $option, $number . ($total > 0 ? '/' . $total : ''));
+            } else {
+                $atom = $prefix === 'track' ? 'trkn' : 'disk';
+                array_push($args, '--manualAtomRemove', 'moov.udta.meta.ilst.' . $atom);
+            }
+        }
+        foreach (self::MB_MP4 as $field => $name) {
+            if (\array_key_exists($field, $fields)) {
+                array_push($args, '--rDNSatom', (string) $fields[$field], 'name=' . $name, 'domain=com.apple.iTunes');
+            }
+        }
+
+        $dir = \dirname($file);
+        $coverFile = null;
+        if ($cover !== null) {
+            array_push($args, '--artwork', 'REMOVE_ALL');
+            if ($cover !== '') {
+                $coverFile = $this->tempPath($dir, $this->imageMime($cover) === 'image/png' ? '.png' : '.jpg');
+                file_put_contents($coverFile, $cover);
+                array_push($args, '--artwork', $coverFile);
+            }
+        }
+        if ($args === []) {
+            return true;
+        }
+
+        $output = $this->tempPath($dir, '.' . pathinfo($file, \PATHINFO_EXTENSION));
+        $process = new Process([$binary, $file, ...$args, '--output', $output]);
+        $process->setTimeout(120);
+
+        try {
+            try {
+                $process->run();
+            } catch (ProcessException $e) {
+                $this->lastError = 'AtomicParsley: ' . $e->getMessage();
+
+                return false;
+            }
+            if (!$process->isSuccessful() || !is_file($output) || filesize($output) === 0) {
+                $this->lastError = 'AtomicParsley: ' . trim($process->getErrorOutput() . ' ' . $process->getOutput());
+
+                return false;
+            }
+
+            // The rewritten file must still be a playable MP4 of the same length.
+            $getID3 = new \getID3();
+            $before = $getID3->analyze($file);
+            $after = $getID3->analyze($output);
+            if (($after['fileformat'] ?? null) !== 'mp4' || abs((float) ($after['playtime_seconds'] ?? 0) - (float) ($before['playtime_seconds'] ?? 0)) > 0.5) {
+                $this->lastError = 'AtomicParsley produced an unreadable file; original kept';
+
+                return false;
+            }
+            if (!rename($output, $file)) {
+                $this->lastError = 'could not replace the original file';
+
+                return false;
+            }
+        } finally {
+            if ($coverFile !== null) {
+                @unlink($coverFile);
+            }
+            if (is_file($output)) {
+                @unlink($output);
+            }
+            clearstatcache(true, $file);
+        }
+
+        return true;
+    }
+
+    private function atomicParsleyBinary(): ?string
+    {
+        if ($this->atomicParsley === false) {
+            $this->atomicParsley = (new BinaryLocator())->find('AtomicParsley', $this->atomicParsleyPath)
+                ?? (new BinaryLocator())->find('atomicparsley');
+        }
+
+        return $this->atomicParsley;
+    }
+
+    /** A hidden, unused file name in $dir (same file system: rename() stays atomic). */
+    private function tempPath(string $dir, string $suffix): string
+    {
+        return $dir . '/.tagw-' . bin2hex(random_bytes(6)) . $suffix;
     }
 
     /**

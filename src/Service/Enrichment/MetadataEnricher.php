@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Service\Enrichment;
 
+use Symfony\Component\Clock\ClockInterface;
+use Symfony\Component\Clock\NativeClock;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpException;
 
 /**
@@ -24,6 +26,8 @@ use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpException;
  */
 class MetadataEnricher
 {
+    /** Candidates kept per doubtful file for the web page. */
+    private const MAX_CANDIDATES = 5;
     /** Below this, the album pass is ignored and files fall back to the orphan pass. */
     private const ALBUM_FLOOR = 0.5;
     /** AcoustID recordings looked up on MusicBrainz to choose among (album take vs remix/demo). */
@@ -41,13 +45,14 @@ class MetadataEnricher
     /** Releases of a recording tried (best first) to find its track number, album and cover. */
     private const RELEASES_PER_RECORDING = 4;
     /** Release search depth: equal-score results come back in no stable order. */
-    private const RELEASE_SEARCH_LIMIT = 10;
+    private const RELEASE_SEARCH_LIMIT = 25;
     private const ACOUSTID_MIN_SCORE = 0.5;
     /**
-     * Recording search depth: popular songs have dozens of live takes that
-     * outrank the studio recording (17th for "Somewhere I Belong").
+     * Recording search depth (MusicBrainz maximum): popular songs have dozens
+     * of equal-score recordings returned in no stable order — with 25 the
+     * album recording of "No Surprises" (one of 94) was sometimes missing.
      */
-    private const RECORDING_SEARCH_LIMIT = 25;
+    private const RECORDING_SEARCH_LIMIT = 100;
 
     private const UNKNOWN_GENRES = ['', 'unknown', 'unknown genre', 'other', 'genre inconnu'];
 
@@ -56,6 +61,9 @@ class MetadataEnricher
 
     /** @var array<string, ?string> release id => cover bytes */
     private array $coverCache = [];
+
+    /** @var list<AlbumMatch> runner-up albums of the current folder */
+    private array $albumAlternatives = [];
 
     /** Whether the current folder is a live recording (live releases allowed). */
     private bool $allowLive = false;
@@ -76,6 +84,7 @@ class MetadataEnricher
         private readonly Fingerprinter $fingerprinter,
         private readonly CoverArtClient $coverArt,
         private readonly string $musicDir,
+        private readonly ClockInterface $clock = new NativeClock(),
     ) {}
 
     public function canFingerprint(): bool
@@ -84,15 +93,33 @@ class MetadataEnricher
     }
 
     /**
+     * Best proposal per target track.
+     *
      * @param list<EnrichmentTrack> $tracks every indexed track of one folder; only `target` ones get proposals
      * @param callable(string):void $log
      *
      * @return list<Proposal>
      */
-    public function enrichFolder(array $tracks, callable $log): array
+    public function enrichFolder(array $tracks, callable $log, ?string $root = null): array
+    {
+        return array_values(array_map(static fn(array $candidates): Proposal => $candidates[0], $this->identifyFolder($tracks, $log, $root)));
+    }
+
+    /**
+     * Candidates per target track, best first. Doubtful tracks (best below
+     * the confidence level) get up to MAX_CANDIDATES alternatives for a human
+     * to choose from; confident ones a single candidate.
+     *
+     * @param list<EnrichmentTrack> $tracks every indexed track of one folder; only `target` ones get proposals
+     * @param callable(string):void $log
+     * @param ?string $root folder the paths are relative to for name hints (default MUSIC_DIR; the import folder for app:import)
+     *
+     * @return array<int, non-empty-list<Proposal>> music id => candidates
+     */
+    public function identifyFolder(array $tracks, callable $log, ?string $root = null): array
     {
         try {
-            return $this->doEnrichFolder($tracks, $log);
+            return $this->doIdentifyFolder($tracks, $log, $root ?? $this->musicDir);
         } catch (EnrichmentException|HttpException $e) {
             $log(\sprintf('  ! %s: %s', \dirname($tracks[0]->file ?? '?'), $e->getMessage()));
 
@@ -104,9 +131,9 @@ class MetadataEnricher
      * @param list<EnrichmentTrack> $tracks
      * @param callable(string):void $log
      *
-     * @return list<Proposal>
+     * @return array<int, non-empty-list<Proposal>>
      */
-    private function doEnrichFolder(array $tracks, callable $log): array
+    private function doIdentifyFolder(array $tracks, callable $log, string $root): array
     {
         /** @var array<int, EnrichmentTrack> $byId */
         $byId = [];
@@ -114,7 +141,7 @@ class MetadataEnricher
         $hints = [];
         foreach ($tracks as $track) {
             $byId[$track->musicId] = $track;
-            $hints[$track->musicId] = $this->hintExtractor->extract($track->file, $this->musicDir, $track->title, $track->artist, $track->album, $track->duration, $track->trackNumber);
+            $hints[$track->musicId] = $this->hintExtractor->extract($track->file, $root, $track->title, $track->artist, $track->album, $track->duration, $track->trackNumber);
         }
         $targets = array_keys(array_filter($byId, static fn(EnrichmentTrack $t): bool => $t->target));
         if ($targets === []) {
@@ -122,10 +149,12 @@ class MetadataEnricher
         }
         $this->allowLive = $this->isLiveFolder($tracks, $hints);
         $this->folderAlbums = [];
+        $this->albumAlternatives = [];
 
         /** @var array<int, list<RecordingMatch>> $acoustMatches music id => AcoustID matches */
         $acoustMatches = [];
-        $proposals = [];
+        /** @var array<int, list<Proposal>> $candidates */
+        $candidates = [];
 
         // Every file is fingerprinted (beets does the same): each one is then
         // checked individually instead of trusting a sample.
@@ -135,26 +164,37 @@ class MetadataEnricher
 
         if (\count($tracks) >= 2) {
 
-            try {
-                $match = $this->bestAlbumMatch($tracks, $hints, $acoustMatches, $log);
-            } catch (EnrichmentException|HttpException $e) {
-                // A remote hiccup during the album pass: fall back to files one by one.
-                $log('  ! album lookup failed: ' . $e->getMessage());
-                $match = null;
+            $match = null;
+            for ($attempt = 1; $attempt <= 2; ++$attempt) {
+                try {
+                    $match = $this->bestAlbumMatch($tracks, $hints, $acoustMatches, $log);
+                    break;
+                } catch (EnrichmentException|HttpException $e) {
+                    // MusicBrainz rate limiting is per IP, shared with any other
+                    // client on the machine: pause once, then fall back to files
+                    // one by one (much weaker for an album).
+                    $log('  ! album lookup failed' . ($attempt === 1 ? ', retrying in 30 s' : '') . ': ' . $e->getMessage());
+                    if ($attempt === 1) {
+                        $this->clock->sleep(30);
+                    }
+                }
             }
             if ($match !== null) {
                 $log(\sprintf('  = %s — %s (score %.2f, %d/%d aligned)', $match->release->artist, $match->release->title, $match->score, \count($match->assignments), \count($tracks)));
-                foreach ($targets as $id) {
-                    $releaseTrack = $match->assignments[$id] ?? null;
-                    if ($releaseTrack !== null) {
-                        $proposals[$id] = $this->proposal($byId[$id], $match->release, $releaseTrack, $match->score, Proposal::SOURCE_ALBUM, $match->breakdown);
+                // The runner-up albums are offered too (no extra lookup: already scored).
+                foreach ([$match, ...$this->albumAlternatives] as $albumMatch) {
+                    foreach ($targets as $id) {
+                        $releaseTrack = $albumMatch->assignments[$id] ?? null;
+                        if ($releaseTrack !== null) {
+                            $candidates[$id][] = $this->proposal($byId[$id], $albumMatch->release, $releaseTrack, $albumMatch->score, Proposal::SOURCE_ALBUM, $albumMatch->breakdown);
+                        }
                     }
                 }
             }
         }
 
         foreach ($targets as $id) {
-            $album = $proposals[$id] ?? null;
+            $album = $candidates[$id][0] ?? null;
             // A weak album guess is challenged by per-file identification for
             // files that carry a title or a fingerprint result (mixed folders,
             // home-made best-ofs, "Piste audio 07").
@@ -163,21 +203,58 @@ class MetadataEnricher
                 continue;
             }
             try {
-                $orphan = $this->identifyOrphan($byId[$id], $hints[$id], $acoustMatches[$id] ?? null);
+                $orphans = $this->identifyOrphanCandidates($byId[$id], $hints[$id], $acoustMatches[$id] ?? null, $album === null || $album->score < self::CONFIDENT);
             } catch (EnrichmentException|HttpException $e) {
                 // One failing lookup never costs the rest of the folder.
                 $log(\sprintf('  ! %s: %s', basename($byId[$id]->file), $e->getMessage()));
                 continue;
             }
-            if ($orphan !== null && ($album === null || $orphan->score > $album->score)) {
-                $proposals[$id] = $orphan;
-                if (isset($orphan->fields['album'])) {
-                    $this->folderAlbums[] = (string) $orphan->fields['album'];
-                }
+            $candidates[$id] = $this->mergeCandidates($candidates[$id] ?? [], $orphans);
+            $best = $candidates[$id][0] ?? null;
+            if ($best !== null && $best !== $album && isset($best->fields['album'])) {
+                $this->folderAlbums[] = (string) $best->fields['album'];
             }
         }
 
-        return array_values($proposals);
+        // Covers only for the chosen candidate of tracks without one.
+        $result = [];
+        foreach ($candidates as $id => $list) {
+            $list = $this->mergeCandidates($list, []);
+            if ($list === []) {
+                continue;
+            }
+            $best = $list[0];
+            if (!$byId[$id]->hasImage && $best->releaseId !== null) {
+                $list[0] = $best->withCover($this->coverCache[$best->releaseId] ??= $this->coverArt->front($best->releaseId, $best->releaseGroupId));
+            }
+            $result[$id] = $list;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Concatenates, removes duplicates (same recording on the same release),
+     * sorts by score (stable: on a tie the earlier source wins) and caps.
+     *
+     * @param list<Proposal> $a
+     * @param list<Proposal> $b
+     *
+     * @return list<Proposal>
+     */
+    private function mergeCandidates(array $a, array $b): array
+    {
+        $unique = [];
+        foreach ([...$a, ...$b] as $proposal) {
+            $key = $proposal->key();
+            if (!isset($unique[$key]) || $proposal->score > $unique[$key]->score) {
+                $unique[$key] = $proposal;
+            }
+        }
+        $list = array_values($unique);
+        usort($list, static fn(Proposal $x, Proposal $y): int => $y->score <=> $x->score);
+
+        return \array_slice($list, 0, self::MAX_CANDIDATES);
     }
 
     /**
@@ -252,6 +329,16 @@ class MetadataEnricher
         $best = $matches[0] ?? null;
         if ($best !== null) {
             $best = $this->capDoubtful($best, $matches, $fingerprinted, $log);
+            $alternatives = array_values(array_filter(
+                \array_slice($matches, 1, 2),
+                static fn(AlbumMatch $m): bool => $m->score >= self::ALBUM_FLOOR && $m->assignments !== [],
+            ));
+            // When the best album is held back (rival too close, fingerprints
+            // disagreeing), its rivals are no surer: same ceiling.
+            if (isset($best->breakdown['capped'])) {
+                $alternatives = array_map(static fn(AlbumMatch $m): AlbumMatch => new AlbumMatch($m->release, min($m->score, $best->score), $m->assignments, $m->breakdown + ['capped' => 1.0]), $alternatives);
+            }
+            $this->albumAlternatives = $alternatives;
         }
 
         // Only a plausible guess may steer the other files of the folder.
@@ -436,43 +523,76 @@ class MetadataEnricher
     }
 
     /**
+     * Identifies one file on its own: fingerprint first, then the names it
+     * carries. When the best candidate is doubtful and $alternatives is set,
+     * the runner-up fingerprint recordings and name-search results are added.
+     *
      * @param ?list<RecordingMatch> $acoustMatches already looked up in the album pass, null if not
+     *
+     * @return list<Proposal> best first
      */
-    private function identifyOrphan(EnrichmentTrack $track, TrackHints $hints, ?array $acoustMatches): ?Proposal
+    private function identifyOrphanCandidates(EnrichmentTrack $track, TrackHints $hints, ?array $acoustMatches, bool $alternatives): array
     {
         $acoustMatches ??= $this->lookupFingerprint($track);
-        $picked = $this->pickFingerprintMatch($track, $hints, $acoustMatches);
-        if ($picked !== null) {
-            [$recording, $score, $breakdown] = $picked;
+        $picked = $this->pickFingerprintMatches($track, $hints, $acoustMatches);
 
-            return $this->proposalForRecording($track, $hints, $recording, $score, Proposal::SOURCE_ACOUSTID, $breakdown);
+        $out = [];
+        foreach ($picked as $i => [$recording, $score, $breakdown]) {
+            if ($i > 0 && (!$alternatives || $out[0]->score >= self::CONFIDENT || $i >= self::MAX_CANDIDATES)) {
+                break;
+            }
+            $out[] = $this->proposalForRecording($track, $hints, $recording, $score, Proposal::SOURCE_ACOUSTID, $breakdown);
         }
 
+        $doubtful = $out === [] || $out[0]->score < self::CONFIDENT;
+        if ($out === [] || ($doubtful && $alternatives)) {
+            $found = $this->searchCandidates($track, $hints);
+            foreach (\array_slice($found, 0, $alternatives ? self::MAX_CANDIDATES : 1) as [$recording, $score, $breakdown]) {
+                // The audio was fingerprinted as something else: names alone
+                // cannot settle it, a human must.
+                if ($picked !== []) {
+                    $score = min($score, self::CONFIDENT - 0.05);
+                    $breakdown['fingerprint_disagrees'] = 1.0;
+                }
+                $out[] = $this->proposalForRecording($track, $hints, $recording, $score, Proposal::SOURCE_SEARCH, $breakdown);
+            }
+        }
+
+        return $this->mergeCandidates($out, []);
+    }
+
+    /**
+     * Name-search candidates, retrying "04 Numb - Encore" in "Linkin Park/"
+     * (the left part was half of the title, not an artist) with the folder's
+     * artist.
+     *
+     * @return list<array{0: RecordingMatch, 1: float, 2: array<string, float>}>
+     */
+    private function searchCandidates(EnrichmentTrack $track, TrackHints $hints): array
+    {
         $title = $hints->bestTitle();
         $artist = $hints->artistGuess();
         if ($title === null || $artist === null) {
-            return null;
+            return [];
         }
 
-        $found = $this->searchRecording($track, $hints, $artist, $title);
-        // "04 Numb - Encore" in "Linkin Park/": the left part was not an
-        // artist but half of the title; retry with the folder's artist.
+        $found = $this->searchRecordingMatches($track, $hints, $artist, $title);
         $folderArtist = $hints->folderArtist();
-        if ($found === null && $hints->filenameArtist !== null && $folderArtist !== null
+        if ($found === [] && $hints->filenameArtist !== null && $folderArtist !== null
             && mb_strtolower($folderArtist) !== mb_strtolower($hints->filenameArtist)) {
-            $found = $this->searchRecording($track, $hints, $folderArtist, $hints->filenameArtist . ' ' . $title);
+            $found = $this->searchRecordingMatches($track, $hints, $folderArtist, $hints->filenameArtist . ' ' . $title);
         }
 
         return $found;
     }
 
-    private function searchRecording(EnrichmentTrack $track, TrackHints $hints, string $artist, string $title): ?Proposal
+    /**
+     * @return list<array{0: RecordingMatch, 1: float, 2: array<string, float>}> best first, above ALBUM_FLOOR
+     */
+    private function searchRecordingMatches(EnrichmentTrack $track, TrackHints $hints, string $artist, string $title): array
     {
-        $bestScore = 0.0;
-        $bestRecording = null;
-        $breakdown = [];
-        $bestQuality = \PHP_INT_MIN;
         $albumHint = $hints->tagAlbum ?? ($hints->pathSegments[0] ?? null);
+        $found = [];
         foreach ($this->musicBrainz->searchRecordings($artist, $title, self::RECORDING_SEARCH_LIMIT, $this->excludeLive($title)) as $recording) {
             // Live performances are separate recordings, released on bootlegs only.
             $ranked = $this->rankReleases($recording->releases, 1, $albumHint, $recording->artist);
@@ -481,7 +601,7 @@ class MetadataEnricher
             }
             // Equal scores: the recording found on the better album wins (the
             // studio album, or the one this folder's other files matched).
-            $quality = $ranked !== [] ? (int) round($this->releaseRank($ranked[0], 1, $albumHint, $recording->artist) * 10) : \PHP_INT_MIN + 1;
+            $quality = $ranked !== [] ? $this->releaseRank($ranked[0], 1, $albumHint, $recording->artist) : -100.0;
             $titleSim = $this->scorer->similarity($title, $recording->title);
             $artistSim = $this->scorer->similarity($artist, $recording->artist);
             $duration = $this->durationFactor($track->duration, $recording->duration);
@@ -489,15 +609,19 @@ class MetadataEnricher
             if ($recording->isVariantOf($title)) {
                 $score = round($score * 0.6, 3);
             }
-            if ($score > $bestScore || ($score === $bestScore && $quality > $bestQuality)) {
-                [$bestScore, $bestRecording, $bestQuality] = [$score, $recording, $quality];
-                $breakdown = ['title' => round($titleSim, 3), 'artist' => round($artistSim, 3), 'duration' => round($duration, 3)];
+            if ($score >= self::ALBUM_FLOOR) {
+                $found[] = [$recording, $score, ['title' => round($titleSim, 3), 'artist' => round($artistSim, 3), 'duration' => round($duration, 3)], $quality];
             }
         }
+        usort($found, static fn(array $a, array $b): int => [$b[1], $b[3]] <=> [$a[1], $a[3]]);
 
-        return $bestRecording !== null && $bestScore >= self::ALBUM_FLOOR
-            ? $this->proposalForRecording($track, $hints, $bestRecording, $bestScore, Proposal::SOURCE_SEARCH, $breakdown)
-            : null;
+        // One candidate per recording title/artist (searches list many duplicates).
+        $unique = [];
+        foreach ($found as [$recording, $score, $breakdown]) {
+            $unique[mb_strtolower($recording->title . "\0" . $recording->artist)] ??= [$recording, $score, $breakdown];
+        }
+
+        return array_values($unique);
     }
 
     /**
@@ -510,9 +634,9 @@ class MetadataEnricher
      *
      * @param list<RecordingMatch> $matches
      *
-     * @return array{0: RecordingMatch, 1: float, 2: array<string, float>}|null
+     * @return list<array{0: RecordingMatch, 1: float, 2: array<string, float>}> best first, empty when nothing is usable
      */
-    private function pickFingerprintMatch(EnrichmentTrack $track, TrackHints $hints, array $matches): ?array
+    private function pickFingerprintMatches(EnrichmentTrack $track, TrackHints $hints, array $matches): array
     {
         $top = $matches[0]->score ?? 0.0;
         $title = $hints->bestTitle();
@@ -567,10 +691,17 @@ class MetadataEnricher
 
         // A fingerprint whose length is far off is no identification.
         if ($best === null || $best[1] < self::ALBUM_FLOOR) {
-            return null;
+            return [];
         }
 
-        return [$best[0], $best[1], $best[2]];
+        $list = [[$best[0], $best[1], $best[2]]];
+        foreach ($evaluated as $candidate) {
+            if ($candidate !== $best && $candidate[1] >= self::ALBUM_FLOOR) {
+                $list[] = [$candidate[0], $candidate[1], $candidate[2]];
+            }
+        }
+
+        return $list;
     }
 
     /**
@@ -646,12 +777,8 @@ class MetadataEnricher
             $fields['genre'] = $release->genre;
         }
 
-        $cover = null;
-        if (!$track->hasImage) {
-            $cover = $this->coverCache[$release->id] ??= $this->coverArt->front($release->id, $release->releaseGroupId);
-        }
-
-        return new Proposal($track->musicId, $fields, round($score, 3), $source, $release->id, $releaseTrack->recordingId, $breakdown, $cover);
+        // The cover is fetched later, for the chosen candidate only.
+        return new Proposal($track->musicId, $fields, round($score, 3), $source, $release->id, $releaseTrack->recordingId, $breakdown, null, $release->releaseGroupId);
     }
 
     /**

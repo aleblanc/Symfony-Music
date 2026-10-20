@@ -79,9 +79,11 @@ Dev: `phpstan/phpstan-doctrine`, `phpstan/phpstan-symfony`,
 | `fpcalc` (Chromaprint) | `brew install chromaprint` | `apt install libchromaprint-tools` | audio fingerprinting in `app:enrich` (identifies files with no usable name) |
 | `metaflac` | `brew install flac` | `apt install flac` | writing tags into **FLAC** files (getID3 shells out to it) |
 | `vorbiscomment` | `brew install vorbis-tools` | `apt install vorbis-tools` | writing tags into **Ogg Vorbis** files |
+| `AtomicParsley` | `brew install atomicparsley` | `apt install atomicparsley` | writing tags into **M4A** files (getID3 cannot) |
 
-MP3 tags are written in pure PHP. getID3 cannot write MP4/M4A tags: for those
-files only the database is updated.
+MP3 tags are written in pure PHP. M4A tags (cover and MusicBrainz ids
+included, as Picard's `----:com.apple.iTunes` atoms) are written by
+AtomicParsley; without it, only the database is updated for those files.
 
 ### External services
 
@@ -262,7 +264,7 @@ dot, NFC, ≤ 120 bytes per part). An existing file is never overwritten
 ignored) is a duplicate and goes to `IMPORT_DIR/_duplicates/`. `cover.jpg` is
 added next to the album when missing, and the import folders left empty are
 removed. Moving works across disks (copy + delete when `rename()` fails).
-MP3, FLAC and Ogg are tagged; M4A / WAV are only filed.
+MP3, FLAC, Ogg and M4A (with AtomicParsley) are tagged; WAV is only filed.
 
 ### Pending files in the database (`import_item`)
 
@@ -294,11 +296,35 @@ own, two different albums within 0.05 of each other are never auto-applied
 optimal assignment instead of a greedy one. Covered by
 `tests/enrichment-fingerprint-test.php` and `tests/enrichment-scorer-test.php`.
 
+### Usage
+
+`IMPORT_DIR` and `MUSIC_DIR` must be two separate folders (neither inside the
+other). One command per step, run one after the other:
+
+```bash
+php bin/console doctrine:migrations:migrate   # once: import_item table
+php bin/console app:import --dry-run          # preview: what would be tagged and where it would be filed
+php bin/console app:import                    # tag + file the confident files, store the candidates of the others
+php bin/console app:scan                      # index the new files of MUSIC_DIR
+php bin/console app:spotify:match             # link them to Spotify
+```
+
+| `app:import` option | Effect |
+|---|---|
+| `--dry-run` | print the decisions, write and move nothing |
+| `--threshold=0.85` | score needed to file automatically; below it the file waits (`pending`) |
+| `--retry` | also retry files already tried and unchanged since |
+| `--limit=N` | at most N files |
+| `--source=DIR` | import another folder than `IMPORT_DIR` |
+
+When MusicBrainz rate-limits (the limit is per IP, shared with every client on
+the machine), the album lookup of a folder is retried once after 30 s before
+falling back to files one by one.
+
 ### Status
 
 Done: identification with candidates, `FileImporter` + `LibraryPath`,
-`import_item` entity + migration (`php bin/console doctrine:migrations:migrate`).
-Still to do: the `app:import` command that ties the steps together, and the
+`import_item` entity + migration, the `app:import` command. Still to do: the
 web page (see the to-do list below).
 
 ## Tests
@@ -355,13 +381,12 @@ Follow-ups: PHPUnit coverage for `MusicScanner` + controllers; consider
 
 ### Metadata & import — to do
 
-- [ ] **`app:import`**: identify the files of `IMPORT_DIR`, write tags + cover
-  (embedded and `cover.jpg`), move them into
-  `MUSIC_DIR/Artist/Album/NN Title` (singles and compilations apart,
-  file names sanitised). Unidentified files stay in the import folder;
-  `var/import/state.json` remembers failed attempts (retried when the file
-  changes or with `--retry`); duplicates (same MusicBrainz ids already in the
-  library) go to `IMPORT_DIR/_duplicates`.
+- [x] **`app:import`**: identifies the files of `IMPORT_DIR`, writes tags +
+  cover + MusicBrainz ids, files them into `MUSIC_DIR/Artist/Album (Year)/NN
+  Title` (singles and compilations apart, file names sanitised). Unidentified
+  files stay in the import folder; `import_item` remembers attempts (retried
+  when the file changes or with `--retry`) and stores the candidates;
+  duplicates (same audio already filed) go to `IMPORT_DIR/_duplicates`.
 - [ ] **Web page for the files left in the import folder**: list each
   unidentified file with its candidates (title, artist, album, year, cover,
   score, listen button), pick one with a single ergonomic click (or type a

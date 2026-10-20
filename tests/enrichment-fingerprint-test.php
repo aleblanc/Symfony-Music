@@ -329,5 +329,34 @@ $en = new MetadataEnricher(new HintExtractor(), new MatchScorer(), new FpMusicBr
 $p = $en->enrichFolder([$single(73, 'Arctic Monkeys/Arctic Monkeys/Arctic Monkeys - Do I Wanna Know.mp3', 272)], $logger)[0] ?? null;
 check('7d: recording on the artist album beats a promo-only one at equal fingerprint score', $p?->releaseId === 'rel-am', (string) $p?->releaseId);
 
+// ---- 8. Several candidates per doubtful file (for the web page) --------------------
+$en = new MetadataEnricher(new HintExtractor(), new MatchScorer(), new FpMusicBrainz(), new FpAcoustId([
+    'fp:Track 1.mp3' => [
+        new RecordingMatch('c1', 'First', 'A', 200, 0.80, []),
+        new RecordingMatch('c2', 'Second', 'B', 200, 0.78, []),
+        new RecordingMatch('c3', 'Third', 'C', 200, 0.75, []),
+    ],
+]), new FpFingerprinter(), new NoCovers(), '/music');
+$all = $en->identifyFolder([$single(80, 'dump/Track 1.mp3', 200)], $logger);
+$ids = array_map(static fn($c) => $c->recordingId, $all[80] ?? []);
+check('8a: a doubtful file gets its alternatives, best first', $ids === ['c1', 'c2', 'c3'], json_encode($ids));
+check('8a: enrichFolder still returns the best one', ($en->enrichFolder([$single(80, 'dump/Track 1.mp3', 200)], $logger)[0]->recordingId ?? null) === 'c1');
+
+$en = new MetadataEnricher(new HintExtractor(), new MatchScorer(), new FpMusicBrainz(), new FpAcoustId([
+    'fp:Track 1.mp3' => [
+        new RecordingMatch('sure', 'First', 'A', 200, 0.97, []),
+        new RecordingMatch('other', 'Second', 'B', 200, 0.96, []),
+    ],
+]), new FpFingerprinter(), new NoCovers(), '/music');
+$all = $en->identifyFolder([$single(81, 'dump/Track 1.mp3', 200)], $logger);
+check('8b: a confident file gets a single candidate (no extra lookups)', count($all[81] ?? []) === 1, (string) count($all[81] ?? []));
+
+// Two plausible albums for a folder: both offered.
+$en = new MetadataEnricher(new HintExtractor(), new MatchScorer(), new FpMusicBrainz([$okcSummary, $twinSummary], ['rel-okc' => $okc, 'rel-twin' => $twin]), new FpAcoustId(), new FpFingerprinter(), new NoCovers(), '/music');
+$all = $en->identifyFolder($folder('OK Computer'), $logger);
+$releases = array_values(array_unique(array_map(static fn($c) => $c->releaseId, $all[1] ?? [])));
+sort($releases);
+check('8c: tied albums are both offered as candidates', $releases === ['rel-okc', 'rel-twin'], json_encode($releases));
+
 echo $failures === 0 ? "\nAll fingerprint tests passed.\n" : "\n{$failures} failure(s).\n";
 exit($failures === 0 ? 0 : 1);
