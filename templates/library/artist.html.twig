@@ -23,6 +23,10 @@
             {% if found and profile.summary %}
                 <p class="artist-summary">{{ profile.summary }}</p>
             {% endif %}
+            <div class="artist-play">
+                <button class="btn" type="button" data-play-all="#artist-tracks">▶ Play all</button>
+                <button class="btn btn-ghost" type="button" data-queue-all="#artist-tracks" title="Add every track to the play queue">+ Add all to queue</button>
+            </div>
             {% if found %}
                 <div class="artist-links">
                     {% if profile.wikipediaUrl %}<a class="btn btn-sm btn-ghost" href="{{ profile.wikipediaUrl }}" target="_blank" rel="noopener">Wikipedia ↗</a>{% endif %}
@@ -82,7 +86,7 @@
         </section>
     {% endif %}
 
-    <section class="artist-section">
+    <section class="artist-section" id="artist-tracks">
         <h2>Tracks</h2>
         {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
     </section>

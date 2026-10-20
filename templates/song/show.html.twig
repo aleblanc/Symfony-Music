@@ -127,6 +127,16 @@
                             <dt>Channels</dt>
                             <dd>{{ song.channels == 1 ? 'Mono' : (song.channels == 2 ? 'Stereo' : song.channels ~ ' channels') }}</dd>
                         {% endif %}
+                        <dt>Spotify</dt>
+                        <dd>
+                            {% if song.spotifyUrl %}
+                                <a class="link" href="{{ song.spotifyUrl }}" target="_blank" rel="noopener" title="{{ song.spotifyUrl }}">open.spotify.com/track/{{ song.spotifyId }} ↗</a>
+                            {% elseif song.spotifyCheckedAt %}
+                                <span class="muted" title="php bin/console app:spotify:match --retry">Not found ({{ song.spotifyCheckedAt|date('d/m/Y') }})</span>
+                            {% else %}
+                                <span class="muted" title="php bin/console app:spotify:match --id={{ song.id }}">Not matched yet</span>
+                            {% endif %}
+                        </dd>
                         <dt>Rating</dt>
                         <dd title="Read from the file's ID3 POPM tag (e.g. Windows Media Player stars)">
                             {% if rating %}

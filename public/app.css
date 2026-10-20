@@ -661,3 +661,4 @@ html.nav-loading { cursor: progress; }
     .artist-photo { max-width: 260px; }
     .artist-head h1 { font-size: 30px; }
 }
+.artist-play { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 16px; }

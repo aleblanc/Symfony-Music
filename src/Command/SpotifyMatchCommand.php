@@ -13,6 +13,7 @@ use App\Service\Spotify\SpotifyTagWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Command\SignalableCommandInterface;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -29,10 +30,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * so a cron after each `app:scan` only handles new files.
  */
 #[AsCommand(name: 'app:spotify:match', description: 'Find the open.spotify.com link of each track (DB, optionally file tags)')]
-class SpotifyMatchCommand extends Command
+class SpotifyMatchCommand extends Command implements SignalableCommandInterface
 {
-    private const BATCH_SIZE = 20;
     private const BROWSER_BATCH_SIZE = 25;
+
+    private bool $interrupted = false;
 
     public function __construct(
         private readonly MusicRepository $musicRepository,
@@ -149,8 +151,14 @@ class SpotifyMatchCommand extends Command
             }
 
             $io->progressAdvance();
-            if (($n + 1) % self::BATCH_SIZE === 0) {
-                $this->flush($dryRun);
+            // Saved after every track: a lookup takes seconds, a save
+            // milliseconds, so an interrupted run never loses work.
+            $this->flush($dryRun);
+            if ($this->interrupted) {
+                $io->progressFinish();
+                $io->warning(\sprintf('Interrupted after %d track(s), all saved: run the command again to continue with the others.', $n + 1));
+
+                return Command::FAILURE;
             }
         }
         $this->flush($dryRun);
@@ -271,6 +279,26 @@ class SpotifyMatchCommand extends Command
             $io->writeln('');
             $io->writeln($message);
         }
+    }
+
+    /** @return list<int> */
+    public function getSubscribedSignals(): array
+    {
+        return \defined('SIGINT') ? [\SIGINT, \SIGTERM] : [];
+    }
+
+    /**
+     * Ctrl+C: finish the current track, save, then stop (see the loop).
+     * A second Ctrl+C stops at once.
+     */
+    public function handleSignal(int $signal, int|false $previousExitCode = 0): int|false
+    {
+        if ($this->interrupted) {
+            return 130;
+        }
+        $this->interrupted = true;
+
+        return false;
     }
 
     private function flush(bool $dryRun): void

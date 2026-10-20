@@ -153,6 +153,12 @@ php -S 127.0.0.1:8000 -t public public/index.php
 # or: symfony serve
 ```
 
+`app:scan` also removes from the database the tracks whose file is gone, and
+the tracks outside `MUSIC_DIR` (indexed by an older scan of another folder,
+such as the import folder): their files are kept, only the database rows go,
+along with their favorites / play counts. Uploads live under
+`MUSIC_DIR/uploads` and stay.
+
 ## Completing metadata (`app:enrich`)
 
 Order of the steps, each run on its own (check the result before the next):
@@ -330,7 +336,7 @@ other). One command per step, run one after the other:
 ```bash
 php bin/console doctrine:migrations:migrate   # once: import_item table
 php bin/console app:convert                   # only if IMPORT_DIR holds WMA files: → M4A (AAC), tags kept
-php bin/console app:import --dry-run          # preview: what would be tagged and where it would be filed
+php bin/console app:import --dry-run --limit=50 # preview: what would be tagged and where it would be filed
 php bin/console app:import                    # tag + file the confident files, store the candidates of the others
 php bin/console app:scan                      # index the new files of MUSIC_DIR
 php bin/console app:spotify:match             # link them to Spotify
@@ -389,6 +395,20 @@ php bin/console app:artist:videos             # latest YouTube videos (run it re
 ```
 
 Cron example: `0 * * * * cd /path/to/project && php bin/console app:artist:videos -q`.
+
+**Several spellings of one artist** ("Blink 182", "Blink182", "blink‐182";
+"Offspring" / "The Offspring"; case differences) come from files tagged by
+hand next to files tagged from MusicBrainz. `app:artist:merge` finds them
+(case, accents, spaces, punctuation and a leading "The" ignored) and keeps the
+most used spelling: it rewrites the artist / album artist tags, then the
+database, and merges the artist page profiles. Files are not moved or
+renamed, and only files inside `MUSIC_DIR` are touched.
+
+```bash
+php bin/console app:artist:merge --dry-run                            # list the groups and the files to rewrite
+php bin/console app:artist:merge --artist="Blink 182" --to=blink-182  # one group, another name to keep
+php bin/console app:artist:merge                                      # rewrite them all
+```
 Admins also get a "Refresh artist info" button on each artist page.
 
 ## Audio quality stats (`/admin/quality`)

@@ -230,4 +230,10 @@ class ArtistProfile
     {
         $this->videosSeenAt = $now;
     }
+
+    /** The artist was renamed in the tags (`app:artist:merge`): the profile follows. */
+    public function rename(string $name): void
+    {
+        $this->name = $name;
+    }
 }

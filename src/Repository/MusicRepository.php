@@ -277,6 +277,48 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
+     * Number of tracks per artist name, whole library (for app:artist:merge).
+     *
+     * @return array<string, int>
+     */
+    public function artistTrackCounts(): array
+    {
+        $counts = [];
+        foreach ($this->createQueryBuilder('m')
+            ->select('m.artist AS artist', 'COUNT(m.id) AS n')
+            ->andWhere("m.artist IS NOT NULL AND m.artist != ''")
+            ->groupBy('m.artist')
+            ->getQuery()
+            ->getArrayResult() as $row) {
+            $counts[(string) $row['artist']] = (int) $row['n'];
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Tracks whose artist or album artist is one of these names.
+     *
+     * @param list<string> $names
+     *
+     * @return list<Music>
+     */
+    public function findByArtistOrAlbumArtist(array $names): array
+    {
+        if ($names === []) {
+            return [];
+        }
+
+        /** @var list<Music> */
+        return $this->createQueryBuilder('m')
+            ->andWhere('m.artist IN (:names) OR m.albumArtist IN (:names)')
+            ->setParameter('names', $names)
+            ->orderBy('m.file', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Albums of one artist for the artist page tiles: cover track, year,
      * track count; newest first.
      *

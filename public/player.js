@@ -199,6 +199,24 @@ if (audio && bar) {
         }
     });
 
+    // "Play all" / "Add all to queue" buttons: data-play-all or
+    // data-queue-all holds a CSS selector of the block whose tracks they take.
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-play-all], [data-queue-all]');
+        if (!btn) return;
+        e.preventDefault();
+        const scope = document.querySelector(btn.dataset.playAll || btn.dataset.queueAll || 'main') || document;
+        const tracks = Array.from(scope.querySelectorAll('[data-track]')).map(trackData);
+        if (tracks.length === 0) return;
+        if (btn.hasAttribute('data-play-all') || index < 0) {
+            queue = tracks;
+            load(0);
+            return;
+        }
+        queue.push(...tracks);
+        toast(`${tracks.length} track${tracks.length === 1 ? '' : 's'} added to queue`);
+    });
+
     els.toggle.addEventListener('click', () => (audio.paused ? audio.play() : audio.pause()));
     els.prev.addEventListener('click', () => load(index - 1));
     els.next.addEventListener('click', () => load(index + 1));

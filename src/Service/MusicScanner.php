@@ -123,11 +123,28 @@ class MusicScanner
 
         $this->em->flush();
 
-        // Prune tracks whose files vanished from disk.
+        // Prune tracks whose files vanished from disk, and tracks outside the
+        // library: indexed by an older scan of another folder (e.g. what is
+        // now the import folder), they are not part of MUSIC_DIR any more.
+        // Uploads live under MUSIC_DIR/uploads, so they stay.
         $log('Pruning missing files...');
+        $roots = array_unique(array_filter([rtrim($this->musicDir, '/') . '/', ($real = realpath($this->musicDir)) !== false ? rtrim($real, '/') . '/' : null]));
+        $inLibrary = static function (string $file) use ($roots): bool {
+            foreach ($roots as $root) {
+                if (str_starts_with($file, $root)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
         foreach ($this->musicRepository->findAll() as $music) {
             $musicFile = (string) $music->getFile();
             if (!isset($filesOnDisk[$musicFile]) && !file_exists($musicFile)) {
+                $this->em->remove($music);
+                ++$stats['removed'];
+            } elseif (!isset($filesOnDisk[$musicFile]) && !$inLibrary($musicFile)) {
+                $log('  - outside the library, removed from the database (file kept): ' . $musicFile);
                 $this->em->remove($music);
                 ++$stats['removed'];
             }
