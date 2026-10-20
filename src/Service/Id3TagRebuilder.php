@@ -5,12 +5,15 @@ namespace App\Service;
 /**
  * Rewrites an MP3's ID3v2 tag without losing frames.
  *
- * The bundled getID3 cannot merge into an existing tag (overwrite_tags=false
- * throws): the whole tag is rebuilt from what getID3 reads — every text
- * frame, pictures, TXXX, UFID, WOAF (Spotify URL), POPM rating — then the
- * requested changes are applied. The file is backed up first and every frame
- * type not deliberately changed must come back with the same count;
- * otherwise the backup is restored.
+ * The tag is rebuilt frame by frame from what getID3 parsed — byte-for-byte
+ * (each text keeps its original encoding), in the file's own ID3v2 version
+ * (2.4 stays 2.4: TDRC...) — then only the requested frames are replaced.
+ * The low-level writer (getid3_write_id3v2) is used directly: the high-level
+ * getid3_writetags turned PRIV, multi-language COMM, WXXX or GEOB into plain
+ * text or refused them.
+ *
+ * The file is backed up first and every frame type not deliberately changed
+ * must come back with the same count; otherwise the backup is restored.
  */
 class Id3TagRebuilder
 {
@@ -32,77 +35,72 @@ class Id3TagRebuilder
         return $info;
     }
 
-    /**
-     * @param array<string, mixed> $info
-     *
-     * @return array<string, mixed> getid3_writetags::$tag_data reproducing the current ID3v2 tag
-     */
-    public function rebuild(array $info): array
+    /** ID3v2 version to write: the file's own (3 or 4); 2.2 and untagged files get 2.3. */
+    public function majorVersion(array $info): int
     {
-        $this->loadWriter();
-        /** @var array<string, list<mixed>> $comments */
-        $comments = $info['comments'] ?? [];
-        $id3v2 = \is_array($info['id3v2'] ?? null) ? $info['id3v2'] : [];
-        $data = [];
-
-        foreach ($comments as $key => $values) {
-            if (\in_array($key, ['picture', 'text', 'totaltracks', 'totaldiscs', 'popularimeter', 'unique_file_identifier'], true)
-                || \getid3_write_id3v2::ID3v2ShortFrameNameLookup(3, $key) === '') {
-                continue;
-            }
-            $data[$key] = array_map(static fn(mixed $v): string => \is_scalar($v) ? (string) $v : '', $values);
-        }
-        // getID3 splits TRCK "7/12" / TPOS "1/2" on read.
-        foreach (['track_number' => 'totaltracks', 'part_of_a_set' => 'totaldiscs'] as $key => $total) {
-            if (isset($data[$key][0], $comments[$total][0]) && !str_contains($data[$key][0], '/')) {
-                $data[$key][0] .= '/' . $comments[$total][0];
-            }
-        }
-        foreach (\is_array($id3v2['APIC'] ?? null) ? $id3v2['APIC'] : [] as $apic) {
-            $data['attached_picture'][] = [
-                'data' => $apic['data'] ?? '',
-                'picturetypeid' => $apic['picturetypeid'] ?? 3,
-                'description' => $apic['description'] ?? '',
-                'mime' => $apic['mime'] ?? $apic['image_mime'] ?? 'image/jpeg',
-            ];
-        }
-        foreach (\is_array($id3v2['TXXX'] ?? null) ? $id3v2['TXXX'] : [] as $txxx) {
-            $data['text'][] = ['description' => $txxx['description'] ?? '', 'data' => $txxx['data'] ?? ''];
-        }
-        // getID3 writes a single POPM and a single UFID; with several, the
-        // frame-count check after writing catches the loss and restores.
-        if (isset($id3v2['POPM'][0]) && \is_array($id3v2['POPM'][0])) {
-            $popm = $id3v2['POPM'][0];
-            $data['popularimeter'] = ['email' => $popm['email'] ?? '', 'rating' => $popm['rating'] ?? 0, 'data' => $popm['counter'] ?? 0];
-        }
-        if (isset($id3v2['UFID'][0]) && \is_array($id3v2['UFID'][0])) {
-            $data['unique_file_identifier'] = ['ownerid' => $id3v2['UFID'][0]['ownerid'] ?? '', 'data' => $id3v2['UFID'][0]['data'] ?? ''];
-        }
-
-        return $data;
+        return (int) ($info['id3v2']['majorversion'] ?? 3) === 4 ? 4 : 3;
     }
 
     /**
-     * Writes $tagData (ID3v1 + ID3v2.3) with a backup and a frame check.
+     * The current ID3v2 frames, in getid3_write_id3v2::$tag_data form.
+     *
+     * @param array<string, mixed> $info
+     *
+     * @return array<string, list<array<string, mixed>>> frame id => frames
+     */
+    public function frames(array $info): array
+    {
+        $frames = [];
+        // ID3v2.2 frame ids have 3 letters: not reproducible as such.
+        if ((int) ($info['id3v2']['majorversion'] ?? 3) < 3) {
+            return $frames;
+        }
+        foreach (\is_array($info['id3v2'] ?? null) ? $info['id3v2'] : [] as $id => $list) {
+            if (!\is_string($id) || preg_match('/^[A-Z][A-Z0-9]{3}$/', $id) !== 1 || !\is_array($list)) {
+                continue;
+            }
+            foreach ($list as $frame) {
+                if (\is_array($frame)) {
+                    $frames[$id][] = $this->writable($id, $frame);
+                }
+            }
+        }
+
+        return $frames;
+    }
+
+    /**
+     * A text value in the encoding of the given ID3v2 version.
+     *
+     * @return array{encodingid: int, data: string}
+     */
+    public function text(string $value, int $major): array
+    {
+        if ($major === 4) {
+            return ['encodingid' => 3, 'data' => $value];
+        }
+
+        // 2.3 has no UTF-8: ISO-8859-1 when plain ASCII, else UTF-16 + BOM.
+        return preg_match('/[^\x00-\x7F]/', $value) === 1
+            ? ['encodingid' => 1, 'data' => "\xFF\xFE" . (string) iconv('UTF-8', 'UTF-16LE', $value)]
+            : ['encodingid' => 0, 'data' => $value];
+    }
+
+    /**
+     * Writes the frames (+ ID3v1 when the file had one) with a backup and a
+     * lost-frame check.
      *
      * @param array<string, mixed> $info analysis of the file before writing
-     * @param array<string, mixed> $tagData
-     * @param list<string> $changedFrames ID3v2 frame ids allowed to change (added, removed, recounted)
+     * @param array<string, list<array<string, mixed>>> $frames
+     * @param list<string> $changedFrames frame ids allowed to change (added, removed, recounted)
+     * @param array<string, string> $id3v1 title, artist, album, year, comment, track_number, genre (UTF-8)
      *
      * @throws \RuntimeException when writing fails or would lose frames (the file is left as it was)
      */
-    public function write(string $file, array $info, array $tagData, array $changedFrames): void
+    public function write(string $file, array $info, array $frames, array $changedFrames, array $id3v1): void
     {
         $this->loadWriter();
         $before = $this->frameCounts($info);
-
-        $writer = new \getid3_writetags();
-        $writer->filename = $file;
-        $writer->tagformats = ['id3v1', 'id3v2.3'];
-        $writer->overwrite_tags = true;
-        $writer->remove_other_tags = false;
-        $writer->tag_encoding = 'UTF-8';
-        $writer->tag_data = $tagData;
 
         $backup = tempnam(sys_get_temp_dir(), 'tagbak');
         if ($backup === false || !copy($file, $backup)) {
@@ -110,9 +108,40 @@ class Id3TagRebuilder
         }
 
         try {
-            if (!$writer->WriteTags()) {
-                throw new \RuntimeException('getID3: ' . implode('; ', $writer->errors));
+            $major = $this->majorVersion($info);
+            $changedFrames = array_merge($changedFrames, $this->repair($frames, $major));
+            // Frames this ID3v2 version does not define (or non-standard ones)
+            // are refused by the writer: drop them and try again.
+            for ($round = 1; ; ++$round) {
+                $writer = new \getid3_write_id3v2();
+                $writer->filename = $file;
+                $writer->majorversion = $major;
+                $writer->tag_data = $frames;
+                if ($writer->WriteID3v2()) {
+                    break;
+                }
+                $refused = $this->refusedFrames($writer->errors);
+                if ($refused === [] || $round >= 5) {
+                    throw new \RuntimeException('getID3: ' . implode('; ', $writer->errors));
+                }
+                foreach ($refused as $id) {
+                    unset($frames[$id]);
+                    $changedFrames[] = $id;
+                }
             }
+
+            if (isset($info['id3v1'])) {
+                $v1 = new \getid3_writetags();
+                $v1->filename = $file;
+                $v1->tagformats = ['id3v1'];
+                $v1->overwrite_tags = true;
+                $v1->tag_encoding = 'UTF-8';
+                $v1->tag_data = array_map(static fn(string $v): array => [$v], array_filter($id3v1, static fn(string $v): bool => $v !== ''));
+                if (!$v1->WriteTags()) {
+                    throw new \RuntimeException('getID3 (ID3v1): ' . implode('; ', $v1->errors));
+                }
+            }
+
             clearstatcache(true, $file);
             $after = $this->frameCounts($this->analyze($file));
             $lost = [];
@@ -134,12 +163,148 @@ class Id3TagRebuilder
         }
     }
 
-    /** ID3v2.3 frame id of a getID3 tag_data key ("track_number" → "TRCK"), '' when unknown. */
-    public function frameId(string $key): string
+    /**
+     * Fixes malformed frames of downloaded files that getid3_write_id3v2
+     * refuses to write back: a picture typed "JPG" instead of "image/jpeg", an
+     * object without MIME type. URL frames getID3 would silently drop (empty
+     * URL, or an e-mail address in place of one) are dropped here, openly.
+     *
+     * @param array<string, list<array<string, mixed>>> $frames
+     *
+     * @return list<string> frame ids whose count changes
+     */
+    private function repair(array &$frames, int $major): array
     {
-        $this->loadWriter();
+        $changed = [];
 
-        return (string) \getid3_write_id3v2::ID3v2ShortFrameNameLookup(3, $key);
+        // The recording date has a different frame in each version: carry it
+        // over (2.4 TDRC "2008-03-24" ↔ 2.3 TYER "2008").
+        [$from, $to] = $major === 3 ? ['TDRC', 'TYER'] : ['TYER', 'TDRC'];
+        if (isset($frames[$from])) {
+            $year = substr((string) preg_replace('/[^0-9]/', '', (string) ($frames[$from][0]['data'] ?? '')), 0, 4);
+            if (!isset($frames[$to]) && \strlen($year) === 4) {
+                $frames[$to] = [['encodingid' => 0, 'data' => $year]];
+                $changed[] = $to;
+            }
+            unset($frames[$from]);
+            $changed[] = $from;
+        }
+
+        $keep = static function (string $id, callable $accept) use (&$frames, &$changed): void {
+            $list = $frames[$id] ?? [];
+            $kept = array_values(array_filter($list, $accept));
+            if (\count($kept) !== \count($list)) {
+                $changed[] = $id;
+                $frames[$id] = $kept;
+                if ($kept === []) {
+                    unset($frames[$id]);
+                }
+            }
+        };
+
+        // getID3 parses some frames into structured fields and drops their raw
+        // bytes (volume/EQ adjustments RVA2/RVAD/EQU2/EQUA/RVRB, synced lyrics
+        // SYLT/SYTC, ETCO/MLLT, malformed lyrics): they cannot be written back.
+        foreach (array_keys($frames) as $id) {
+            if ($id !== 'POPM') {
+                $keep($id, static fn(array $f): bool => \array_key_exists('data', $f));
+            }
+        }
+        // Only one COMM / USLT per language + description (ID3v2 rule some
+        // taggers break): the first one is kept.
+        foreach (['COMM', 'USLT'] as $id) {
+            $seen = [];
+            $keep($id, static function (array $f) use (&$seen): bool {
+                $key = strtolower((string) ($f['language'] ?? '')) . "\0" . ($f['description'] ?? '');
+                if (isset($seen[$key])) {
+                    return false;
+                }
+
+                return $seen[$key] = true;
+            });
+        }
+
+        foreach ($frames['APIC'] ?? [] as $i => $picture) {
+            $mime = (string) ($picture['mime'] ?? '');
+            if (!str_starts_with(strtolower($mime), 'image/') || !\getid3_write_id3v2::IsValidMIMEstring($mime)) {
+                $frames['APIC'][$i]['mime'] = $this->imageMime($mime, (string) ($picture['data'] ?? ''));
+            }
+        }
+        foreach ($frames['GEOB'] ?? [] as $i => $object) {
+            if (!\getid3_write_id3v2::IsValidMIMEstring((string) ($object['mime'] ?? ''))) {
+                $frames['GEOB'][$i]['mime'] = 'application/octet-stream';
+            }
+        }
+        foreach (array_keys($frames) as $id) {
+            if ($id[0] === 'W') {
+                $keep($id, static fn(array $f): bool => \getid3_write_id3v2::IsValidURL((string) ($f['data'] ?? ''), false));
+            }
+        }
+
+        return array_values(array_unique($changed));
+    }
+
+    /**
+     * Frame ids the writer refused ("Frame not allowed in ID3v2.3: RVA2",
+     * 'Frame "XXXX" is NOT allowed').
+     *
+     * @param list<string> $errors
+     *
+     * @return list<string>
+     */
+    private function refusedFrames(array $errors): array
+    {
+        $ids = [];
+        foreach ($errors as $error) {
+            if (preg_match('/Frame not allowed in ID3v2\.\d: ([A-Z0-9]{4})|Frame "([A-Z0-9]{4})" is NOT allowed/', strip_tags((string) $error), $m) === 1) {
+                $ids[] = $m[1] !== '' ? $m[1] : $m[2];
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    private function imageMime(string $declared, string $bytes): string
+    {
+        return match (true) {
+            \in_array(strtolower($declared), ['jpg', 'jpeg', 'image/jpg'], true) => 'image/jpeg',
+            strtolower($declared) === 'png' => 'image/png',
+            strtolower($declared) === 'gif' => 'image/gif',
+            str_starts_with($bytes, "\x89PNG") => 'image/png',
+            str_starts_with($bytes, 'GIF8') => 'image/gif',
+            str_starts_with($bytes, 'RIFF') && str_contains(substr($bytes, 0, 16), 'WEBP') => 'image/webp',
+            default => 'image/jpeg',
+        };
+    }
+
+    /**
+     * Parsed frame → the fields getid3_write_id3v2 expects (raw bytes kept).
+     *
+     * @param array<string, mixed> $frame
+     *
+     * @return array<string, mixed>
+     */
+    private function writable(string $id, array $frame): array
+    {
+        $out = array_intersect_key($frame, array_flip([
+            'encodingid', 'data', 'description', 'language', 'ownerid', 'mime', 'picturetypeid',
+            'filename', 'email', 'rating', 'groupsymbol', 'timestampformat', 'contenttypeid',
+        ]));
+        if ($id === 'APIC' && !isset($out['mime'])) {
+            $out['mime'] = $frame['image_mime'] ?? 'image/jpeg';
+        }
+        // URL frames come back as "url", objects as "objectdata", POPM's play count as "counter".
+        if ($id[0] === 'W' && isset($frame['url'])) {
+            $out['data'] = $frame['url'];
+        }
+        if ($id === 'GEOB' && isset($frame['objectdata'])) {
+            $out['data'] = $frame['objectdata'];
+        }
+        if ($id === 'POPM') {
+            $out['data'] = $frame['counter'] ?? 0;
+        }
+
+        return $out;
     }
 
     /**
@@ -151,7 +316,7 @@ class Id3TagRebuilder
     {
         $counts = [];
         foreach (\is_array($info['id3v2'] ?? null) ? $info['id3v2'] : [] as $frame => $frames) {
-            if (\is_string($frame) && preg_match('/^[A-Z0-9]{4}$/', $frame) === 1 && \is_array($frames)) {
+            if (\is_string($frame) && preg_match('/^[A-Z][A-Z0-9]{3}$/', $frame) === 1 && \is_array($frames)) {
                 $counts[$frame] = \count($frames);
             }
         }
@@ -161,13 +326,12 @@ class Id3TagRebuilder
 
     /**
      * write.php needs getid3.php to have run first (GETID3_INCLUDEPATH), and
-     * only pulls write.id3v2.php in when writing, while rebuild() needs its
-     * frame-name lookup beforehand.
+     * the ID3v1/ID3v2 writers are only pulled in on demand.
      */
     private function loadWriter(): void
     {
         class_exists(\getID3::class);
-        foreach (['getid3_writetags' => 'write.php', 'getid3_write_id3v2' => 'write.id3v2.php'] as $class => $script) {
+        foreach (['getid3_writetags' => 'write.php', 'getid3_write_id3v2' => 'write.id3v2.php', 'getid3_write_id3v1' => 'write.id3v1.php'] as $class => $script) {
             if (!class_exists($class)) {
                 if (!is_file($this->getid3Dir . '/' . $script)) {
                     throw new \RuntimeException('getID3 write module unavailable');

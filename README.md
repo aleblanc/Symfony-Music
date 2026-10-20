@@ -283,12 +283,16 @@ candidates (JSON, best first), destination and error. A re-run skips
 (no new remote lookups); a file that changed (tags fixed by hand, replaced) is
 tried again.
 
-### 3. Web page for the pending files
+### 3. Web page for the pending files (`/admin/import`)
 
-Lists the `pending` files one after the other, each with its candidates
-(title, artist, album, year, cover, score, listen button). One click on a
-candidate (or a MusicBrainz link / manual search) writes the tags and files
-the track exactly like step 2, then moves on to the next file.
+Admin only, linked from the Library page ("Import queue"). One `pending` file
+at a time: its current tags, an audio player, and its candidates (cover,
+title, artist, album, year, track, score, source, destination path,
+MusicBrainz link). One click on a candidate — or **1-5** on the keyboard —
+writes the tags (+ cover) and files the track exactly like `app:import`, then
+moves on to the next file. **S** sets the file aside (`skipped`: later runs
+leave it alone until it changes or `--retry`), **N** goes to the next one
+without deciding. Failed files are retried by the next `app:import`.
 
 ### Comparison with beets
 
@@ -332,8 +336,8 @@ falling back to files one by one.
 ### Status
 
 Done: identification with candidates, `FileImporter` + `LibraryPath`,
-`import_item` entity + migration, the `app:import` command. Still to do: the
-web page (see the to-do list below).
+`import_item` entity + migration, the `app:import` command, the
+`/admin/import` web page.
 
 ## Tests
 
@@ -396,11 +400,10 @@ Follow-ups: PHPUnit coverage for `MusicScanner` + controllers; consider
   `import_item` remembers attempts (retried when the file changes or with
   `--retry`) and stores the candidates;
   duplicates (same audio already filed) go to `IMPORT_DIR/_duplicates`.
-- [ ] **Web page for the files left in the import folder**: list each
-  unidentified file with its candidates (title, artist, album, year, cover,
-  score, listen button), pick one with a single ergonomic click (or type a
-  MusicBrainz link / search by hand), one file after the other; the choice
-  writes the tags and renames/moves the file like `app:import`.
+- [x] **Web page for the files left in the import folder** (`/admin/import`):
+  candidates with cover / score / destination, audio player, one click (or
+  1-5) to tag + file, S to skip, N for the next file.
+- [ ] Web page: enter a MusicBrainz link or search by hand when no candidate fits.
 - [ ] **MusicBrainz ids in the database** (`music.musicbrainz_*`), read back by
   `app:scan` from the tags (Picard's UFID / TXXX, already written by
   `app:enrich`): durable "already identified" marker that survives a database

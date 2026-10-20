@@ -151,6 +151,71 @@ try {
     check('MBID: release + release group in TXXX', ($txxx['MusicBrainz Album Id'] ?? null) === 'bbbbbbbb-0000-4000-8000-000000000002' && ($txxx['MusicBrainz Release Group Id'] ?? null) === 'cccccccc-0000-4000-8000-000000000003', json_encode($txxx));
     check('MBID: other TXXX untouched', ($txxx['MOOD'] ?? null) === 'calm');
 
+    // 6) Real-world frames from the import run (34 files refused before): PRIV (Windows
+    //    Media Player / Amazon), ID3v2.4 TDRC, two COMM in different languages, WXXX,
+    //    GEOB, TCOP, TOPE, TCON — all kept, version kept.
+    require_once __DIR__ . '/../lib/getid3/write.id3v2.php';
+    $v24 = sys_get_temp_dir() . '/mw-v24-' . bin2hex(random_bytes(4)) . '.mp3';
+    file_put_contents($v24, str_repeat("\xFF\xFB\x90\x64" . str_repeat("\x00", 413), 200));
+    $raw = new getid3_write_id3v2();
+    $raw->filename = $v24;
+    $raw->majorversion = 4;
+    $raw->tag_data = [
+        'TIT2' => [['encodingid' => 3, 'data' => 'Résidents']],
+        'TPE1' => [['encodingid' => 3, 'data' => 'Alain Bashung']],
+        'TDRC' => [['encodingid' => 3, 'data' => '2008-03-24']],
+        'TCON' => [['encodingid' => 3, 'data' => 'Chanson']],
+        'TCOP' => [['encodingid' => 3, 'data' => '2008 Barclay']],
+        'TOPE' => [['encodingid' => 3, 'data' => 'Original Artist']],
+        'PRIV' => [['ownerid' => 'WM/MediaClassPrimaryID', 'data' => "\x01\x02\x03"], ['ownerid' => 'Amazon.com', 'data' => 'abc']],
+        'COMM' => [['encodingid' => 3, 'language' => 'eng', 'description' => '', 'data' => 'hello'], ['encodingid' => 3, 'language' => 'fra', 'description' => 'note', 'data' => 'salut']],
+        'WXXX' => [['encodingid' => 3, 'description' => 'Amazon', 'data' => 'http://a.example']],
+        'GEOB' => [['encodingid' => 3, 'mime' => 'application/x', 'filename' => 'f.bin', 'description' => 'd', 'data' => 'OBJ']],
+    ];
+    check('v2.4 fixture written', $raw->WriteID3v2(), implode('; ', $raw->errors));
+    try {
+        $ok = $writer->writeTags($v24, ['title' => 'Résidents de la République', 'year' => 2008, 'trackNumber' => 2, 'trackTotal' => 12, 'musicbrainzRecordingId' => 'rid'], $jpeg);
+        $info = readTags($v24);
+        check('real-world frames: write succeeds', $ok, (string) $writer->lastError());
+        check('real-world frames: tag version kept (2.4)', ($info['id3v2']['majorversion'] ?? 0) === 4);
+        check('real-world frames: title updated (UTF-8)', ($info['comments']['title'][0] ?? '') === 'Résidents de la République');
+        $counts = array_map(static fn(string $f): int => count($info['id3v2'][$f] ?? []), ['PRIV' => 'PRIV', 'COMM' => 'COMM', 'WXXX' => 'WXXX', 'GEOB' => 'GEOB', 'TCOP' => 'TCOP', 'TOPE' => 'TOPE', 'TCON' => 'TCON', 'TPE1' => 'TPE1']);
+        check('real-world frames: PRIV×2, COMM×2, WXXX, GEOB, TCOP, TOPE, TCON, TPE1 kept', $counts === ['PRIV' => 2, 'COMM' => 2, 'WXXX' => 1, 'GEOB' => 1, 'TCOP' => 1, 'TOPE' => 1, 'TCON' => 1, 'TPE1' => 1], json_encode($counts));
+        check('real-world frames: year in TDRC (v2.4)', ($info['id3v2']['TDRC'][0]['data'] ?? '') === '2008', json_encode($info['id3v2']['TDRC'][0]['data'] ?? null));
+        check('real-world frames: track, cover, MBID added', ($info['tags']['id3v2']['track_number'][0] ?? '') === '2' && isset($info['id3v2']['APIC'][0]) && ($info['id3v2']['UFID'][0]['data'] ?? '') === 'rid');
+    } finally {
+        @unlink($v24);
+    }
+
+    // 7) Malformed frames found in downloaded files (getID3 refuses to write them as
+    //    they are): APIC with mime "JPG", GEOB without mime, WXXX without URL.
+    //    Built by hand since getID3 cannot produce them.
+    $frame = static fn(string $id, string $data): string => $id . pack('N', strlen($data)) . "\x00\x00" . $data;
+    $frames = $frame('TIT2', "\x00Old title")
+        . $frame('APIC', "\x00JPG\x00\x03\x00" . $jpeg)
+        . $frame('GEOB', "\x00\x00f.bin\x00desc\x00OBJECT")
+        . $frame('WXXX', "\x00Site\x00")
+        . $frame('COMM', "\x00eng\x00first comment")
+        . $frame('COMM', "\x00eng\x00duplicate comment")
+        . $frame('RVA2', "track\x00\x01\x00\x10\x00");
+    $size = strlen($frames);
+    $syncsafe = chr(($size >> 21) & 0x7F) . chr(($size >> 14) & 0x7F) . chr(($size >> 7) & 0x7F) . chr($size & 0x7F);
+    $bad = sys_get_temp_dir() . '/mw-bad-' . bin2hex(random_bytes(4)) . '.mp3';
+    file_put_contents($bad, "ID3\x03\x00\x00" . $syncsafe . $frames . str_repeat("\xFF\xFB\x90\x64" . str_repeat("\x00", 413), 200));
+    try {
+        $ok = $writer->writeTags($bad, ['title' => 'New title']);
+        $info = readTags($bad);
+        check('malformed frames: write succeeds', $ok, (string) $writer->lastError());
+        check('malformed frames: title updated', ($info['comments']['title'][0] ?? '') === 'New title');
+        check('malformed frames: picture kept, mime fixed to image/jpeg', ($info['id3v2']['APIC'][0]['mime'] ?? '') === 'image/jpeg' && ($info['id3v2']['APIC'][0]['data'] ?? '') === $jpeg, json_encode($info['id3v2']['APIC'][0]['mime'] ?? null));
+        check('malformed frames: GEOB kept with a generic mime', ($info['id3v2']['GEOB'][0]['objectdata'] ?? '') === 'OBJECT');
+        check('malformed frames: empty WXXX dropped (getID3 drops it anyway)', !isset($info['id3v2']['WXXX']));
+        check('malformed frames: duplicate COMM (same language + description) → first kept', count($info['id3v2']['COMM'] ?? []) === 1 && ($info['id3v2']['COMM'][0]['data'] ?? '') === 'first comment', json_encode(array_column($info['id3v2']['COMM'] ?? [], 'data')));
+        check('malformed frames: unwritable RVA2 (parsed without raw data) dropped, no warning', !isset($info['id3v2']['RVA2']));
+    } finally {
+        @unlink($bad);
+    }
+
     check('missing file → false', $writer->writeTags($file . '.nope', ['title' => 'x']) === false);
 } finally {
     @unlink($file);

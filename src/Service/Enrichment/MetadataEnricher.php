@@ -202,7 +202,7 @@ class MetadataEnricher
             // (otherwise another recording of the song — on a compilation, a
             // promo — could win alone). Albums held back for a close rival stay so.
             $confirmation = $album !== null && !isset($album->breakdown['capped'])
-                ? $this->fingerprintConfirmation($album, $acoustMatches[$id] ?? [])
+                ? $this->fingerprintConfirmation($album, $acoustMatches[$id] ?? [], $byId[$id]->duration)
                 : null;
             if ($album !== null && $confirmation !== null) {
                 $candidates[$id][0] = $album->withScore(max($album->score, $confirmation), ['fingerprint_confirms' => round($confirmation, 3)]);
@@ -248,18 +248,22 @@ class MetadataEnricher
 
     /**
      * AcoustID score of the album track's recording among the file's
-     * fingerprint matches, null when the fingerprint doesn't include it.
+     * fingerprint matches, null when the fingerprint doesn't include it — or
+     * when that recording's length contradicts the file (AcoustID sometimes
+     * links one fingerprint to several recordings).
      *
      * @param list<RecordingMatch> $matches
      */
-    private function fingerprintConfirmation(Proposal $album, array $matches): ?float
+    private function fingerprintConfirmation(Proposal $album, array $matches, int $duration): ?float
     {
         if ($album->recordingId === null) {
             return null;
         }
         foreach (\array_slice($matches, 0, self::ACOUSTID_RECORDINGS) as $match) {
             if ($match->id === $album->recordingId) {
-                return $match->score;
+                $lengthsAgree = $duration <= 0 || $match->duration === null || abs($match->duration - $duration) <= 15;
+
+                return $lengthsAgree ? $match->score : null;
             }
         }
 

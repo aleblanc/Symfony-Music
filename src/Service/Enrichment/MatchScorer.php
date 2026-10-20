@@ -28,6 +28,8 @@ final class MatchScorer
     private const DURATION_NUMBER_MAX = 10;
     /** Below this title similarity, a titled file is never aligned to the track. */
     private const TITLE_CONTRADICTION = 0.5;
+    /** Max length difference (s) for an AcoustID recording match to align a file. */
+    private const RECORDING_MATCH_MAX_DRIFT = 15;
     /** Cost above which a file is better left unaligned. */
     private const UNASSIGNED_COST = 2.0;
     /** Added when a fingerprinted file's recordings don't include the track's: enough to leave it unaligned unless its title agrees. */
@@ -154,7 +156,10 @@ final class MatchScorer
 
     private function pairCost(FolderTrack $file, int $index, ReleaseTrack $t, bool $numberFits, bool $pinned): float
     {
-        if ($t->recordingId !== null && \in_array($t->recordingId, $file->recordingIds, true)) {
+        // AcoustID sometimes links one fingerprint to several recordings (bad
+        // user submissions): a recording match only counts when the lengths agree.
+        if ($t->recordingId !== null && \in_array($t->recordingId, $file->recordingIds, true)
+            && ($file->hints->duration <= 0 || $t->duration === null || $this->drift($file, $t) <= self::RECORDING_MATCH_MAX_DRIFT)) {
             return 0.0;
         }
         if ($pinned && !$numberFits) {

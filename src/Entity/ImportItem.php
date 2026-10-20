@@ -27,6 +27,8 @@ class ImportItem
     public const IMPORTED = 'imported';
     /** Same recording already in the library: moved to the duplicates folder. */
     public const DUPLICATE = 'duplicate';
+    /** Set aside from the web page ("not now"): skipped by later runs until it changes or --retry. */
+    public const SKIPPED = 'skipped';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -97,11 +99,15 @@ class ImportItem
         return $this->status;
     }
 
-    /** Already tried in this exact state: no point asking the remote services again. */
+    /**
+     * Already tried in this exact state: no point asking the remote services
+     * again. Failed files are always retried (the cause — network, a writer
+     * limitation — is usually fixed in between); skipped ones wait for --retry.
+     */
     public function isUnchanged(int $size, int $mtime): bool
     {
         return $this->size === $size && $this->mtime === $mtime
-            && \in_array($this->status, [self::PENDING, self::UNMATCHED, self::FAILED], true);
+            && \in_array($this->status, [self::PENDING, self::UNMATCHED, self::SKIPPED], true);
     }
 
     /**
@@ -137,6 +143,19 @@ class ImportItem
     {
         $this->status = self::DUPLICATE;
         $this->destination = $destination;
+        $this->attemptedAt = new \DateTimeImmutable();
+    }
+
+    public function markSkipped(): void
+    {
+        $this->status = self::SKIPPED;
+        $this->attemptedAt = new \DateTimeImmutable();
+    }
+
+    /** A choice from the web page failed: stays pending, with the reason. */
+    public function markChoiceFailed(string $error): void
+    {
+        $this->error = $error;
         $this->attemptedAt = new \DateTimeImmutable();
     }
 

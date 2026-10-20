@@ -1,0 +1,123 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Import queue · PHP Music{% endblock %}
+
+{% block body %}
+<div class="import-queue" data-import-queue>
+    <h1>Import queue</h1>
+    <p class="section-sub">
+        Files <code>app:import</code> was not sure about. Listen, then pick the right match:
+        it is tagged and filed into the library.
+        <span class="import-counts">
+            <span class="pill-count">{{ counts.pending }} waiting</span>
+            {% if counts.failed %}<span class="pill-count pill-warn">{{ counts.failed }} failed (retried by the next app:import)</span>{% endif %}
+            {% if counts.unmatched %}<span class="pill-count muted">{{ counts.unmatched }} not identified</span>{% endif %}
+            {% if counts.skipped %}<span class="pill-count muted">{{ counts.skipped }} skipped</span>{% endif %}
+            <span class="pill-count muted">{{ counts.imported }} filed</span>
+        </span>
+    </p>
+
+    {% if item is null %}
+        <div class="import-empty">
+            <p><strong>Nothing waiting.</strong></p>
+            <p class="muted">Run <code>php bin/console app:import</code> to process the import folder.</p>
+        </div>
+    {% else %}
+        <section class="import-file">
+            <div class="import-file-head">
+                <div>
+                    <div class="import-file-name">{{ item.originalName }}</div>
+                    <div class="muted">{{ folder ?: '(import folder root)' }}</div>
+                </div>
+                <div class="import-file-actions">
+                    <form method="post" action="{{ path('app_import_skip', {id: item.id}) }}" data-import-skip>
+                        <input type="hidden" name="_token" value="{{ csrf_token('import_' ~ item.id) }}">
+                        <button class="btn btn-sm btn-ghost" type="submit" title="Set aside (S)">Skip <kbd>S</kbd></button>
+                    </form>
+                    {% if next %}
+                        <a class="btn btn-sm btn-ghost" href="{{ path('app_import_queue', {id: next.id}) }}" data-import-next title="Next file (N)">Next <kbd>N</kbd></a>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if tags %}
+                <audio class="import-audio" controls preload="none" src="{{ path('app_import_audio', {id: item.id}) }}"></audio>
+                <dl class="import-tags">
+                    <div><dt>Title</dt><dd>{{ tags.title }}</dd></div>
+                    <div><dt>Artist</dt><dd>{{ tags.artist ?? '—' }}</dd></div>
+                    <div><dt>Album</dt><dd>{{ tags.album ?? '—' }}</dd></div>
+                    <div><dt>Length</dt><dd>{{ '%d:%02d'|format(tags.duration // 60, tags.duration % 60) }}</dd></div>
+                </dl>
+            {% else %}
+                <p class="flash flash-error">The file is no longer in the import folder.</p>
+            {% endif %}
+
+            {% if item.error %}
+                <p class="flash flash-error">Last attempt failed: {{ item.error }}</p>
+            {% endif %}
+        </section>
+
+        <h2 class="import-subtitle">Candidates</h2>
+        <div class="import-candidates">
+            {% for candidate in candidates %}
+                {% set f = candidate.fields %}
+                <form class="import-candidate" method="post" action="{{ path('app_import_choose', {id: item.id, index: loop.index0}) }}" data-import-choice="{{ loop.index }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('import_' ~ item.id) }}">
+                    <button type="submit" class="import-candidate-button" title="Choose this match ({{ loop.index }})">
+                        <span class="import-key">{{ loop.index }}</span>
+                        {% if candidate.releaseId %}
+                            <img class="import-cover" src="https://coverartarchive.org/release/{{ candidate.releaseId }}/front-250" alt="" loading="lazy" width="96" height="96" onerror="this.style.visibility='hidden'">
+                        {% else %}
+                            <span class="import-cover import-cover-none">♪</span>
+                        {% endif %}
+                        <span class="import-candidate-text">
+                            <strong>{% if f.trackNumber is defined and f.trackNumber %}{{ '%02d'|format(f.trackNumber) }}. {% endif %}{{ f.title ?? '?' }}</strong>
+                            <span>{{ f.artist ?? '?' }}</span>
+                            <span class="muted">{{ f.album ?? 'no album (single)' }}{% if f.year is defined and f.year %} · {{ f.year }}{% endif %}</span>
+                            <span class="import-dest muted" title="Destination in the library">→ {{ destinations[loop.index0] }}</span>
+                        </span>
+                        <span class="import-score {{ candidate.score >= 0.85 ? 'score-high' : (candidate.score >= 0.65 ? 'score-mid' : 'score-low') }}">
+                            {{ (candidate.score * 100)|round }}%
+                            <small class="muted">{{ candidate.source }}</small>
+                        </span>
+                    </button>
+                    {% if candidate.releaseId %}
+                        <a class="import-mb link" href="https://musicbrainz.org/release/{{ candidate.releaseId }}" target="_blank" rel="noopener">MusicBrainz ↗</a>
+                    {% endif %}
+                </form>
+            {% else %}
+                <p class="muted">No candidate stored for this file.</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    // Keyboard: 1-5 choose a candidate, S skip, N next. Installed once:
+    // nav.js re-runs page scripts after each partial navigation.
+    if (!window.__importQueueKeys) {
+        window.__importQueueKeys = true;
+        document.addEventListener('keydown', (e) => {
+            const page = document.querySelector('[data-import-queue]');
+            if (!page || e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, textarea, select, [contenteditable]')) {
+                return;
+            }
+            const key = e.key.toLowerCase();
+            let form = null;
+            if (/^[1-9]$/.test(key)) {
+                form = page.querySelector('[data-import-choice="' + key + '"]');
+            } else if (key === 's') {
+                form = page.querySelector('[data-import-skip]');
+            } else if (key === 'n') {
+                const next = page.querySelector('[data-import-next]');
+                if (next) { e.preventDefault(); next.click(); }
+                return;
+            }
+            if (form) {
+                e.preventDefault();
+                form.requestSubmit();
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -218,25 +218,56 @@ class MetadataWriter
 
         try {
             $info = $rebuilder->analyze($file);
-            $data = $rebuilder->rebuild($info);
+            // The low-level writer would happily prepend a tag to anything.
+            if (($info['audio']['dataformat'] ?? null) !== 'mp3') {
+                throw new \RuntimeException('not an MP3 audio stream');
+            }
+            $major = $rebuilder->majorVersion($info);
+            $frames = $rebuilder->frames($info);
             $changed = [];
+            $set = static function (string $id, ?string $value) use (&$frames, &$changed, $rebuilder, $major): void {
+                $changed[] = $id;
+                unset($frames[$id]);
+                if ($value !== null && $value !== '') {
+                    $frames[$id] = [$rebuilder->text($value, $major)];
+                }
+            };
+            $value = static fn(string $key): ?string => isset($fields[$key]) && (string) $fields[$key] !== '' ? (string) $fields[$key] : null;
 
-            foreach ($this->mapFields($fields, false) as $key => $value) {
-                $changed[] = $rebuilder->frameId($key);
-                if ($value === null || $value === '') {
-                    unset($data[$key]);
-                } else {
-                    $data[$key] = [(string) $value];
+            foreach (['title' => 'TIT2', 'artist' => 'TPE1', 'album' => 'TALB', 'albumArtist' => 'TPE2', 'genre' => 'TCON'] as $field => $id) {
+                if (\array_key_exists($field, $fields)) {
+                    $set($id, $value($field));
+                }
+            }
+            if (\array_key_exists('year', $fields)) {
+                // 2.4 dates live in TDRC, 2.3 years in TYER (+ TDAT/TIME, dropped with it).
+                foreach (['TYER', 'TDAT', 'TIME', 'TDRC'] as $id) {
+                    $set($id, null);
+                }
+                $set($major === 4 ? 'TDRC' : 'TYER', $value('year'));
+            }
+            foreach (['track' => 'TRCK', 'disc' => 'TPOS'] as $prefix => $id) {
+                if (\array_key_exists($prefix . 'Number', $fields)) {
+                    $number = $value($prefix . 'Number');
+                    $total = $value($prefix . 'Total');
+                    $set($id, $number !== null ? $number . ($total !== null ? '/' . $total : '') : null);
+                }
+            }
+            if (\array_key_exists('lyrics', $fields)) {
+                $changed[] = 'USLT';
+                unset($frames['USLT']);
+                if ($value('lyrics') !== null) {
+                    $text = $rebuilder->text((string) $value('lyrics'), $major);
+                    $frames['USLT'] = [$text + ['language' => 'eng', 'description' => '']];
                 }
             }
 
+            // MusicBrainz ids, Picard-style: recording in UFID, release ids in TXXX.
             if (\array_key_exists('musicbrainzRecordingId', $fields)) {
                 $changed[] = 'UFID';
-                $id = (string) $fields['musicbrainzRecordingId'];
-                if ($id === '') {
-                    unset($data['unique_file_identifier']);
-                } else {
-                    $data['unique_file_identifier'] = ['ownerid' => self::MB_UFID_OWNER, 'data' => $id];
+                $frames['UFID'] = array_values(array_filter($frames['UFID'] ?? [], static fn(array $f): bool => ($f['ownerid'] ?? '') !== self::MB_UFID_OWNER));
+                if ($value('musicbrainzRecordingId') !== null) {
+                    $frames['UFID'][] = ['ownerid' => self::MB_UFID_OWNER, 'data' => (string) $value('musicbrainzRecordingId')];
                 }
             }
             foreach (self::MB_TXXX as $field => $description) {
@@ -244,13 +275,10 @@ class MetadataWriter
                     continue;
                 }
                 $changed[] = 'TXXX';
-                $texts = array_values(array_filter($data['text'] ?? [], static fn(array $t): bool => ($t['description'] ?? '') !== $description));
-                if ((string) $fields[$field] !== '') {
-                    $texts[] = ['description' => $description, 'data' => (string) $fields[$field]];
-                }
-                $data['text'] = $texts;
-                if ($texts === []) {
-                    unset($data['text']);
+                $frames['TXXX'] = array_values(array_filter($frames['TXXX'] ?? [], fn(array $f): bool => $this->decodeText($f, 'description') !== $description));
+                if ($value($field) !== null) {
+                    $text = $rebuilder->text((string) $value($field), $major);
+                    $frames['TXXX'][] = ['encodingid' => $text['encodingid'], 'description' => $rebuilder->text($description, $major)['data'] ?? $description, 'data' => $text['data']];
                 }
             }
 
@@ -258,17 +286,27 @@ class MetadataWriter
             // replaced ('' removes it), back covers & co. stay.
             if ($cover !== null) {
                 $changed[] = 'APIC';
-                $pictures = array_values(array_filter($data['attached_picture'] ?? [], static fn(array $p): bool => (int) ($p['picturetypeid'] ?? 3) !== 3));
+                $frames['APIC'] = array_values(array_filter($frames['APIC'] ?? [], static fn(array $p): bool => (int) ($p['picturetypeid'] ?? 3) !== 3));
                 if ($cover !== '') {
-                    array_unshift($pictures, ['data' => $cover, 'picturetypeid' => 3, 'description' => 'Cover', 'mime' => $this->imageMime($cover)]);
-                }
-                $data['attached_picture'] = $pictures;
-                if ($pictures === []) {
-                    unset($data['attached_picture']);
+                    array_unshift($frames['APIC'], ['encodingid' => 0, 'mime' => $this->imageMime($cover), 'picturetypeid' => 3, 'description' => 'Cover', 'data' => $cover]);
                 }
             }
+            $frames = array_filter($frames, static fn(array $list): bool => $list !== []);
 
-            $rebuilder->write($file, $info, $data, array_values(array_unique(array_filter($changed))));
+            // ID3v1 (when present) mirrors the new values.
+            $comments = $info['comments'] ?? [];
+            $current = static fn(string $key): string => \is_scalar($comments[$key][0] ?? null) ? (string) $comments[$key][0] : '';
+            $id3v1 = [
+                'title' => \array_key_exists('title', $fields) ? (string) $value('title') : $current('title'),
+                'artist' => \array_key_exists('artist', $fields) ? (string) $value('artist') : $current('artist'),
+                'album' => \array_key_exists('album', $fields) ? (string) $value('album') : $current('album'),
+                'year' => \array_key_exists('year', $fields) ? (string) $value('year') : substr($current('year'), 0, 4),
+                'genre' => \array_key_exists('genre', $fields) ? (string) $value('genre') : $current('genre'),
+                'track_number' => \array_key_exists('trackNumber', $fields) ? (string) $value('trackNumber') : $current('track_number'),
+                'comment' => $current('comment'),
+            ];
+
+            $rebuilder->write($file, $info, $frames, array_values(array_unique($changed)), $id3v1);
         } catch (\RuntimeException $e) {
             $this->lastError = $e->getMessage();
 
@@ -278,6 +316,25 @@ class MetadataWriter
         clearstatcache(true, $file);
 
         return true;
+    }
+
+    /**
+     * A text field of a raw ID3v2 frame, decoded to UTF-8 (raw frames keep
+     * their original encoding: ISO-8859-1, UTF-16 with BOM, UTF-16BE, UTF-8).
+     *
+     * @param array<string, mixed> $frame
+     */
+    private function decodeText(array $frame, string $key): string
+    {
+        $raw = (string) ($frame[$key] ?? '');
+        $from = match ((int) ($frame['encodingid'] ?? 0)) {
+            1 => 'UTF-16',
+            2 => 'UTF-16BE',
+            3 => 'UTF-8',
+            default => 'ISO-8859-1',
+        };
+
+        return $from === 'UTF-8' ? $raw : (string) @iconv($from, 'UTF-8//IGNORE', $raw);
     }
 
     /**

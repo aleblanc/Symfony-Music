@@ -140,6 +140,17 @@ $pair = [
 $h = $scorer->score($pair, $near, null);
 check('optimal assignment: 200→203 and 205→208 (greedy strands one)', ($h->assignments[801] ?? null)?->title === 'Song X' && ($h->assignments[802] ?? null)?->title === 'Song Y', json_encode(array_map(static fn($r) => $r->title, $h->assignments)));
 
+// AcoustID sometimes links one fingerprint to several recordings (user submissions):
+// "Piste audio 15" (85 s) fingerprinted as "Stay Together for the Kids" (239 s).
+// A recording match whose length is far off must not align the file.
+$toyp = new ReleaseCandidate('toyp', 'Take Off Your Pants and Jacket', 'blink-182', 2001, null, null, [
+    new ReleaseTrack(1, 7, 'Stay Together for the Kids', 'blink-182', 239, 'r-stay'),
+    new ReleaseTrack(1, 13, 'Fuck a Dog', 'blink-182', 87, 'r-dog'),
+]);
+$p15 = [new FolderTrack(901, $x->extract('/m/Blink 182/Non spécifié/Piste audio 15.mp3', '/m', 'Piste audio 15', 'blink-182', '', 85), ['r-stay'])];
+$a = $scorer->score($p15, $toyp, 1.0)->assignments[901] ?? null;
+check('recording match with a length far off does not align (85 s ≠ 239 s)', $a?->title !== 'Stay Together for the Kids', (string) $a?->title);
+
 check('similarity: accents/case/punctuation', $scorer->similarity('Beyoncé', 'beyonce') === 1.0);
 check('similarity: containment', $scorer->similarity('OK Computer', 'Radiohead - OK Computer') >= 0.85);
 check('similarity: unrelated', $scorer->similarity('OK Computer', 'Pablo Honey') < 0.5);
