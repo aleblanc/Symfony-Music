@@ -99,6 +99,8 @@ Put machine-specific values in `.env.local` (not committed):
 ```dotenv
 # Music library to index (empty = var/library)
 MUSIC_DIR="/absolute/path/to/music"
+# Import folder: new files to identify and file into MUSIC_DIR (empty = var/import)
+IMPORT_DIR="/absolute/path/to/import"
 
 # Audio fingerprints (app:enrich)
 ACOUSTID_API_KEY="your-acoustid-application-key"
@@ -178,6 +180,127 @@ Applied changes keep the previous values: **/admin/suggestions** (admin only,
 also linked from the Library page) lists pending, applied, rejected and
 reverted proposals, with Accept / Reject, Accept album and Revert.
 
+## Importing new music (import folder → library)
+
+New files are dropped into an **import folder** (`IMPORT_DIR`, default
+`var/import/`). The import identifies each file, tags it and files it into the
+library (`MUSIC_DIR`). Files it is not sure about wait in the database until
+someone picks the right candidate in a web page.
+
+```
+  IMPORT_DIR/  (anything: "Track 01.mp3", "Downloads/xyz.flac", whole albums...)
+        │
+        ▼
+ ┌──────────────────────────────────────────────────────────────────┐
+ │ 1. IDENTIFY            MetadataEnricher::identifyFolder()        │
+ │    hints (path, name, tags)                                      │
+ │    + fpcalc fingerprint ──► AcoustID ──► MusicBrainz recordings  │
+ │    + MusicBrainz release / recording searches                    │
+ │    ──► up to 5 scored candidates per file (best first)           │
+ └──────────────────────────────────────────────────────────────────┘
+        │
+        ├── best score ≥ 0.85 (confident) ───────────────────────┐
+        │                                                         │
+        ├── doubtful ─────────► import_item  status = pending     │
+        │                       (candidates JSON, size, mtime)    │
+        │                              │                          │
+        │                              ▼                          │
+        │                   ┌──────────────────────────┐          │
+        │                   │ 3. WEB PAGE (admin)      │          │
+        │                   │ one file at a time:      │          │
+        │                   │ candidates with title,   │          │
+        │                   │ artist, album, year,     │          │
+        │                   │ cover, score, ▶ listen   │          │
+        │                   │ → one click to choose    │          │
+        │                   └──────────────────────────┘          │
+        │                              │ chosen candidate         │
+        │                              ▼                          ▼
+        │                 ┌──────────────────────────────────────────┐
+        │                 │ 2. FILE           FileImporter::import() │
+        │                 │ write tags + cover + MusicBrainz ids     │
+        │                 │ move to MUSIC_DIR/<LibraryPath>          │
+        │                 │ add cover.jpg, remove emptied folders    │
+        │                 └──────────────────────────────────────────┘
+        │                        │                       │
+        │                        ▼                       ▼
+        │              MUSIC_DIR/Artist/Album/…   IMPORT_DIR/_duplicates/
+        │              status = imported          status = duplicate
+        │
+        └── nothing found ────► status = unmatched (file stays in IMPORT_DIR)
+                                tagging/moving error ─► status = failed
+```
+
+### 1. Identification (metadata lookup)
+
+Same engine as `app:enrich` (see above), in candidate mode
+(`MetadataEnricher::identifyFolder()`): every file of a folder is
+fingerprinted, the folder is matched against MusicBrainz releases (album
+pass), then doubtful files are identified alone (file pass: AcoustID
+recordings, then title/artist search). A confident file gets a single
+candidate; a doubtful one gets up to 5 (runner-up albums, other fingerprint
+recordings, name-search results), deduplicated and sorted by score. When the
+fingerprint names another song than the file name suggests, name-search
+candidates are capped below the confidence level: a human must decide.
+
+### 2. Filing into the library
+
+`FileImporter` writes the tags first (title, artist, album, album artist,
+track/disc, year, genre, front cover, MusicBrainz recording / release /
+release-group ids) — if that fails, nothing moves. Then the file goes to the
+path given by `LibraryPath`:
+
+| Case | Destination in `MUSIC_DIR` |
+|---|---|
+| album track | `Album Artist/Album (Year)/07 Title.ext` |
+| multi-disc album | `Album Artist/Album (Year)/2-07 Title.ext` |
+| various-artists release | `Compilations/Album (Year)/07 Artist - Title.ext` |
+| no album known | `Artist/Singles/Title.ext` |
+
+Names are sanitised for any file system (no `/ \ : * ? " < > |`, no leading
+dot, NFC, ≤ 120 bytes per part). An existing file is never overwritten
+(`Title (2).ext`); the same audio stream already at the destination (tags
+ignored) is a duplicate and goes to `IMPORT_DIR/_duplicates/`. `cover.jpg` is
+added next to the album when missing, and the import folders left empty are
+removed. Moving works across disks (copy + delete when `rename()` fails).
+MP3, FLAC and Ogg are tagged; M4A / WAV are only filed.
+
+### Pending files in the database (`import_item`)
+
+Every file looked at is one `import_item` row: path, original name, size +
+mtime, status (`pending`, `unmatched`, `failed`, `imported`, `duplicate`),
+candidates (JSON, best first), destination and error. A re-run skips
+`pending` / `unmatched` / `failed` files whose size and mtime have not changed
+(no new remote lookups); a file that changed (tags fixed by hand, replaced) is
+tried again.
+
+### 3. Web page for the pending files
+
+Lists the `pending` files one after the other, each with its candidates
+(title, artist, album, year, cover, score, listen button). One click on a
+candidate (or a MusicBrainz link / manual search) writes the tags and files
+the track exactly like step 2, then moves on to the next file.
+
+### Comparison with beets
+
+The identification was compared with [beets](https://beets.io/) on files picked at
+random from the library. Beets could not identify some of the MP3s that this
+tool found, so this tool was kept,
+and the good ideas beets had that it lacked were added to it:
+every file of a folder is fingerprinted (not a sample), an album is
+auto-applied only when most fingerprints agree with it, a file whose
+fingerprint names another song leaves the album and is identified on its
+own, two different albums within 0.05 of each other are never auto-applied
+(beets' `rec_gap_thresh`), and files are aligned to album tracks with an
+optimal assignment instead of a greedy one. Covered by
+`tests/enrichment-fingerprint-test.php` and `tests/enrichment-scorer-test.php`.
+
+### Status
+
+Done: identification with candidates, `FileImporter` + `LibraryPath`,
+`import_item` entity + migration (`php bin/console doctrine:migrations:migrate`).
+Still to do: the `app:import` command that ties the steps together, and the
+web page (see the to-do list below).
+
 ## Tests
 
 Standalone scripts, no PHPUnit needed (exit code 0 = pass):
@@ -199,6 +322,8 @@ src/
                      PlayCount
   Repository/        visibility-aware queries, pagination, top/recent
   Service/           MusicScanner (getID3 indexing)
+    Enrichment/      metadata identification (MusicBrainz, AcoustID, covers)
+    Import/          FileImporter, LibraryPath (import folder → library)
 templates/           Twig (base layout + player, embed, partials/_tracks macro)
 public/app.css       styles (plain static file, no build step)
 public/player.js     audio player + queue + per-track "⋮" context menu
