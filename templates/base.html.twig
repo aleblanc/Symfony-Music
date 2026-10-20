@@ -61,6 +61,12 @@
                                placeholder="Search songs, artists, albums, genres…" aria-label="Search the library" autocomplete="off">
                         <kbd>/</kbd>
                     </form>
+                    {% if is_granted('ROLE_ADMIN') %}
+                        <nav class="topbar-admin" aria-label="Admin">
+                            <a href="{{ path('app_import_queue') }}" class="{{ route starts with 'app_import' ? 'active' }}" title="Files app:import was not sure about">Import queue</a>
+                            <a href="{{ path('app_quality_stats') }}" class="{{ route == 'app_quality_stats' ? 'active' }}" title="Tracks by quality and bitrate">Audio quality</a>
+                        </nav>
+                    {% endif %}
                 </div>
                 {% for label, messages in app.flashes %}
                     {% for message in messages %}

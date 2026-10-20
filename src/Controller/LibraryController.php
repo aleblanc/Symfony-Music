@@ -85,6 +85,7 @@ class LibraryController extends AbstractController
     {
         return $this->render('library/genres.html.twig', [
             'genres' => $music->listGenres($user),
+            'covers' => $music->albumCoverIds('genre', $user),
         ]);
     }
 

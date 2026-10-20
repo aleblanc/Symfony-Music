@@ -222,11 +222,11 @@ class MusicRepository extends ServiceEntityRepository
     /**
      * One cover per album (the album's first track that has artwork), grouped
      * by artist or by year, at most $perGroup albums each: the mosaics of the
-     * Artists and Years tiles.
+     * Artists, Years and Genres tiles.
      *
-     * @param 'artist'|'year' $field
+     * @param 'artist'|'year'|'genre' $field
      *
-     * @return array<string, list<int>> group value (artist name, or year as a string) => track ids
+     * @return array<string, list<int>> group value (artist, genre, or year as a string) => track ids
      */
     public function albumCoverIds(string $field, ?User $viewer, int $perGroup = 4): array
     {
