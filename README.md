@@ -227,3 +227,27 @@ managers).
 
 Follow-ups: PHPUnit coverage for `MusicScanner` + controllers; consider
 `james-heinrich/getid3` as a composer dependency instead of the vendored copy.
+
+### Metadata & import — to do
+
+- [ ] **`app:import`**: identify the files of `IMPORT_DIR`, write tags + cover
+  (embedded and `cover.jpg`), move them into
+  `MUSIC_DIR/Artist/Album/NN Title` (singles and compilations apart,
+  file names sanitised). Unidentified files stay in the import folder;
+  `var/import/state.json` remembers failed attempts (retried when the file
+  changes or with `--retry`); duplicates (same MusicBrainz ids already in the
+  library) go to `IMPORT_DIR/_duplicates`.
+- [ ] **Web page for the files left in the import folder**: list each
+  unidentified file with its candidates (title, artist, album, year, cover,
+  score, listen button), pick one with a single ergonomic click (or type a
+  MusicBrainz link / search by hand), one file after the other; the choice
+  writes the tags and renames/moves the file like `app:import`.
+- [ ] **MusicBrainz ids in the database** (`music.musicbrainz_*`), read back by
+  `app:scan` from the tags (Picard's UFID / TXXX, already written by
+  `app:enrich`): durable "already identified" marker that survives a database
+  rebuild, and duplicate detection.
+- [ ] **Spotify "step 0"**: release MusicBrainz id → its `open.spotify.com/album`
+  URL relation → album tracks, matched on title + duration (no artist-name
+  search).
+- [ ] `composer update "symfony/*"` for the 3 advisories reported by
+  `composer audit` (expression-language, http-foundation, yaml).
