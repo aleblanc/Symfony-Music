@@ -6,10 +6,19 @@
 {% block body %}
     <h1>Favorite discography</h1>
     <p class="section-sub">
-        {{ cards|length }} album{{ cards|length == 1 ? '' : 's' }} to listen to, latest hearted first
+        {{ cards|length }} album{{ cards|length == 1 ? '' : 's' }} to listen to
         {%- set owned = cards|filter(c => c.owned)|length %}{% if owned %} · {{ owned }} already in the library{% endif %}.
         Heart an album in the <em>Discography</em> of an artist page to add it here.
     </p>
+    {% if cards|length > 1 %}
+        <p class="disco-sort">
+            Sort:
+            {% if sort == 'popularity' %}<strong>most listened</strong>{% else %}<a class="link" href="{{ path('app_album_favorites') }}">most listened</a>{% endif %}
+            ·
+            {% if sort == 'added' %}<strong>latest hearted</strong>{% else %}<a class="link" href="{{ path('app_album_favorites', {sort: 'added'}) }}">latest hearted</a>{% endif %}
+            <span class="muted">— bars: listeners on ListenBrainz (people who played it), listens on hover</span>
+        </p>
+    {% endif %}
     {% if cards is empty %}
         <p class="muted">No album yet.</p>
     {% else %}

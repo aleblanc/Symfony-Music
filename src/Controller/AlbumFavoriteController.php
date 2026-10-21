@@ -35,7 +35,7 @@ class AlbumFavoriteController extends AbstractController
     ) {}
 
     #[Route('/favorites/discography', name: 'app_album_favorites', methods: ['GET'])]
-    public function index(#[CurrentUser] User $user, DiscographyView $view): Response
+    public function index(#[CurrentUser] User $user, DiscographyView $view, Request $request): Response
     {
         $favorites = $this->favorites->findForUser($user);
         $hearted = array_map(static fn(AlbumFavorite $f) => $f->getReleaseGroupId(), $favorites);
@@ -56,9 +56,23 @@ class AlbumFavoriteController extends AbstractController
             }
         }
 
+        // Latest hearted first, as stored; by default re-sorted by ListenBrainz listeners
+        // (distinct people, less skewed than total listens by a few fans on repeat).
+        $cards = array_values(array_filter(array_map(static fn(string $id) => $cards[$id] ?? null, $hearted)));
+        $max = max([0, ...array_map(static fn(array $c): int => (int) ($c['listeners'] ?? 0), $cards)]);
+        foreach ($cards as &$card) {
+            $card['popularity'] = $max > 0 && ($card['listeners'] ?? null) !== null ? (int) round(100 * $card['listeners'] / $max) : null;
+        }
+        unset($card);
+        $sort = $request->query->get('sort') === 'added' ? 'added' : 'popularity';
+        if ($sort === 'popularity') {
+            // Stable: equal (or unknown) popularity keeps the hearted order.
+            usort($cards, static fn(array $a, array $b): int => ($b['listeners'] ?? -1) <=> ($a['listeners'] ?? -1));
+        }
+
         return $this->render('favorite/albums.html.twig', [
-            // Latest hearted first, as stored.
-            'cards' => array_values(array_filter(array_map(static fn(string $id) => $cards[$id] ?? null, $hearted))),
+            'cards' => $cards,
+            'sort' => $sort,
         ]);
     }
 
