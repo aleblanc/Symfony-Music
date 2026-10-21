@@ -8,13 +8,19 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 /**
  * Album popularity from ListenBrainz (MusicBrainz's open listening data):
  * total listens and distinct listeners per release group, every album of an
- * artist in one request, no API key.
+ * artist in one request, no API key. Its rate limit (about 30 requests per
+ * few seconds, given in X-RateLimit-* headers) is respected: a pause when
+ * the quota is spent, a wait-and-retry on HTTP 429.
  *
  * @see https://listenbrainz.readthedocs.io/en/latest/users/api/popularity.html
  */
 class ListenBrainzClient
 {
     private const URL = 'https://api.listenbrainz.org/1/popularity/release-group';
+    private const MAX_ATTEMPTS = 4;
+
+    /** Unix time before which no request may be sent (quota spent). */
+    private float $pausedUntil = 0.0;
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
@@ -31,13 +37,30 @@ class ListenBrainzClient
         if ($releaseGroupIds === []) {
             return [];
         }
-        try {
-            $rows = $this->httpClient->request('POST', self::URL, [
-                'json' => ['release_group_mbids' => array_values($releaseGroupIds)],
-                'headers' => ['User-Agent' => $this->musicbrainzUserAgent],
-                'timeout' => 20,
-            ])->toArray();
-        } catch (ExceptionInterface) {
+        $rows = null;
+        for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS && $rows === null; ++$attempt) {
+            $this->waitForQuota();
+            try {
+                $response = $this->httpClient->request('POST', self::URL, [
+                    'json' => ['release_group_mbids' => array_values($releaseGroupIds)],
+                    'headers' => ['User-Agent' => $this->musicbrainzUserAgent],
+                    'timeout' => 20,
+                ]);
+                $status = $response->getStatusCode();
+                $headers = $response->getHeaders(false);
+                $resetIn = (float) ($headers['x-ratelimit-reset-in'][0] ?? 0);
+                if ((int) ($headers['x-ratelimit-remaining'][0] ?? 1) <= 0 || $status === 429) {
+                    $this->pausedUntil = microtime(true) + max(1.0, $resetIn + 0.5);
+                }
+                if ($status === 429 || $status >= 500) {
+                    continue;
+                }
+                $rows = $response->toArray();
+            } catch (ExceptionInterface) {
+                $this->pausedUntil = microtime(true) + 2.0 * $attempt;
+            }
+        }
+        if ($rows === null) {
             return null;
         }
 
@@ -52,5 +75,13 @@ class ListenBrainzClient
         }
 
         return $out;
+    }
+
+    private function waitForQuota(): void
+    {
+        $wait = $this->pausedUntil - microtime(true);
+        if ($wait > 0) {
+            usleep((int) ($wait * 1e6));
+        }
     }
 }

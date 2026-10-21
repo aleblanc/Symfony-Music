@@ -11,7 +11,7 @@ use Symfony\Component\Clock\ClockInterface;
 
 /**
  * Fills ArtistProfile rows: info (photo, Wikipedia, links), discography
- * (MusicBrainz studio albums and EPs, with their ListenBrainz popularity)
+ * (MusicBrainz studio albums and EPs with their track list, ListenBrainz popularity)
  * and latest YouTube videos. Shared by `app:artist:fetch`, `app:artist:videos` and the
  * artist page's refresh button. The caller flushes.
  */
@@ -59,9 +59,17 @@ class ArtistProfileUpdater
         }
         // Listens / listeners per album; null when ListenBrainz is down (shown as unknown, refetched next time).
         $popularity = $this->listenBrainz->releaseGroupPopularity(array_column($albums, 'id'));
+        // Track list of each album's original edition: false when it has no official release,
+        // null when MusicBrainz failed (refetched next time).
+        $previous = array_column($profile->getDiscography() ?? [], 'tracklist', 'id');
         foreach ($albums as &$album) {
             $album['listens'] = $popularity === null ? null : ($popularity[$album['id']]['listens'] ?? 0);
             $album['listeners'] = $popularity === null ? null : ($popularity[$album['id']]['listeners'] ?? 0);
+            try {
+                $album['tracklist'] = $this->musicBrainz->getReleaseGroupTracks($album['id']) ?? false;
+            } catch (EnrichmentException) {
+                $album['tracklist'] = $previous[$album['id']] ?? null;
+            }
         }
         unset($album);
         $profile->setDiscography($albums);

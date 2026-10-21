@@ -138,12 +138,18 @@ class MusicRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('m')
             ->select('m.artist AS artist, COUNT(m.id) AS cnt')
             ->andWhere('m.artist IS NOT NULL')
-            ->groupBy('m.artist')
-            ->orderBy('m.artist', 'ASC');
+            ->groupBy('m.artist');
 
         $this->applyVisibility($qb, $viewer);
+        $artists = $qb->getQuery()->getResult();
 
-        return $qb->getQuery()->getResult();
+        // SQLite sorts "blink‐182" after every capitalised name and "Édith" after "Z":
+        // sorted here, case and accents ignored (intl's Collator when available).
+        $collator = class_exists(\Collator::class) ? new \Collator('fr_FR') : null;
+        usort($artists, static fn(array $a, array $b): int => $collator?->compare((string) $a['artist'], (string) $b['artist'])
+            ?: strcasecmp((string) $a['artist'], (string) $b['artist']));
+
+        return $artists;
     }
 
     /**

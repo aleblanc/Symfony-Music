@@ -183,6 +183,22 @@ class LibraryController extends AbstractController
             }
             $discography[] = $entry + ['owned' => $owned];
         }
+        // Tracks of each album's list already in the library (same title, case/accents/punctuation ignored).
+        $latin = \Transliterator::create('Any-Latin; Latin-ASCII; Lower()');
+        $key = static fn(string $t): string => trim((string) preg_replace('/[^a-z0-9]+/', ' ', (string) ($latin?->transliterate($t) ?: mb_strtolower($t))));
+        $have = [];
+        foreach ($songs as $song) {
+            $have[$key((string) $song->getTitle())] = true;
+        }
+        foreach ($discography as &$d) {
+            if (\is_array($d['tracklist'] ?? null)) {
+                foreach ($d['tracklist']['tracks'] as &$t) {
+                    $t['have'] = isset($have[$key($t['title'])]);
+                }
+                unset($t);
+            }
+        }
+        unset($d);
         // ListenBrainz listeners: a bar relative to the artist's most listened album, a star on the top 3.
         $listeners = array_filter(array_map(static fn(array $d): int => (int) ($d['listeners'] ?? 0), $discography));
         arsort($listeners);

@@ -139,6 +139,46 @@ class MusicBrainzClient
         return $groups;
     }
 
+    /**
+     * Track list of an album: its original edition (the earliest dated
+     * official release), one request for every edition with its tracks.
+     *
+     * @return array{release: string, date: ?string, country: ?string, format: ?string, tracks: list<array{n: string, title: string, length: ?int}>}|null null when the album has no official release
+     */
+    public function getReleaseGroupTracks(string $releaseGroupId): ?array
+    {
+        $data = $this->get('release', ['release-group' => $releaseGroupId, 'inc' => 'recordings+media', 'status' => 'official', 'limit' => 25]);
+        $releases = array_values(array_filter($data['releases'] ?? [], static fn(array $r): bool => ($r['media'] ?? []) !== []));
+        if ($releases === []) {
+            return null;
+        }
+        // Earliest year first, a full date before a bare year ("1997-04-22" before "1997"); undated editions last.
+        $key = static fn(array $r): array => [($r['date'] ?? '') === '', substr($r['date'] ?? '', 0, 4), -\strlen($r['date'] ?? ''), $r['date'] ?? ''];
+        usort($releases, static fn(array $a, array $b): int => $key($a) <=> $key($b));
+        $release = $releases[0];
+        $media = $release['media'];
+
+        $tracks = [];
+        foreach ($media as $disc) {
+            foreach ($disc['tracks'] ?? [] as $t) {
+                $n = (string) ($t['number'] ?? $t['position'] ?? '');
+                $tracks[] = [
+                    'n' => \count($media) > 1 ? ($disc['position'] ?? '?') . '-' . $n : $n,
+                    'title' => (string) ($t['title'] ?? ''),
+                    'length' => isset($t['length']) ? (int) round($t['length'] / 1000) : null,
+                ];
+            }
+        }
+
+        return [
+            'release' => (string) $release['id'],
+            'date' => isset($release['date']) && $release['date'] !== '' ? (string) $release['date'] : null,
+            'country' => $release['country'] ?? null,
+            'format' => implode(' + ', array_unique(array_filter(array_map(static fn(array $d) => $d['format'] ?? null, $media)))) ?: null,
+            'tracks' => $tracks,
+        ];
+    }
+
     public function searchRecordings(?string $artist, string $title, int $limit = 5, bool $excludeLive = false): array
     {
         $query = 'recording:' . $this->quote($title) . ($artist !== null ? ' AND artist:' . $this->quote($artist) : '')

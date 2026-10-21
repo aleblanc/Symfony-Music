@@ -60,7 +60,7 @@ php bin/console app:import                   #    identify, tag (+ cover, MusicB
 
 php bin/console app:scan                     # 4. index the library (new files in, removed ones out)
 php bin/console app:spotify:match -v         # 5. Spotify link of each track (resumable: rerun it if it stops)
-php bin/console app:artist:fetch             # 6. artist pages: photo, Wikipedia, links, YouTube channel
+php bin/console app:artist:fetch             # 6. artist pages: photo, Wikipedia, links, YouTube channel, discography
 php bin/console app:artist:videos            # 7. latest YouTube videos (cron, e.g. hourly)
 php bin/console app:lyrics:fetch -v          # 8. lyrics from LRCLIB, synced (LRC) when available (resumable)
 ```
@@ -76,6 +76,10 @@ What happens to each file in `app:import`:
 | error | stays in `IMPORT_DIR` (retried when the file changes, or `--retry`) |
 
 Nothing is ever deleted: converted WMA go to `_wma/`, duplicates to `_duplicates/`.
+
+Files AcoustID does not know are searched by their names, typos forgiven:
+exact title first, then every word fuzzy ("Papa Roach - Last Ressort"), then
+the title alone kept only for a similar artist ("Sum41" → Sum 41).
 
 ## 3. Keeping the library clean
 
@@ -99,7 +103,7 @@ tracks outside `MUSIC_DIR` (files kept on disk).
 | `app:scan` | `--force` (re-read every file), `--verbose-scan` |
 | `app:spotify:match` | `-v` (list matches), `--limit`, `--retry` (tracks not found before), `--write-tags` / `--tags-only` (URL into the MP3), `--browser` (last resort: Spotify's search page in headless Google Chrome), `--browser-only` (only that step, e.g. with `--retry`) |
 | `app:enrich` | `--dry-run`, `--limit`, `--path=TEXT`, `--threshold`, `--retry`, `--all` |
-| `app:artist:fetch` | `--artist=NAME`, `--retry` (not found before), `--refresh` (all), `--limit` |
+| `app:artist:fetch` | `--artist=NAME`, `--retry` (not found before), `--refresh` (all), `--limit`; artists found before the discography existed only get it fetched (one MusicBrainz request per album for the track lists: about 1 s each the first time, cached 30 days) |
 | `app:artist:videos` | `--artist=NAME`, `-v` |
 | `app:lyrics:fetch` | `-v` (list results), `--dry-run`, `--limit`, `--id`, `--retry` (tracks not found before), `--force` (also tracks with lyrics; synced ones are never replaced by plain ones), `--write-tags` (lyrics into the file too), `--delay=200` (ms between tracks) |
 | `app:artist:merge` | `--dry-run`, `--artist=NAME --to=NEW_NAME` |
@@ -112,6 +116,11 @@ rerun it and it continues with what is left.
 - **Library / Artists / Years / Genres** — artist and year tiles show album cover mosaics.
 - **Artist page** — photo, Wikipedia summary, links, latest YouTube videos
   (**New** since your last visit), albums, tracks, *Play all* / *Add all to queue*.
+  **Discography**: every studio album / EP (MusicBrainz), newest first, even
+  those not in the library (dimmed, ✓ on the ones you have), with their
+  popularity (listeners on ListenBrainz) and **★ Essential** on the most listened;
+  the **?** on a cover shows its track list (original edition, ✓ on the tracks
+  you have).
 - **Song page** — details, quality, Spotify link, raw tags, per-track volume / EQ
   (applied live while the song plays).
 - **Player bar** — title → song page, artist and album → their pages; playback
@@ -119,8 +128,10 @@ rerun it and it continues with what is left.
   the song, click a line to jump there. **RG** button: ReplayGain normalization
   track → album → off (needs ReplayGain tags, read by `app:scan`).
 - Admin (buttons on the Library page): **/admin/import** (doubtful imports,
-  keys 1–5 to choose, S skip, N next), **/admin/suggestions** (`app:enrich`
-  proposals, revertible), **/admin/quality** (bitrate / format stats, worst first).
+  keys 1–5 to choose, S skip, U keep as is in `_unclassified`, N next),
+  **/admin/suggestions** (`app:enrich` proposals, revertible), **/admin/quality**
+  (bitrate / format stats, worst first, the tracks under 193 kb/s with their
+  Spotify link).
 
 ## 6. Good to know
 
@@ -136,6 +147,10 @@ rerun it and it continues with what is left.
   `app:artist:fetch`).
 - After updating `player.js` / `nav.js` / `app.css`, reload once with
   Cmd+Shift+R (service worker).
+- ReplayGain values are read by `app:scan` only for new or changed files:
+  run `app:scan --force` once so the tracks already indexed get theirs.
+- LRCLIB sometimes answers 503: `app:lyrics:fetch` skips that track and
+  retries it on the next run (it only stops after 5 errors in a row).
 
 ## Development
 
@@ -151,7 +166,7 @@ src/Controller/         pages and admin pages
 src/Entity/, Repository/
 src/Service/Enrichment/ identification (MusicBrainz, AcoustID, Cover Art Archive)
 src/Service/Import/     import folder → library (FileImporter, LibraryPath, WmaConverter)
-src/Service/Artist/     artist pages (MusicBrainz → Wikidata → Wikipedia, YouTube RSS), merge
+src/Service/Artist/     artist pages (MusicBrainz → Wikidata → Wikipedia, discography + ListenBrainz popularity, YouTube RSS), merge
 src/Service/Spotify/    Spotify matching
 src/Service/Lyrics/     LRCLIB lyrics (app:lyrics:fetch)
 templates/              Twig

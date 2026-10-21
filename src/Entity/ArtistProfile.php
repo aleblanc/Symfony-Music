@@ -73,10 +73,11 @@ class ArtistProfile
 
     /**
      * Studio albums and EPs (MusicBrainz release groups), newest first, with
-     * their ListenBrainz popularity (null: not read); null until fetched, so
-     * app:artist:fetch completes the profiles found before.
+     * their ListenBrainz popularity (null: not read) and the track list of
+     * their original edition (false: no official release, null: not read);
+     * null until fetched, so app:artist:fetch completes the profiles found before.
      *
-     * @var ?list<array{id: string, title: string, type: string, date: ?string, listens?: ?int, listeners?: ?int}>
+     * @var ?list<array{id: string, title: string, type: string, date: ?string, listens?: ?int, listeners?: ?int, tracklist?: array<string, mixed>|false|null}>
      */
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $discography = null;
@@ -168,22 +169,22 @@ class ArtistProfile
         return $this->videos;
     }
 
-    /** @return ?list<array{id: string, title: string, type: string, date: ?string, listens?: ?int, listeners?: ?int}> */
+    /** @return ?list<array{id: string, title: string, type: string, date: ?string, listens?: ?int, listeners?: ?int, tracklist?: array<string, mixed>|false|null}> */
     public function getDiscography(): ?array
     {
         return $this->discography;
     }
 
-    /** @param list<array{id: string, title: string, type: string, date: ?string, listens?: ?int, listeners?: ?int}> $discography */
+    /** @param list<array{id: string, title: string, type: string, date: ?string, listens?: ?int, listeners?: ?int, tracklist?: array<string, mixed>|false|null}> $discography */
     public function setDiscography(array $discography): void
     {
         $this->discography = $discography;
     }
 
-    /** True when the discography lacks the popularity figures (fetched before them, or ListenBrainz was down). */
+    /** True when the discography lacks popularity figures or track lists (fetched before them, or a service was down). */
     public function needsDiscography(): bool
     {
-        return $this->discography === null || ($this->discography !== [] && array_filter($this->discography, static fn(array $a): bool => ($a['listeners'] ?? null) === null) !== []);
+        return $this->discography === null || array_filter($this->discography, static fn(array $a): bool => ($a['listeners'] ?? null) === null || ($a['tracklist'] ?? null) === null) !== [];
     }
 
     public function getFetchedAt(): ?\DateTimeImmutable
