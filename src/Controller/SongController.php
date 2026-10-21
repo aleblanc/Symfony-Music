@@ -9,11 +9,13 @@ use App\Repository\ListenLaterRepository;
 use App\Repository\MusicRepository;
 use App\Repository\OfflineSongRepository;
 use App\Repository\PlayCountRepository;
+use App\Repository\UserSongSettingRepository;
 use App\Service\MetadataDumper;
 use App\Service\RatingReader;
 use App\Service\SongVersionManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -61,6 +63,41 @@ class SongController extends AbstractController
             'playCount' => $user !== null ? $playCounts->findOneForUser($user, $song)?->getPlayCount() ?? 0 : 0,
             'isOwner' => $isOwner,
             'versions' => $isOwner ? $versions->listVersions($song) : [],
+        ]);
+    }
+
+    /**
+     * What the player bar needs when a track starts: lyrics (LRC or plain),
+     * ReplayGain values and the viewer's own volume / EQ for this track.
+     */
+    #[Route('/song/{id}/playback', name: 'app_song_playback', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function playback(
+        int $id,
+        #[CurrentUser]
+        ?User $user,
+        MusicRepository $music,
+        UserSongSettingRepository $settings,
+    ): JsonResponse {
+        $song = $music->find($id);
+        if ($song === null) {
+            return new JsonResponse(['error' => 'Track not found'], Response::HTTP_NOT_FOUND);
+        }
+        $this->assertVisible($song, $user);
+
+        $setting = $user !== null ? $settings->findOneForUser($user, $song) : null;
+        $rg = $song->getReplayGain();
+
+        return new JsonResponse([
+            'id' => $song->getId(),
+            'lyrics' => $song->getLyrics(),
+            'replayGain' => [
+                'trackGain' => $rg->trackGain,
+                'trackPeak' => $rg->trackPeak,
+                'albumGain' => $rg->albumGain,
+                'albumPeak' => $rg->albumPeak,
+            ],
+            'volumeMultiplier' => $setting?->getVolumeMultiplier() ?? 1.0,
+            'eqBands' => $setting?->getEqBandsArray(),
         ]);
     }
 

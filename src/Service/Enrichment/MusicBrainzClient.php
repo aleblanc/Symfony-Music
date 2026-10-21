@@ -105,6 +105,40 @@ class MusicBrainzClient
      *
      * @return list<RecordingMatch>
      */
+    /**
+     * The artist's studio albums and EPs (release groups without a secondary
+     * type: no live, compilation, remix, demo, soundtrack...), newest first,
+     * undated ones last.
+     *
+     * @return list<array{id: string, title: string, type: string, date: ?string}>
+     */
+    public function getArtistAlbums(string $mbid): array
+    {
+        $groups = [];
+        for ($offset = 0; $offset < 500; $offset += 100) {
+            $data = $this->get('release-group', ['artist' => $mbid, 'type' => 'album|ep', 'limit' => 100, 'offset' => $offset]);
+            $page = $data['release-groups'] ?? [];
+            foreach ($page as $g) {
+                if (($g['secondary-types'] ?? []) !== [] || !isset($g['id'], $g['title'])) {
+                    continue;
+                }
+                $date = (string) ($g['first-release-date'] ?? '');
+                $groups[] = [
+                    'id' => (string) $g['id'],
+                    'title' => (string) $g['title'],
+                    'type' => (string) ($g['primary-type'] ?? 'Album'),
+                    'date' => $date !== '' ? $date : null,
+                ];
+            }
+            if (\count($page) < 100 || $offset + 100 >= (int) ($data['release-group-count'] ?? 0)) {
+                break;
+            }
+        }
+        usort($groups, static fn(array $a, array $b): int => [$b['date'] !== null, $b['date']] <=> [$a['date'] !== null, $a['date']]);
+
+        return $groups;
+    }
+
     public function searchRecordings(?string $artist, string $title, int $limit = 5, bool $excludeLive = false): array
     {
         $query = 'recording:' . $this->quote($title) . ($artist !== null ? ' AND artist:' . $this->quote($artist) : '')
@@ -294,6 +328,36 @@ class MusicBrainzClient
     }
 
     /** Quotes a value for a Lucene phrase query. */
+    /**
+     * Forgiving variant of {@see searchRecordings()} for names the exact
+     * phrase misses ("Last Ressort", "California Dreaming" for "Dreamin'"):
+     * every word required, words of 4+ letters fuzzy. Without an artist, any
+     * artist's recording of that title comes back — the caller filters.
+     *
+     * @return list<RecordingMatch>
+     */
+    public function searchRecordingsFuzzy(?string $artist, string $title, int $limit = 5, bool $excludeLive = false): array
+    {
+        $titleTerms = $this->fuzzyTerms($title);
+        if ($titleTerms === '') {
+            return [];
+        }
+        $artistTerms = $artist !== null ? $this->fuzzyTerms($artist) : '';
+        $query = 'recording:(' . $titleTerms . ')' . ($artistTerms !== '' ? ' AND artist:(' . $artistTerms . ')' : '')
+            . ($excludeLive ? ' AND NOT comment:live' : '');
+        $data = $this->get('recording', ['query' => $query, 'limit' => $limit]);
+
+        return array_values(array_map(fn(array $r): RecordingMatch => $this->recording($r), $data['recordings'] ?? []));
+    }
+
+    /** "Last Ressort" → "+last~ +ressort~" (letters and digits only: nothing for Lucene to choke on). */
+    private function fuzzyTerms(string $value): string
+    {
+        $words = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($value), -1, \PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return implode(' ', array_map(static fn(string $w): string => '+' . $w . (mb_strlen($w) >= 4 ? '~' : ''), $words));
+    }
+
     private function quote(string $value): string
     {
         return '"' . addcslashes($value, '"\\') . '"';

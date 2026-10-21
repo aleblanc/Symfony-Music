@@ -16,10 +16,13 @@ use App\Service\MetadataWriter;
  * - A different file at the destination is never overwritten: " (2)"...
  * - cover.jpg is added next to the album when missing; import folders left
  *   empty are removed.
+ * - Tracks nothing identifies can be filed as they are under MUSIC_DIR/_unclassified.
  */
 class FileImporter
 {
     public const DUPLICATES_DIR = '_duplicates';
+    /** MUSIC_DIR sub-folder for the tracks no source could identify (still indexed). */
+    public const UNCLASSIFIED_DIR = '_unclassified';
 
     public function __construct(
         private readonly MetadataWriter $writer,
@@ -77,6 +80,41 @@ class FileImporter
         if ($jpeg !== null && ($proposal->fields['album'] ?? null) !== null && !is_file($coverFile)) {
             file_put_contents($coverFile, $jpeg);
         }
+        $this->pruneEmptyDirs(\dirname($file), $importRoot);
+
+        return new ImportResult(ImportResult::IMPORTED, $destination);
+    }
+
+    /**
+     * Files a track nothing could identify, kept anyway: moved as is (tags
+     * untouched) to MUSIC_DIR/_unclassified, under its path in the import
+     * folder ("Skrillex/Unreleased/01 Cat Rats.mp3"), so app:scan indexes it
+     * and app:enrich can still name it later.
+     *
+     * @throws \InvalidArgumentException when the file is not inside the import folder
+     * @throws \RuntimeException when moving fails (the file is left where it was)
+     */
+    public function fileUnclassified(string $file, string $importRoot): ImportResult
+    {
+        $importRoot = rtrim($importRoot, '/');
+        $real = realpath($file);
+        $realRoot = realpath($importRoot);
+        if ($real === false || $realRoot === false || !str_starts_with($real, $realRoot . '/')) {
+            throw new \InvalidArgumentException(\sprintf('"%s" is not inside the import folder.', $file));
+        }
+
+        $relative = self::UNCLASSIFIED_DIR . '/' . substr($real, \strlen($realRoot) + 1);
+        $destination = rtrim($this->musicDir, '/') . '/' . $relative;
+        if (is_file($destination) && $this->sameAudio($file, $destination)) {
+            $duplicate = $this->freePath($importRoot . '/' . self::DUPLICATES_DIR . '/' . $relative);
+            $this->move($file, $duplicate);
+            $this->pruneEmptyDirs(\dirname($file), $importRoot);
+
+            return new ImportResult(ImportResult::DUPLICATE, $duplicate);
+        }
+
+        $destination = $this->freePath($destination);
+        $this->move($file, $destination);
         $this->pruneEmptyDirs(\dirname($file), $importRoot);
 
         return new ImportResult(ImportResult::IMPORTED, $destination);

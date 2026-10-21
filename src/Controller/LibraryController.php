@@ -10,6 +10,7 @@ use App\Repository\ListenLaterRepository;
 use App\Repository\MusicRepository;
 use App\Repository\OfflineSongRepository;
 use App\Repository\PlayCountRepository;
+use App\Service\Enrichment\MatchScorer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -151,7 +152,7 @@ class LibraryController extends AbstractController
     }
 
     #[Route('/artist/{name}', name: 'app_artist', requirements: ['name' => '.+'])]
-    public function artist(string $name, #[CurrentUser] ?User $user, MusicRepository $music, ArtistProfileRepository $profiles, EntityManagerInterface $em, ClockInterface $clock): Response
+    public function artist(string $name, #[CurrentUser] ?User $user, MusicRepository $music, ArtistProfileRepository $profiles, EntityManagerInterface $em, ClockInterface $clock, MatchScorer $scorer): Response
     {
         $songs = $music->findByArtist($name, $user);
         if ($songs === []) {
@@ -169,11 +170,36 @@ class LibraryController extends AbstractController
             }
         }
 
+        // The artist's whole discography (MusicBrainz), each entry pointing at the library album when there is one.
+        $albums = $music->albumsOfArtist($name, $user);
+        $discography = [];
+        foreach ($profile?->getDiscography() ?? [] as $entry) {
+            $owned = null;
+            foreach ($albums as $a) {
+                if ($scorer->similarity($entry['title'], $a['album']) >= 0.85) {
+                    $owned = $a['album'];
+                    break;
+                }
+            }
+            $discography[] = $entry + ['owned' => $owned];
+        }
+        // ListenBrainz listeners: a bar relative to the artist's most listened album, a star on the top 3.
+        $listeners = array_filter(array_map(static fn(array $d): int => (int) ($d['listeners'] ?? 0), $discography));
+        arsort($listeners);
+        $top = \array_slice(array_keys($listeners), 0, min(3, intdiv(\count($listeners) + 1, 2)), true);
+        $max = $listeners === [] ? 0 : max($listeners);
+        foreach ($discography as $i => &$d) {
+            $d['popularity'] = $max > 0 ? (int) round(100 * (int) ($d['listeners'] ?? 0) / $max) : null;
+            $d['top'] = \in_array($i, $top, true);
+        }
+        unset($d);
+
         return $this->render('library/artist.html.twig', [
             'artist' => $name,
             'profile' => $profile,
             'newVideoIds' => $newVideoIds,
-            'albums' => $music->albumsOfArtist($name, $user),
+            'albums' => $albums,
+            'discography' => $discography,
             'songs' => $songs,
             'favoriteIds' => $this->favoriteIds($user),
             'listenLaterIds' => $this->listenLaterIds($user),

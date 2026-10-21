@@ -20,6 +20,9 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class QualityStatsController extends AbstractController
 {
     private const LIST_LIMIT = 200;
+    /** Default list: every lossy track up to this bitrate (below 193 kb/s: worth replacing). */
+    private const LOW_MAX_KBPS = 192;
+    private const LOW_LIST_LIMIT = 2000;
 
     #[Route('/admin/quality', name: 'app_quality_stats', methods: ['GET'])]
     public function index(Request $request, MusicRepository $music, QualityStats $stats): Response
@@ -29,6 +32,7 @@ class QualityStatsController extends AbstractController
         $min = $request->query->has('min') ? max(0, $request->query->getInt('min')) : null;
         $max = $request->query->has('max') ? max(0, $request->query->getInt('max')) : null;
 
+        $limit = self::LIST_LIMIT;
         if ($format !== null) {
             $tracks = $music->lossyTracksByBitrate($format, $min, $max, self::LIST_LIMIT);
             $listTitle = QualityStats::formatLabel($format) . match (true) {
@@ -38,13 +42,9 @@ class QualityStatsController extends AbstractController
                 default => '',
             };
         } else {
-            // Every "Low" / "Very low" threshold is under 160 kb/s, whatever the codec.
-            $tracks = array_values(array_filter(
-                $music->lossyTracksByBitrate(null, null, 159, 5000),
-                static fn(array $t) => \in_array(AudioQuality::classify($t['format'], $t['lossless'], $t['bitrate']), [AudioQuality::VeryLow, AudioQuality::Low], true),
-            ));
-            $tracks = \array_slice($tracks, 0, self::LIST_LIMIT);
-            $listTitle = 'Worst tracks (very low and low quality)';
+            $limit = self::LOW_LIST_LIMIT;
+            $tracks = $music->lossyTracksByBitrate(null, null, self::LOW_MAX_KBPS, $limit);
+            $listTitle = \sprintf('Tracks under %d kb/s', self::LOW_MAX_KBPS + 1);
         }
 
         return $this->render('quality/index.html.twig', [
@@ -54,7 +54,7 @@ class QualityStatsController extends AbstractController
                 'formatLabel' => QualityStats::formatLabel($t['format']),
             ], $tracks),
             'listTitle' => $listTitle,
-            'listLimit' => self::LIST_LIMIT,
+            'listLimit' => $limit,
             'filtered' => $format !== null,
         ]);
     }

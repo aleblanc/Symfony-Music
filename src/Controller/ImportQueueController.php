@@ -136,6 +136,40 @@ class ImportQueueController extends AbstractController
         return $this->redirectToNext($item);
     }
 
+    /** None of the candidates: kept as is under MUSIC_DIR/_unclassified, like app:import does for files nothing identifies. */
+    #[Route('/admin/import/{id}/unclassified', name: 'app_import_unclassified', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function unclassified(ImportItem $item, Request $request, FileImporter $filer, EntityManagerInterface $em): Response
+    {
+        $this->assertToken($request, $item);
+        $path = $this->insideImportDir($item);
+        if ($item->getStatus() !== ImportItem::PENDING || $path === null) {
+            $this->addFlash('error', 'This file is no longer available.');
+
+            return $this->redirectToRoute('app_import_queue');
+        }
+
+        try {
+            $result = $filer->fileUnclassified($path, $this->importDir);
+        } catch (\RuntimeException|\InvalidArgumentException $e) {
+            $item->markChoiceFailed($e->getMessage());
+            $em->flush();
+            $this->addFlash('error', \sprintf('Not filed: %s', $e->getMessage()));
+
+            return $this->redirectToRoute('app_import_queue', ['id' => $item->getId()]);
+        }
+
+        if ($result->status === ImportResult::DUPLICATE) {
+            $item->markDuplicate($result->destination);
+            $this->addFlash('success', \sprintf('%s was already in %s: moved to the duplicates folder.', $item->getOriginalName(), FileImporter::UNCLASSIFIED_DIR));
+        } else {
+            $item->markImported($result->destination);
+            $this->addFlash('success', \sprintf('Kept as is: %s/%s', FileImporter::UNCLASSIFIED_DIR, basename($result->destination)));
+        }
+        $em->flush();
+
+        return $this->redirectToNext($item);
+    }
+
     private function redirectToNext(ImportItem $item): Response
     {
         $next = $this->items->findNextPending($item);

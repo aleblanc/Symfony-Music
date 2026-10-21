@@ -68,11 +68,23 @@ class ArtistFetchCommand extends Command
         foreach ($artists as $name => $albums) {
             $profile = $known[$name] ?? null;
             $wanted = \is_string($only) || $refresh || $profile === null || ($retry && !$profile->isFound());
-            if (!$wanted || ($limit !== null && $done >= $limit)) {
+            // Found before the discography (or its popularity) existed: only that part is fetched.
+            $discographyOnly = !$wanted && $profile !== null && $profile->isFound() && $profile->needsDiscography();
+            if ((!$wanted && !$discographyOnly) || ($limit !== null && $done >= $limit)) {
                 ++$stats['skipped'];
                 continue;
             }
             ++$done;
+
+            if ($discographyOnly) {
+                $ok = $this->updater->refreshDiscography($profile);
+                $this->em->flush();
+                $io->writeln($ok
+                    ? \sprintf('  <info>✓</info> %s <fg=gray>[discography: %d albums/EPs]</>', $name, \count($profile->getDiscography() ?? []))
+                    : \sprintf('  <error>!</error> %s — discography: MusicBrainz unreachable', $name));
+                ++$stats[$ok ? 'found' : 'failed'];
+                continue;
+            }
 
             try {
                 $profile = $this->updater->refreshInfo((string) $name, $albums);
@@ -93,6 +105,7 @@ class ArtistFetchCommand extends Command
                 $profile->getWikipediaUrl() !== null ? 'Wikipedia' : null,
                 $profile->getYoutubeChannelId() !== null ? 'YouTube' : null,
                 \count($profile->getLinks()) > 1 ? (\count($profile->getLinks()) - 1) . ' link(s)' : null,
+                $profile->getDiscography() !== null ? \count($profile->getDiscography()) . ' albums/EPs' : null,
             ]);
             $io->writeln(\sprintf('  <info>✓</info> %s <fg=gray>[%s]</>', $name, $has !== [] ? implode(', ', $has) : 'nothing more'));
             ++$stats['found'];

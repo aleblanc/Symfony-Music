@@ -70,13 +70,13 @@
     {% endfor %}
 
     <section class="qs-block" id="tracks">
-        <h2>{{ listTitle }} <span class="muted">· lowest bitrate first{% if tracks|length >= listLimit %}, first {{ listLimit }}{% endif %}</span></h2>
-        {% if filtered %}<p><a class="link" href="{{ path('app_quality_stats') }}#tracks">← Back to the worst tracks</a></p>{% endif %}
+        <h2>{{ listTitle }} <span class="muted">· {{ tracks|length }} track{{ tracks|length == 1 ? '' : 's' }}, {{ tracks|filter(t => t.spotifyId)|length }} with a Spotify link · lowest bitrate first{% if tracks|length >= listLimit %}, first {{ listLimit }}{% endif %}</span></h2>
+        {% if filtered %}<p><a class="link" href="{{ path('app_quality_stats') }}#tracks">← Back to the tracks under 193 kb/s</a></p>{% endif %}
         {% if tracks is empty %}
             <p class="muted">No track here.</p>
         {% else %}
             <table class="qs-tracks">
-                <thead><tr><th>Bitrate</th><th>Format</th><th>Title</th><th>Artist</th><th>Album</th></tr></thead>
+                <thead><tr><th>Bitrate</th><th>Format</th><th>Title</th><th>Artist</th><th>Album</th><th>Spotify</th></tr></thead>
                 <tbody>
                     {% for t in tracks %}
                         <tr>
@@ -88,6 +88,7 @@
                             <td><a class="link" href="{{ path('app_song', {id: t.id}) }}">{{ t.title ?: t.file|split('/')|last }}</a></td>
                             <td>{{ t.artist }}</td>
                             <td class="muted">{{ t.album }}</td>
+                            <td>{% if t.spotifyId %}<a class="link" href="https://open.spotify.com/track/{{ t.spotifyId }}" target="_blank" rel="noopener" title="open.spotify.com/track/{{ t.spotifyId }}">Spotify ↗</a>{% endif %}</td>
                         </tr>
                     {% endfor %}
                 </tbody>

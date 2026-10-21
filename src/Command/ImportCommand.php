@@ -25,7 +25,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * (AcoustID fingerprints + MusicBrainz), writes their tags, cover and
  * MusicBrainz ids, and files them into MUSIC_DIR as
  * Artist/Album (Year)/NN Title. Files not identified surely enough stay in
- * the import folder, their candidates stored for a choice in the web page.
+ * the import folder, their candidates stored for a choice in the web page;
+ * files nothing identifies at all are kept anyway, as they are, under
+ * MUSIC_DIR/_unclassified (--no-unclassified leaves them in the import folder).
  *
  * Then run `app:scan` and `app:spotify:match` yourself.
  */
@@ -58,7 +60,8 @@ class ImportCommand extends Command
             ->addOption('threshold', null, InputOption::VALUE_REQUIRED, 'Minimum score (0-1) to tag and file automatically; below it the candidates wait in the web page', (string) self::DEFAULT_THRESHOLD)
             ->addOption('retry', null, InputOption::VALUE_NONE, 'Also retry files already tried (unchanged since)')
             ->addOption('only', null, InputOption::VALUE_REQUIRED, 'Only files already tried with these statuses, comma-separated: failed, skipped, pending, unmatched (e.g. --only=failed,skipped)')
-            ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Process at most this many files');
+            ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Process at most this many files')
+            ->addOption('no-unclassified', null, InputOption::VALUE_NONE, 'Leave the files nothing identifies in the import folder instead of filing them as they are under MUSIC_DIR/' . FileImporter::UNCLASSIFIED_DIR);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -71,6 +74,7 @@ class ImportCommand extends Command
         $dryRun = (bool) $input->getOption('dry-run');
         $retry = (bool) $input->getOption('retry');
         $threshold = (float) $input->getOption('threshold');
+        $unclassified = !$input->getOption('no-unclassified');
         $limit = $input->getOption('limit') !== null ? max(1, (int) $input->getOption('limit')) : null;
         $only = null;
         if ($input->getOption('only') !== null) {
@@ -103,7 +107,7 @@ class ImportCommand extends Command
             $io->warning('Audio fingerprinting off: set ACOUSTID_API_KEY in .env.local and install fpcalc (brew install chromaprint). Only name-based matching will run.');
         }
 
-        $stats = ['imported' => 0, 'duplicates' => 0, 'pending' => 0, 'unmatched' => 0, 'failed' => 0, 'skipped' => 0];
+        $stats = ['imported' => 0, 'duplicates' => 0, 'pending' => 0, 'unclassified' => 0, 'unmatched' => 0, 'failed' => 0, 'skipped' => 0];
         $log = static fn(string $line) => $io->writeln($line);
         $processed = 0;
 
@@ -167,7 +171,7 @@ class ImportCommand extends Command
                 }
                 [$file, $size, $mtime, $item] = $byId[$track->musicId];
                 $list = $candidates[$track->musicId] ?? [];
-                $outcome = $this->handle($io, $file, $source, $list, $threshold, $dryRun, $size, $mtime, $item);
+                $outcome = $this->handle($io, $file, $source, $list, $threshold, $dryRun, $unclassified, $size, $mtime, $item);
                 ++$stats[$outcome];
             }
 
@@ -179,16 +183,18 @@ class ImportCommand extends Command
 
         $io->newLine();
         $io->success(\sprintf(
-            '%s — %d filed, %d duplicates, %d waiting for a choice, %d not identified, %d failed, %d already tried.',
+            '%s — %d filed, %d duplicates, %d waiting for a choice, %d unidentified filed in %s, %d not identified (left), %d failed, %d already tried.',
             $dryRun ? 'Dry run complete' : 'Import complete',
             $stats['imported'],
             $stats['duplicates'],
             $stats['pending'],
+            $stats['unclassified'],
+            FileImporter::UNCLASSIFIED_DIR,
             $stats['unmatched'],
             $stats['failed'],
             $stats['skipped'],
         ));
-        if (!$dryRun && $stats['imported'] > 0) {
+        if (!$dryRun && $stats['imported'] + $stats['unclassified'] > 0) {
             $io->text('Next: php bin/console app:scan, then php bin/console app:spotify:match');
         }
         if ($stats['skipped'] > 0) {
@@ -201,13 +207,16 @@ class ImportCommand extends Command
     /**
      * @param list<Proposal> $list candidates, best first
      *
-     * @return 'imported'|'duplicates'|'pending'|'unmatched'|'failed'
+     * @return 'imported'|'duplicates'|'pending'|'unclassified'|'unmatched'|'failed'
      */
-    private function handle(SymfonyStyle $io, string $file, string $source, array $list, float $threshold, bool $dryRun, int $size, int $mtime, ?ImportItem $item): string
+    private function handle(SymfonyStyle $io, string $file, string $source, array $list, float $threshold, bool $dryRun, bool $unclassified, int $size, int $mtime, ?ImportItem $item): string
     {
         $name = basename($file);
         $best = $list[0] ?? null;
 
+        if ($best === null && $unclassified) {
+            return $this->fileUnclassified($io, $file, $source, $dryRun, $size, $mtime, $item);
+        }
         if ($best === null) {
             $io->writeln(\sprintf('  <fg=gray>· %s — not identified</>', $name));
             if (!$dryRun) {
@@ -256,6 +265,42 @@ class ImportCommand extends Command
         $io->writeln(\sprintf('  <info>✓</info> %s → %s <fg=gray>[%s]</>', $name, $shown, $tag));
 
         return 'imported';
+    }
+
+    /**
+     * Not identified: kept anyway, filed as is under MUSIC_DIR/_unclassified.
+     *
+     * @return 'unclassified'|'duplicates'|'failed'
+     */
+    private function fileUnclassified(SymfonyStyle $io, string $file, string $source, bool $dryRun, int $size, int $mtime, ?ImportItem $item): string
+    {
+        $name = basename($file);
+        $relative = FileImporter::UNCLASSIFIED_DIR . '/' . substr($file, \strlen($source) + 1);
+        if ($dryRun) {
+            $io->writeln(\sprintf('  <fg=cyan>·</> %s — not identified → %s', $name, $relative));
+
+            return 'unclassified';
+        }
+
+        $record = $this->item($file, $size, $mtime, $item);
+        try {
+            $result = $this->filer->fileUnclassified($file, $source);
+        } catch (\RuntimeException $e) {
+            $record->recordAttempt($size, $mtime, [], $e->getMessage());
+            $io->writeln(\sprintf('  <error>!</error> %s — not identified, and not filed: %s', $name, $e->getMessage()));
+
+            return 'failed';
+        }
+        if ($result->status === ImportResult::DUPLICATE) {
+            $record->markDuplicate($result->destination);
+            $io->writeln(\sprintf('  <fg=yellow>=</> %s — not identified, already in %s → %s', $name, FileImporter::UNCLASSIFIED_DIR, substr($result->destination, \strlen($source) + 1)));
+
+            return 'duplicates';
+        }
+        $record->markImported($result->destination);
+        $io->writeln(\sprintf('  <fg=cyan>·</> %s — not identified → %s', $name, substr($result->destination, \strlen(rtrim($this->musicDir, '/')) + 1)));
+
+        return 'unclassified';
     }
 
     private function item(string $file, int $size, int $mtime, ?ImportItem $item): ImportItem

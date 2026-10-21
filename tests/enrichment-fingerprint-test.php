@@ -121,6 +121,11 @@ final class FpMusicBrainz extends MusicBrainzClient
         return [];
     }
 
+    public function searchRecordingsFuzzy(?string $artist, string $title, int $limit = 5, bool $excludeLive = false): array
+    {
+        return [];
+    }
+
     public function getRecording(string $id): ?RecordingMatch
     {
         return $this->recordings[$id] ?? null;

@@ -86,6 +86,36 @@
         </section>
     {% endif %}
 
+    {% if discography is not empty %}
+        {% set ownedCount = discography|filter(d => d.owned)|length %}
+        <section class="artist-section">
+            <h2>Discography <span class="muted">· {{ discography|length }} albums & EPs, {{ ownedCount }} in the library{% if discography|filter(d => d.popularity is not null)|length %} · bars: listeners on ListenBrainz{% endif %}</span></h2>
+            <div class="card-grid">
+                {% for d in discography %}
+                    <a class="card{{ d.owned ? '' : ' disco-missing' }}"
+                       href="{{ d.owned ? path('app_album', {name: d.owned}) : 'https://musicbrainz.org/release-group/' ~ d.id }}"
+                       {% if not d.owned %}target="_blank" rel="noopener" title="Not in the library — open on MusicBrainz"{% endif %}>
+                        <div class="mosaic mosaic-1 disco-cover" data-letter="{{ d.title|slice(0, 1)|upper }}">
+                            {% if d.top %}<span class="badge-new disco-top" title="Among the artist's most listened albums (ListenBrainz)">★ Essential</span>{% endif %}
+                            <img src="https://coverartarchive.org/release-group/{{ d.id }}/front-250" alt="" loading="lazy" decoding="async" onerror="this.remove()">
+                        </div>
+                        <div class="card-title">{{ d.title }}</div>
+                        <div class="card-sub">
+                            {{ d.date ? d.date|slice(0, 4) : '—' }}{% if d.type != 'Album' %} · {{ d.type }}{% endif %}
+                            {% if d.owned %}<span class="disco-owned" title="In the library">✓</span>{% endif %}
+                        </div>
+                        {% if d.popularity is not null %}
+                            <div class="disco-pop" title="{{ d.listeners|default(0)|number_format(0, ',', ' ') }} listeners · {{ d.listens|default(0)|number_format(0, ',', ' ') }} listens on ListenBrainz">
+                                <span class="disco-pop-bar"><span style="width: {{ max(d.popularity, 2) }}%"></span></span>
+                                <span class="muted">{{ d.listeners|default(0)|number_format(0, ',', ' ') }}</span>
+                            </div>
+                        {% endif %}
+                    </a>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
     <section class="artist-section" id="artist-tracks">
         <h2>Tracks</h2>
         {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}

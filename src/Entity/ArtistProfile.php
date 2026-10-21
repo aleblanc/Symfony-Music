@@ -71,6 +71,16 @@ class ArtistProfile
     #[ORM\Column(type: 'json')]
     private array $videos = [];
 
+    /**
+     * Studio albums and EPs (MusicBrainz release groups), newest first, with
+     * their ListenBrainz popularity (null: not read); null until fetched, so
+     * app:artist:fetch completes the profiles found before.
+     *
+     * @var ?list<array{id: string, title: string, type: string, date: ?string, listens?: ?int, listeners?: ?int}>
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $discography = null;
+
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $fetchedAt = null;
 
@@ -156,6 +166,24 @@ class ArtistProfile
     public function getVideos(): array
     {
         return $this->videos;
+    }
+
+    /** @return ?list<array{id: string, title: string, type: string, date: ?string, listens?: ?int, listeners?: ?int}> */
+    public function getDiscography(): ?array
+    {
+        return $this->discography;
+    }
+
+    /** @param list<array{id: string, title: string, type: string, date: ?string, listens?: ?int, listeners?: ?int}> $discography */
+    public function setDiscography(array $discography): void
+    {
+        $this->discography = $discography;
+    }
+
+    /** True when the discography lacks the popularity figures (fetched before them, or ListenBrainz was down). */
+    public function needsDiscography(): bool
+    {
+        return $this->discography === null || ($this->discography !== [] && array_filter($this->discography, static fn(array $a): bool => ($a['listeners'] ?? null) === null) !== []);
     }
 
     public function getFetchedAt(): ?\DateTimeImmutable

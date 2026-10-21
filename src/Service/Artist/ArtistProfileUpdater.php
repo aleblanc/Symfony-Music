@@ -4,12 +4,15 @@ namespace App\Service\Artist;
 
 use App\Entity\ArtistProfile;
 use App\Repository\ArtistProfileRepository;
+use App\Service\Enrichment\EnrichmentException;
+use App\Service\Enrichment\MusicBrainzClient;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Clock\ClockInterface;
 
 /**
- * Fills ArtistProfile rows: info (photo, Wikipedia, links) and latest
- * YouTube videos. Shared by `app:artist:fetch`, `app:artist:videos` and the
+ * Fills ArtistProfile rows: info (photo, Wikipedia, links), discography
+ * (MusicBrainz studio albums and EPs, with their ListenBrainz popularity)
+ * and latest YouTube videos. Shared by `app:artist:fetch`, `app:artist:videos` and the
  * artist page's refresh button. The caller flushes.
  */
 class ArtistProfileUpdater
@@ -17,6 +20,8 @@ class ArtistProfileUpdater
     public function __construct(
         private readonly ArtistInfoFetcher $fetcher,
         private readonly YouTubeClient $youtube,
+        private readonly MusicBrainzClient $musicBrainz,
+        private readonly ListenBrainzClient $listenBrainz,
         private readonly ArtistProfileRepository $profiles,
         private readonly EntityManagerInterface $em,
         private readonly ClockInterface $clock,
@@ -36,8 +41,32 @@ class ArtistProfileUpdater
             return $profile;
         }
         $profile->markFound($info['mbid'], $info['wikidataId'], $info['description'], $info['imageUrl'], $info['wikipediaUrl'], $info['summary'], $info['youtubeChannelId'], $info['youtubeUrl'], $info['links'], $now);
+        $this->refreshDiscography($profile);
 
         return $profile;
+    }
+
+    /** False when MusicBrainz could not be read (the previous list is kept). */
+    public function refreshDiscography(ArtistProfile $profile): bool
+    {
+        if ($profile->getMbid() === null) {
+            return false;
+        }
+        try {
+            $albums = $this->musicBrainz->getArtistAlbums($profile->getMbid());
+        } catch (EnrichmentException) {
+            return false;
+        }
+        // Listens / listeners per album; null when ListenBrainz is down (shown as unknown, refetched next time).
+        $popularity = $this->listenBrainz->releaseGroupPopularity(array_column($albums, 'id'));
+        foreach ($albums as &$album) {
+            $album['listens'] = $popularity === null ? null : ($popularity[$album['id']]['listens'] ?? 0);
+            $album['listeners'] = $popularity === null ? null : ($popularity[$album['id']]['listeners'] ?? 0);
+        }
+        unset($album);
+        $profile->setDiscography($albums);
+
+        return true;
     }
 
     /**

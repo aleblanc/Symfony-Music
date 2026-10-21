@@ -389,6 +389,30 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
+     * Track ids for app:lyrics:fetch, oldest first. By default only tracks
+     * without lyrics that were never looked up; $retry adds those LRCLIB did
+     * not know before; $all also re-fetches tracks that already have lyrics.
+     *
+     * @return list<int>
+     */
+    public function lyricsCandidateIds(bool $retry = false, bool $all = false, ?int $limit = null): array
+    {
+        $qb = $this->createQueryBuilder('m')->select('m.id')->orderBy('m.id', 'ASC');
+
+        if (!$all) {
+            $qb->andWhere("m.lyrics IS NULL OR m.lyrics = ''");
+            if (!$retry) {
+                $qb->andWhere('m.lyricsCheckedAt IS NULL');
+            }
+        }
+        if ($limit !== null) {
+            $qb->setMaxResults($limit);
+        }
+
+        return array_values(array_map('intval', $qb->getQuery()->getSingleColumnResult()));
+    }
+
+    /**
      * Every track as plain rows for app:enrich (no cover bytes hydrated).
      * Not visibility filtered: this is a library maintenance task.
      *
@@ -1008,7 +1032,7 @@ class MusicRepository extends ServiceEntityRepository
     public function lossyTracksByBitrate(?string $format, ?int $minKbps, ?int $maxKbps, int $limit): array
     {
         $qb = $this->createQueryBuilder('m')
-            ->select('m.id', 'm.title', 'm.artist', 'm.album', 'm.file', 'm.audioFormat AS format', 'm.lossless', 'm.bitrate', 'm.bitrateMode')
+            ->select('m.id', 'm.title', 'm.artist', 'm.album', 'm.file', 'm.audioFormat AS format', 'm.lossless', 'm.bitrate', 'm.bitrateMode', 'm.spotifyId')
             ->andWhere('m.audioFormat IS NOT NULL')
             ->andWhere('m.lossless IS NULL OR m.lossless = false')
             ->andWhere("m.audioFormat NOT IN ('flac', 'alac', 'wav', 'aiff')")
@@ -1024,7 +1048,7 @@ class MusicRepository extends ServiceEntityRepository
             $qb->andWhere('(m.bitrate + 500) / 1000 <= :max')->setParameter('max', $maxKbps);
         }
 
-        /** @var list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string}> */
+        /** @var list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string, spotifyId: ?string}> */
         return $qb->getQuery()->getArrayResult();
     }
 }

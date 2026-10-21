@@ -27,6 +27,31 @@ const ICON = {
     edit: 'M3 17.25V21h3.75L17.8 9.94l-3.75-3.75zM20.7 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75z',
 };
 const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * LRC → [{time (s), text}] sorted by time; [] when the text has no
+ * timestamps (plain lyrics). Handles several stamps per line, [mm:ss],
+ * [mm:ss.xx] / [mm:ss:xx], word-level <mm:ss.xx> tags and [offset:±ms].
+ */
+function parseLrc(text) {
+    if (!text) return [];
+    const stamp = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
+    let offset = 0;
+    const lines = [];
+    for (const raw of text.split(/\r?\n/)) {
+        const off = raw.match(/^\s*\[offset:\s*([+-]?\d+)\s*\]/i);
+        if (off) { offset = parseInt(off[1], 10) / 1000; continue; }
+        const stamps = [...raw.matchAll(stamp)];
+        if (stamps.length === 0) continue;
+        const lineText = raw.replace(stamp, '').replace(/<\d{1,3}:\d{2}(?:[.:]\d{1,3})?>/g, '').trim();
+        for (const m of stamps) {
+            const frac = m[3] ? parseInt(m[3], 10) / Math.pow(10, m[3].length) : 0;
+            lines.push({ time: parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + frac, text: lineText });
+        }
+    }
+    // A positive offset shows the lyrics earlier.
+    return lines.map((l) => ({ time: Math.max(0, l.time - offset), text: l.text })).sort((a, b) => a.time - b.time);
+}
 function iconSvg(d) {
     const s = document.createElementNS(SVG_NS, 'svg');
     s.setAttribute('viewBox', '0 0 24 24');
@@ -58,6 +83,242 @@ if (audio && bar) {
     let queue = [];
     let index = -1;
     let recorded = false;
+
+    const store = {
+        get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+        set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
+    };
+
+    // Per-track data fetched when a track starts (/song/{id}/playback): lyrics,
+    // ReplayGain, the viewer's volume multiplier + EQ. Null while loading.
+    let info = null;
+    let infoAbort = null;
+
+    function fetchInfo(t) {
+        info = null;
+        if (infoAbort) infoAbort.abort();
+        applyProcessing();
+        renderLyrics();
+        if (!cfg.playbackUrl || !t.id) return;
+        infoAbort = new AbortController();
+        fetch(cfg.playbackUrl.replace(/\/0\/playback$/, `/${t.id}/playback`), {
+            headers: { 'X-Requested-With': 'fetch' }, signal: infoAbort.signal,
+        })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+                if (!d || queue[index] !== t) return;
+                info = d;
+                applyProcessing();
+                renderLyrics();
+            })
+            .catch(() => {});
+    }
+
+    // ---------------- Audio processing: volume / EQ + ReplayGain ----------------
+    // <audio> → gain (per-track volume × ReplayGain) → 5 EQ bands (the legacy
+    // app's) → speakers. Built lazily, the first time a track needs it: once
+    // an element is routed through an AudioContext it can't go back, and a
+    // suspended context means silence, so a library without EQ settings or
+    // ReplayGain tags never touches Web Audio.
+    const EQ_FREQS = [60, 230, 910, 3600, 14000];
+    const RG_MODES = ['track', 'album', 'off'];
+    let rgMode = store.get('player.replayGain', 'track');
+    if (!RG_MODES.includes(rgMode)) rgMode = 'track';
+    const engine = { ctx: null, gain: null, bands: [], ready: false, waiting: false, failed: false };
+
+    function connectGraph() {
+        try {
+            const ctx = engine.ctx;
+            const source = ctx.createMediaElementSource(audio);
+            engine.gain = ctx.createGain();
+            source.connect(engine.gain);
+            let prev = engine.gain;
+            engine.bands = EQ_FREQS.map((freq, i) => {
+                const band = ctx.createBiquadFilter();
+                band.type = i === 0 ? 'lowshelf' : (i === EQ_FREQS.length - 1 ? 'highshelf' : 'peaking');
+                band.frequency.value = freq;
+                band.gain.value = 0;
+                prev.connect(band);
+                prev = band;
+                return band;
+            });
+            prev.connect(ctx.destination);
+            engine.ready = true;
+        } catch {
+            engine.failed = true;
+        }
+        return engine.ready;
+    }
+
+    function ensureGraph() {
+        if (engine.ready) return true;
+        if (engine.failed) return false;
+        if (!engine.ctx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            try { engine.ctx = AC ? new AC() : null; } catch { engine.ctx = null; }
+            if (!engine.ctx) { engine.failed = true; return false; }
+        }
+        if (engine.ctx.state === 'running') return connectGraph();
+        // Created outside a user gesture: routing the element now would mute
+        // it until the next click. Keep it unprocessed until the context runs.
+        if (!engine.waiting) {
+            engine.waiting = true;
+            engine.ctx.resume().then(() => {
+                engine.waiting = false;
+                if (engine.ctx.state === 'running' && connectGraph()) applyProcessing();
+            }).catch(() => { engine.waiting = false; });
+        }
+        return false;
+    }
+    document.addEventListener('pointerdown', () => {
+        if (engine.ctx && engine.ctx.state !== 'running') engine.ctx.resume().catch(() => {});
+    });
+
+    // Linear gain for the current ReplayGain mode. Album mode falls back to
+    // the track values and vice versa; the peak keeps it from clipping.
+    function replayGainScale(rg) {
+        if (!rg || rgMode === 'off') return 1;
+        const scope = rgMode === 'album'
+            ? (rg.albumGain != null ? 'album' : 'track')
+            : (rg.trackGain != null ? 'track' : 'album');
+        const gain = rg[scope + 'Gain'];
+        if (gain == null) return 1;
+        const peak = rg[scope + 'Peak'];
+        let scale = Math.pow(10, gain / 20);
+        if (peak && scale * peak > 1) scale = 1 / peak;
+        return Math.max(0.1, Math.min(scale, 3));
+    }
+
+    function applyProcessing() {
+        const volume = info && typeof info.volumeMultiplier === 'number' ? info.volumeMultiplier : 1;
+        const eq = info && Array.isArray(info.eqBands) && info.eqBands.length === EQ_FREQS.length
+            ? info.eqBands.map((v) => parseFloat(v) || 0)
+            : EQ_FREQS.map(() => 0);
+        const scale = volume * replayGainScale(info ? info.replayGain : null);
+        const neutral = Math.abs(scale - 1) < 0.001 && eq.every((v) => v === 0);
+        if (!engine.ready && (neutral || !ensureGraph())) return;
+        if (engine.ctx.state === 'suspended') engine.ctx.resume().catch(() => {});
+        const now = engine.ctx.currentTime;
+        engine.gain.gain.setTargetAtTime(scale, now, 0.05);
+        engine.bands.forEach((band, i) => band.gain.setTargetAtTime(eq[i], now, 0.05));
+    }
+
+    const rgBtn = document.getElementById('player-rg');
+    const RG_TITLE = {
+        track: 'Volume normalization: track (ReplayGain). Click: album',
+        album: 'Volume normalization: album (ReplayGain). Click: off',
+        off: 'Volume normalization: off. Click: track',
+    };
+    function renderRgButton() {
+        if (!rgBtn) return;
+        rgBtn.textContent = rgMode === 'off' ? 'RG' : (rgMode === 'album' ? 'RG·A' : 'RG·T');
+        rgBtn.title = RG_TITLE[rgMode];
+        rgBtn.classList.toggle('active', rgMode !== 'off');
+    }
+    if (rgBtn) {
+        renderRgButton();
+        rgBtn.addEventListener('click', () => {
+            rgMode = RG_MODES[(RG_MODES.indexOf(rgMode) + 1) % RG_MODES.length];
+            store.set('player.replayGain', rgMode);
+            renderRgButton();
+            applyProcessing();
+            toast(rgMode === 'off' ? 'Normalization off' : `Normalization: ${rgMode}`);
+        });
+    }
+
+    // Live preview from the song page's volume / EQ sliders (and after a reset).
+    window.appPlayer = {
+        previewSettings(songId, volume, eq) {
+            const t = queue[index];
+            if (!info || !t || String(t.id) !== String(songId)) return;
+            info.volumeMultiplier = volume;
+            info.eqBands = eq;
+            applyProcessing();
+        },
+    };
+
+    // ---------------- Lyrics panel (synced LRC or plain text) ----------------
+    const lyricsBtn = document.getElementById('player-lyrics');
+    const lyricsPanel = document.getElementById('lyrics-panel');
+    const lyricsBody = document.getElementById('lyrics-body');
+    let lrc = []; // [{time, el}] of the current track, sorted by time
+    let lrcActive = -1;
+
+    function centerLine(el, behavior) {
+        lyricsBody.scrollTo({ top: el.offsetTop - (lyricsBody.clientHeight - el.offsetHeight) / 2, behavior });
+    }
+
+    function renderLyrics() {
+        if (!lyricsBody) return;
+        lrc = [];
+        lrcActive = -1;
+        lyricsBody.replaceChildren();
+        lyricsBody.classList.remove('synced');
+        if (lyricsBtn) lyricsBtn.classList.toggle('has-lyrics', !!(info && info.lyrics));
+        const message = (text) => {
+            const p = document.createElement('p');
+            p.className = 'lyrics-empty';
+            p.textContent = text;
+            lyricsBody.appendChild(p);
+        };
+        if (!info) { message(index < 0 ? 'Nothing playing.' : 'Loading…'); return; }
+        if (!info.lyrics) { message('No lyrics for this track.'); return; }
+
+        const lines = parseLrc(info.lyrics);
+        if (lines.length === 0) {
+            const plain = document.createElement('div');
+            plain.className = 'lyrics-plain';
+            plain.textContent = info.lyrics;
+            lyricsBody.appendChild(plain);
+            return;
+        }
+        lyricsBody.classList.add('synced');
+        lrc = lines.map((line) => {
+            const el = document.createElement('button');
+            el.type = 'button';
+            el.className = 'lyric-line';
+            el.textContent = line.text || '♪';
+            el.dataset.time = String(line.time);
+            lyricsBody.appendChild(el);
+            return { time: line.time, el };
+        });
+        syncLyrics();
+    }
+
+    function syncLyrics() {
+        if (lrc.length === 0) return;
+        const now = audio.currentTime + 0.15; // timeupdate fires ~4×/s: show a line slightly early
+        let i = lrcActive;
+        if (i >= 0 && lrc[i].time > now) i = -1; // seeked backwards
+        while (i + 1 < lrc.length && lrc[i + 1].time <= now) i++;
+        if (i === lrcActive) return;
+        if (lrcActive >= 0) lrc[lrcActive].el.classList.remove('active');
+        lrcActive = i;
+        if (i < 0) return;
+        lrc[i].el.classList.add('active');
+        if (!lyricsPanel.hidden) centerLine(lrc[i].el, 'smooth');
+    }
+
+    function setLyricsOpen(open) {
+        if (!lyricsPanel) return;
+        lyricsPanel.hidden = !open;
+        if (lyricsBtn) {
+            lyricsBtn.classList.toggle('active', open);
+            lyricsBtn.setAttribute('aria-expanded', String(open));
+        }
+        if (open && lrcActive >= 0) centerLine(lrc[lrcActive].el, 'auto');
+    }
+
+    if (lyricsPanel && lyricsBody) {
+        renderLyrics();
+        if (lyricsBtn) lyricsBtn.addEventListener('click', () => setLyricsOpen(lyricsPanel.hidden));
+        const close = document.getElementById('lyrics-close');
+        if (close) close.addEventListener('click', () => setLyricsOpen(false));
+        lyricsBody.addEventListener('click', (e) => {
+            const line = e.target.closest('.lyric-line');
+            if (line) audio.currentTime = parseFloat(line.dataset.time);
+        });
+    }
 
     const fmt = (s) => {
         if (!isFinite(s)) return '0:00';
@@ -97,6 +358,7 @@ if (audio && bar) {
         recorded = false;
         const t = queue[i];
         audio.src = t.stream;
+        fetchInfo(t);
         // Title → track details, artist / album → their pages (nav.js keeps
         // playback going while browsing there).
         const link = (a, text, href) => {
@@ -222,7 +484,11 @@ if (audio && bar) {
     els.next.addEventListener('click', () => load(index + 1));
 
     const setPlaybackState = (s) => { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = s; };
-    audio.addEventListener('play', () => { els.toggle.textContent = '⏸'; setPlaybackState('playing'); });
+    audio.addEventListener('play', () => {
+        els.toggle.textContent = '⏸';
+        setPlaybackState('playing');
+        if (engine.ctx && engine.ctx.state !== 'running') engine.ctx.resume().catch(() => {});
+    });
     audio.addEventListener('pause', () => { els.toggle.textContent = '▶'; setPlaybackState('paused'); });
     audio.addEventListener('ended', () => load(index + 1));
     audio.addEventListener('loadedmetadata', () => { els.duration.textContent = fmt(audio.duration); });
@@ -230,6 +496,7 @@ if (audio && bar) {
         els.current.textContent = fmt(audio.currentTime);
         if (audio.duration) els.seek.value = String((audio.currentTime / audio.duration) * 100);
         if (audio.currentTime >= 30) recordListen();
+        syncLyrics();
         // Feed the real position to the OS/PiP scrubber.
         if ('mediaSession' in navigator && navigator.mediaSession.setPositionState && audio.duration) {
             try {
@@ -247,8 +514,10 @@ if (audio && bar) {
     els.volume.addEventListener('input', () => { audio.volume = els.volume.value / 100; });
 
     document.addEventListener('keydown', (e) => {
-        if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return;
         if (e.code === 'Space') { e.preventDefault(); audio.paused ? audio.play() : audio.pause(); }
+        if (e.code === 'KeyL' && !e.metaKey && !e.ctrlKey && !e.altKey && lyricsPanel && !bar.hidden) setLyricsOpen(lyricsPanel.hidden);
+        if (e.key === 'Escape' && lyricsPanel && !lyricsPanel.hidden) setLyricsOpen(false);
     });
 
     // ---------------- Mini player (Picture-in-Picture) ----------------
@@ -529,9 +798,19 @@ function initSongAudioSettings() {
         eqInputs.forEach((input, i) => { input.value = String(bands[i] ?? 0); });
     };
 
+    // Live preview in the player when this song is the one playing.
+    const songId = (host.dataset.settingsGetUrl.match(/\/song\/(\d+)\//) || [])[1];
+    const preview = () => {
+        if (window.appPlayer) {
+            window.appPlayer.previewSettings(songId, parseFloat(volumeInput.value), eqInputs.map((input) => parseFloat(input.value)));
+        }
+    };
+
     volumeInput.addEventListener('input', () => {
         volumeOut.textContent = parseFloat(volumeInput.value).toFixed(2);
+        preview();
     });
+    eqInputs.forEach((input) => input.addEventListener('input', preview));
 
     fetch(host.dataset.settingsGetUrl, { headers: { 'X-Requested-With': 'fetch' } })
         .then((r) => r.json())
@@ -558,16 +837,27 @@ function initSongAudioSettings() {
         })
             .then((r) => r.json())
             .then((d) => {
-                if (d.status === 'success') { applyValues(1.0, [0, 0, 0, 0, 0]); status.textContent = 'Reset to default.'; }
+                if (d.status === 'success') { applyValues(1.0, [0, 0, 0, 0, 0]); preview(); status.textContent = 'Reset to default.'; }
                 else { status.textContent = d.error || 'Failed to reset.'; }
             })
             .catch(() => { status.textContent = 'Failed to reset.'; });
     });
 }
 
+// Song page: synced lyrics are shown as plain text (timestamps stripped);
+// the player's lyrics panel is the one that scrolls them.
+function initSongLyrics() {
+    const body = document.querySelector('.lyrics-body');
+    if (!body || body.dataset.lrcDone) return;
+    body.dataset.lrcDone = '1';
+    const lines = parseLrc(body.textContent);
+    if (lines.length > 0) body.textContent = lines.map((l) => l.text).join('\n');
+}
+
 // Page-specific initialisation hook. nav.js calls this after every partial
 // navigation; we also run it once for the initial full page load.
 window.appPageInit = function appPageInit() {
     initSongAudioSettings();
+    initSongLyrics();
 };
 window.appPageInit();

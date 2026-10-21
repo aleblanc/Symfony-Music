@@ -34,6 +34,10 @@
                         <input type="hidden" name="_token" value="{{ csrf_token('import_' ~ item.id) }}">
                         <button class="btn btn-sm btn-ghost" type="submit" title="Set aside (S)">Skip <kbd>S</kbd></button>
                     </form>
+                    <form method="post" action="{{ path('app_import_unclassified', {id: item.id}) }}" data-import-unclassified>
+                        <input type="hidden" name="_token" value="{{ csrf_token('import_' ~ item.id) }}">
+                        <button class="btn btn-sm btn-ghost" type="submit" title="Keep it as is, in the library's _unclassified folder (U)">Unclassified <kbd>U</kbd></button>
+                    </form>
                     {% if next %}
                         <a class="btn btn-sm btn-ghost" href="{{ path('app_import_queue', {id: next.id}) }}" data-import-next title="Next file (N)">Next <kbd>N</kbd></a>
                     {% endif %}
@@ -93,7 +97,7 @@
 </div>
 
 <script>
-    // Keyboard: 1-5 choose a candidate, S skip, N next. Installed once:
+    // Keyboard: 1-5 choose a candidate, S skip, U unclassified, N next. Installed once:
     // nav.js re-runs page scripts after each partial navigation.
     if (!window.__importQueueKeys) {
         window.__importQueueKeys = true;
@@ -108,6 +112,8 @@
                 form = page.querySelector('[data-import-choice="' + key + '"]');
             } else if (key === 's') {
                 form = page.querySelector('[data-import-skip]');
+            } else if (key === 'u') {
+                form = page.querySelector('[data-import-unclassified]');
             } else if (key === 'n') {
                 const next = page.querySelector('[data-import-next]');
                 if (next) { e.preventDefault(); next.click(); }

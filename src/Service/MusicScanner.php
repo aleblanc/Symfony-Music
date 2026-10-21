@@ -190,7 +190,7 @@ class MusicScanner
     }
 
     /**
-     * @return array{title:string, artist:string, album:string, genre:string, year:int, duration:int, format:AudioFormat, image:?string, imageType:?string, lyrics:?string, albumArtist:?string, trackNumber:?int, discNumber:?int}
+     * @return array{title:string, artist:string, album:string, genre:string, year:int, duration:int, format:AudioFormat, image:?string, imageType:?string, lyrics:?string, replayGain:ReplayGain, albumArtist:?string, trackNumber:?int, discNumber:?int}
      */
     private function analyze(\getID3 $getID3, string $filePath): array
     {
@@ -211,6 +211,7 @@ class MusicScanner
             // sniffed from the bytes when served, so none is recorded at scan time.
             'imageType' => null,
             'lyrics' => $this->tag($comments, 'unsynchronised_lyric', '') ?: null,
+            'replayGain' => ReplayGain::fromGetId3($info),
             // ID3v2 names first (TPE2 "band", TRCK, TPOS), then Vorbis/MP4 ones.
             'albumArtist' => $this->firstTag($comments, ['band', 'albumartist', 'album_artist', 'album artist']),
             'trackNumber' => $this->positionTag($comments, ['track_number', 'tracknumber', 'track']),
@@ -233,6 +234,7 @@ class MusicScanner
         $music->setDiscNumber($meta['discNumber']);
         $music->setDuration($meta['duration']);
         $music->applyAudioFormat($meta['format']);
+        $music->setReplayGain($meta['replayGain']);
         $music->setLastModified($mtime);
         if ($meta['lyrics'] !== null) {
             $music->setLyrics($meta['lyrics']);

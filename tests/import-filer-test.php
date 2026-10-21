@@ -114,6 +114,21 @@ try {
     } catch (InvalidArgumentException) {
         check('file outside the import folder refused', true);
     }
+
+    // Nothing identified it: kept as is under _unclassified, import path preserved.
+    mkdir("{$import}/Skrillex/Unreleased", 0777, true);
+    $src = "{$import}/Skrillex/Unreleased/01 Cat Rats.mp3";
+    $mp3($src, 150);
+    $before = md5_file($src);
+    $r = $filer->fileUnclassified($src, $import);
+    $dest = "{$music}/_unclassified/Skrillex/Unreleased/01 Cat Rats.mp3";
+    check('unclassified: filed under _unclassified with its import path', $r->status === 'imported' && $r->destination === $dest && is_file($dest), $r->destination);
+    check('unclassified: file untouched (no tags written)', md5_file($dest) === $before);
+    check('unclassified: emptied import folders removed', !is_dir("{$import}/Skrillex"));
+    mkdir("{$import}/Skrillex/Unreleased", 0777, true);
+    $mp3($src, 150);
+    $r = $filer->fileUnclassified($src, $import);
+    check('unclassified: same audio again → duplicates folder', $r->status === 'duplicate' && str_starts_with($r->destination, "{$import}/_duplicates/_unclassified/"), $r->status . ' ' . $r->destination);
 } finally {
     rrmdir($root);
 }

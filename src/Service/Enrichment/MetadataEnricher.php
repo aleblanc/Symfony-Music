@@ -57,6 +57,12 @@ class MetadataEnricher
      * album recording of "No Surprises" (one of 94) was sometimes missing.
      */
     private const RECORDING_SEARCH_LIMIT = 100;
+    /**
+     * Title-only fuzzy search (last resort when the artist name itself is
+     * spelled differently: "Sum41" for "Sum 41"): recordings by an artist
+     * less similar than this are someone else's song of the same title.
+     */
+    private const TITLE_ONLY_MIN_ARTIST = 0.75;
 
     private const UNKNOWN_GENRES = ['', 'unknown', 'unknown genre', 'other', 'genre inconnu'];
 
@@ -717,7 +723,7 @@ class MetadataEnricher
     {
         $albumHint = $hints->tagAlbum ?? ($hints->pathSegments[0] ?? null);
         $found = [];
-        foreach ($this->musicBrainz->searchRecordings($artist, $title, self::RECORDING_SEARCH_LIMIT, $this->excludeLive($title)) as $recording) {
+        foreach ($this->searchRecordingsForgiving($artist, $title) as $recording) {
             // Live performances are separate recordings, released on bootlegs only.
             $ranked = $this->rankReleases($recording->releases, 1, $albumHint, $recording->artist);
             if ($recording->releases !== [] && $ranked === []) {
@@ -746,6 +752,31 @@ class MetadataEnricher
         }
 
         return array_values($unique);
+    }
+
+    /**
+     * Exact phrase first; when it finds nothing ("Papa Roach - Last Ressort"),
+     * every word fuzzy; then the title alone, keeping only recordings by a
+     * similar artist ("Sum41 - Fat Lip" → Sum 41). The usual scoring then
+     * weighs title, artist and length as for an exact hit.
+     *
+     * @return list<RecordingMatch>
+     */
+    private function searchRecordingsForgiving(string $artist, string $title): array
+    {
+        $excludeLive = $this->excludeLive($title);
+        $found = $this->musicBrainz->searchRecordings($artist, $title, self::RECORDING_SEARCH_LIMIT, $excludeLive);
+        if ($found === []) {
+            $found = $this->musicBrainz->searchRecordingsFuzzy($artist, $title, self::RECORDING_SEARCH_LIMIT, $excludeLive);
+        }
+        if ($found === []) {
+            $found = array_values(array_filter(
+                $this->musicBrainz->searchRecordingsFuzzy(null, $title, self::RECORDING_SEARCH_LIMIT, $excludeLive),
+                fn(RecordingMatch $r): bool => $this->scorer->similarity($artist, $r->artist) >= self::TITLE_ONLY_MIN_ARTIST,
+            ));
+        }
+
+        return $found;
     }
 
     /**

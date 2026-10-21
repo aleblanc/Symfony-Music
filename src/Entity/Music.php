@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Enum\AudioQuality;
 use App\Repository\MusicRepository;
 use App\Service\AudioFormat;
+use App\Service\ReplayGain;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -142,6 +143,29 @@ class Music
      */
     #[ORM\Column(nullable: true)]
     private ?int $spotifyCheckedAt = null;
+
+    /**
+     * Unix time of the last LRCLIB lookup, found or not, so
+     * `app:lyrics:fetch` doesn't re-query tracks it already failed on.
+     */
+    #[ORM\Column(nullable: true)]
+    private ?int $lyricsCheckedAt = null;
+
+    /** ReplayGain track gain in dB (from the tags, read by app:scan). */
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $replayGainTrack = null;
+
+    /** ReplayGain track peak, linear (1.0 = full scale). */
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $replayGainTrackPeak = null;
+
+    /** ReplayGain album gain in dB. */
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $replayGainAlbum = null;
+
+    /** ReplayGain album peak, linear. */
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $replayGainAlbumPeak = null;
 
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $isPrivate = false;
@@ -453,6 +477,33 @@ class Music
     public function setSpotifyCheckedAt(?int $spotifyCheckedAt): static
     {
         $this->spotifyCheckedAt = $spotifyCheckedAt;
+
+        return $this;
+    }
+
+    public function getLyricsCheckedAt(): ?int
+    {
+        return $this->lyricsCheckedAt;
+    }
+
+    public function setLyricsCheckedAt(?int $lyricsCheckedAt): static
+    {
+        $this->lyricsCheckedAt = $lyricsCheckedAt;
+
+        return $this;
+    }
+
+    public function getReplayGain(): ReplayGain
+    {
+        return new ReplayGain($this->replayGainTrack, $this->replayGainTrackPeak, $this->replayGainAlbum, $this->replayGainAlbumPeak);
+    }
+
+    public function setReplayGain(ReplayGain $replayGain): static
+    {
+        $this->replayGainTrack = $replayGain->trackGain;
+        $this->replayGainTrackPeak = $replayGain->trackPeak;
+        $this->replayGainAlbum = $replayGain->albumGain;
+        $this->replayGainAlbumPeak = $replayGain->albumPeak;
 
         return $this;
     }

@@ -77,6 +77,25 @@ final class FakeMusicBrainz extends MusicBrainzClient
             : [];
     }
 
+    public function searchRecordingsFuzzy(?string $artist, string $title, int $limit = 5, bool $excludeLive = false): array
+    {
+        $this->calls[] = "searchRecordingsFuzzy({$artist}, {$title})";
+
+        // The exact phrase misses the typo; every word fuzzy finds it (any artist when none is given).
+        if (mb_strtolower($title) === 'last ressort' && ($artist === null || mb_strtolower($artist) === 'papa roach')) {
+            return [new RecordingMatch('rec-last-resort', 'Last Resort', 'Papa Roach', 200, 1.0, [])];
+        }
+        // Title-only search: same title by other artists come back too.
+        if (mb_strtolower($title) === 'fat lip' && $artist === null) {
+            return [
+                new RecordingMatch('rec-fat-lip-plant', 'Fat Lip', 'Robert Plant', 240, 1.0, []),
+                new RecordingMatch('rec-fat-lip', 'Fat Lip', 'Sum 41', 179, 1.0, []),
+            ];
+        }
+
+        return [];
+    }
+
     public function searchRecordings(?string $artist, string $title, int $limit = 5, bool $excludeLive = false): array
     {
         $this->calls[] = "searchRecordings({$artist}, {$title})";
@@ -281,6 +300,14 @@ check('E: studio recording preferred over a live bonus with a longer title', ($r
 check('E: original album preferred over the anniversary edition', ($res[30]->fields['album'] ?? null) === 'Meteora', (string) ($res[30]->fields['album'] ?? '-'));
 check('E: folder coherence: Crawling joins the album its siblings matched', ($res[31]->fields['album'] ?? null) === 'Meteora', (string) ($res[31]->fields['album'] ?? '-'));
 check('E: "Numb - Encore" retried as a title by the folder artist', ($res[32]->recordingId ?? null) === 'rec-numb-encore' && ($res[32]->fields['album'] ?? null) === 'Collision Course', json_encode($res[32]->fields ?? null));
+
+// ---- G. Forgiving name search: misspelt title, artist spelt differently -----
+$mb->calls = [];
+$p = $enricher->enrichFolder([new EnrichmentTrack(40, "{$root}/Papa Roach/Album inconnu/Papa Roach - Last Ressort.mp3", 'Papa Roach - Last Ressort', 'Unknown Artist', 'Unknown Album', '', 200, null, true, true)], $logger)[0] ?? null;
+check('G: exact phrase first, then fuzzy', \in_array('searchRecordingsFuzzy(Papa Roach, Last Ressort)', $mb->calls, true), implode(' | ', $mb->calls));
+check('G: misspelt title found by the fuzzy search', $p?->recordingId === 'rec-last-resort' && ($p->fields['title'] ?? null) === 'Last Resort', json_encode($p?->fields));
+$p = $enricher->enrichFolder([new EnrichmentTrack(41, "{$root}/Sum41/All Killer No Filler/sum41 - Fat Lip.mp3", 'sum41 - Fat Lip', 'Unknown Artist', 'Unknown Album', '', 179, null, true, true)], $logger)[0] ?? null;
+check('G: title-only search keeps the similar artist only', $p?->recordingId === 'rec-fat-lip', (string) $p?->recordingId);
 
 $extended = new RecordingMatch('r', 'All Night (extended club version)', 'Parov Stelar', 300, 1.0, []);
 check('F: extended club version is a variant of "all night"', $extended->isVariantOf('all night'));

@@ -62,6 +62,7 @@ php bin/console app:scan                     # 4. index the library (new files i
 php bin/console app:spotify:match -v         # 5. Spotify link of each track (resumable: rerun it if it stops)
 php bin/console app:artist:fetch             # 6. artist pages: photo, Wikipedia, links, YouTube channel
 php bin/console app:artist:videos            # 7. latest YouTube videos (cron, e.g. hourly)
+php bin/console app:lyrics:fetch -v          # 8. lyrics from LRCLIB, synced (LRC) when available (resumable)
 ```
 
 What happens to each file in `app:import`:
@@ -71,7 +72,8 @@ What happens to each file in `app:import`:
 | identified (score ≥ 0.85) | `MUSIC_DIR/Artist/Album (Year)/07 Title.ext` (multi-disc: `2-07`, no album: `Artist/Singles/`) |
 | doubtful | stays in `IMPORT_DIR`, up to 5 candidates wait in **/admin/import** |
 | same audio already in the library | `IMPORT_DIR/_duplicates/` |
-| not identified / error | stays in `IMPORT_DIR` (retried when the file changes, or `--retry`) |
+| not identified (no candidate at all) | `MUSIC_DIR/_unclassified/` + its path in the import folder, untouched (indexed by `app:scan`; `--no-unclassified` leaves it in `IMPORT_DIR`) |
+| error | stays in `IMPORT_DIR` (retried when the file changes, or `--retry`) |
 
 Nothing is ever deleted: converted WMA go to `_wma/`, duplicates to `_duplicates/`.
 
@@ -93,12 +95,13 @@ tracks outside `MUSIC_DIR` (files kept on disk).
 | Command | Main options |
 |---|---|
 | `app:convert` | `--dry-run`, `--bitrate=auto\|192\|256\|320` (auto: WMA Lossless or ≥ 256 kb/s → 320, 160–255 → 256, below → 192), `--limit`, `--source` |
-| `app:import` | `--dry-run`, `--limit`, `--threshold=0.85`, `--retry`, `--only=failed,skipped,pending,unmatched`, `--source` |
+| `app:import` | `--dry-run`, `--limit`, `--threshold=0.85`, `--retry`, `--only=failed,skipped,pending,unmatched`, `--source`, `--no-unclassified` |
 | `app:scan` | `--force` (re-read every file), `--verbose-scan` |
 | `app:spotify:match` | `-v` (list matches), `--limit`, `--retry` (tracks not found before), `--write-tags` / `--tags-only` (URL into the MP3), `--browser` (last resort: Spotify's search page in headless Google Chrome), `--browser-only` (only that step, e.g. with `--retry`) |
 | `app:enrich` | `--dry-run`, `--limit`, `--path=TEXT`, `--threshold`, `--retry`, `--all` |
 | `app:artist:fetch` | `--artist=NAME`, `--retry` (not found before), `--refresh` (all), `--limit` |
 | `app:artist:videos` | `--artist=NAME`, `-v` |
+| `app:lyrics:fetch` | `-v` (list results), `--dry-run`, `--limit`, `--id`, `--retry` (tracks not found before), `--force` (also tracks with lyrics; synced ones are never replaced by plain ones), `--write-tags` (lyrics into the file too), `--delay=200` (ms between tracks) |
 | `app:artist:merge` | `--dry-run`, `--artist=NAME --to=NEW_NAME` |
 
 The long commands save as they go (per track, folder or artist): if one stops,
@@ -109,9 +112,12 @@ rerun it and it continues with what is left.
 - **Library / Artists / Years / Genres** — artist and year tiles show album cover mosaics.
 - **Artist page** — photo, Wikipedia summary, links, latest YouTube videos
   (**New** since your last visit), albums, tracks, *Play all* / *Add all to queue*.
-- **Song page** — details, quality, Spotify link, raw tags, per-track volume / EQ.
+- **Song page** — details, quality, Spotify link, raw tags, per-track volume / EQ
+  (applied live while the song plays).
 - **Player bar** — title → song page, artist and album → their pages; playback
-  continues while browsing.
+  continues while browsing. Lyrics button (or **L**): synced lyrics scroll with
+  the song, click a line to jump there. **RG** button: ReplayGain normalization
+  track → album → off (needs ReplayGain tags, read by `app:scan`).
 - Admin (buttons on the Library page): **/admin/import** (doubtful imports,
   keys 1–5 to choose, S skip, N next), **/admin/suggestions** (`app:enrich`
   proposals, revertible), **/admin/quality** (bitrate / format stats, worst first).
@@ -147,6 +153,7 @@ src/Service/Enrichment/ identification (MusicBrainz, AcoustID, Cover Art Archive
 src/Service/Import/     import folder → library (FileImporter, LibraryPath, WmaConverter)
 src/Service/Artist/     artist pages (MusicBrainz → Wikidata → Wikipedia, YouTube RSS), merge
 src/Service/Spotify/    Spotify matching
+src/Service/Lyrics/     LRCLIB lyrics (app:lyrics:fetch)
 templates/              Twig
 lib/getid3/             getID3 (tag reading / writing)
 migrations/             Doctrine migrations
@@ -160,4 +167,21 @@ migrations/             Doctrine migrations
 - Latin names for artists credited in another script ("植松伸夫" → Nobuo Uematsu).
 - `composer update "symfony/*"` for the advisories reported by `composer audit`.
 - Still to port from the legacy app: social features, blogs / notes, admin
-  (users, reports), audio extras (normalization, crossfade).
+  (users, reports), audio extras (crossfade).
+- `app:loudness`: measure the tracks without ReplayGain tags (ffmpeg `ebur128`)
+  so the RG normalization covers the whole library.
+
+Ideas taken from [Monochrome](https://github.com/monochrome-music/monochrome):
+
+- Scrobbling to ListenBrainz / Last.fm once half the track (max 4 min) is played.
+- Global keyboard shortcuts (←/→ seek, Shift+←/→ prev/next, ↑/↓ volume, M, S, R, Q),
+  shuffle / repeat, sleep timer, endless radio when the queue ends.
+- Listening signals for the recommendations: completion rate and skips
+  (< 5 s or < 30 % played) per track and artist, disliked tracks left out.
+- Crossfade (two `<audio>` elements) + preloading the next track, leading /
+  trailing silence trimmed.
+- Artist links from MusicBrainz `url-rels` (`/ws/2/artist/{mbid}?inc=url-rels`).
+- Playlist import from Spotify / Exportify CSV, XSPF, JSPF, M3U: matched by
+  ISRC, then by title / artist / album similarity.
+- Smaller ones: accent color taken from the cover, M3U / CUE export, visualizer,
+  Ctrl+K command palette.
