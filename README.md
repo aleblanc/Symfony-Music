@@ -120,7 +120,10 @@ rerun it and it continues with what is left.
   those not in the library (dimmed, ✓ on the ones you have), with their
   popularity (listeners on ListenBrainz) and **★ Essential** on the most listened;
   the **?** on a cover shows its track list (original edition, ✓ on the tracks
-  you have).
+  you have); the **♥** marks an album to listen to.
+- **Favorite discography** (left menu) — the albums hearted in artist
+  discographies, latest first, with their track list and a ✓ when already in
+  the library.
 - **Song page** — details, quality, Spotify link, raw tags, per-track volume / EQ
   (applied live while the song plays).
 - **Player bar** — title → song page, artist and album → their pages; playback

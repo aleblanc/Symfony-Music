@@ -26,6 +26,7 @@
                     {% if app.user %}
                         <div class="nav-label">Your music</div>
                         <a href="{{ path('app_favorites') }}" class="{{ route == 'app_favorites' ? 'active' }}">{{ icons.icon('heart') }}<span>Favorites</span></a>
+                        <a href="{{ path('app_album_favorites') }}" class="{{ route == 'app_album_favorites' ? 'active' }}">{{ icons.icon('heart') }}<span>Favorite discography</span></a>
                         <a href="{{ path('app_listen_later') }}" class="{{ route starts with 'app_listen_later' ? 'active' }}">{{ icons.icon('clock') }}<span>Listen Later</span></a>
                         <a href="{{ path('app_offline') }}" class="{{ route starts with 'app_offline' ? 'active' }}">{{ icons.icon('cloud') }}<span>Offline</span></a>
                         <a href="{{ path('app_playlists') }}" class="{{ route starts with 'app_playlist' ? 'active' }}">{{ icons.icon('playlist') }}<span>Playlists</span></a>

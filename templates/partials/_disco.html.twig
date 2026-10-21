@@ -1,0 +1,53 @@
+{# One album of a discography (artist page, Favorite discography page): cover, year,
+   popularity, heart, track list behind "?". d comes from DiscographyView::build(). #}
+{% macro card(d, idx, showArtist = false) %}
+<div class="disco-item">
+<a class="card{{ d.owned ? '' : ' disco-missing' }}"
+   href="{{ d.owned ? path('app_album', {name: d.owned}) : 'https://musicbrainz.org/release-group/' ~ d.id }}"
+   {% if not d.owned %}target="_blank" rel="noopener" title="Not in the library — open on MusicBrainz"{% endif %}>
+    <div class="mosaic mosaic-1 disco-cover" data-letter="{{ d.title|slice(0, 1)|upper }}">
+        {% if d.top %}<span class="badge-new disco-top" title="Among the artist's most listened albums (ListenBrainz)">★ Essential</span>{% endif %}
+        <img src="https://coverartarchive.org/release-group/{{ d.id }}/front-250" alt="" loading="lazy" decoding="async" onerror="this.remove()">
+    </div>
+    <div class="card-title">{{ d.title }}</div>
+    <div class="card-sub">
+        {{ d.date ? d.date|slice(0, 4) : '—' }}{% if d.type != 'Album' %} · {{ d.type }}{% endif %}
+        {% if d.owned %}<span class="disco-owned" title="In the library">✓</span>{% endif %}
+    </div>
+    {% if d.popularity is not null %}
+        <div class="disco-pop" title="{{ d.listeners|default(0)|number_format(0, ',', ' ') }} listeners · {{ d.listens|default(0)|number_format(0, ',', ' ') }} listens on ListenBrainz">
+            <span class="disco-pop-bar"><span style="width: {{ max(d.popularity, 2) }}%"></span></span>
+            <span class="muted">{{ d.listeners|default(0)|number_format(0, ',', ' ') }}</span>
+        </div>
+    {% endif %}
+</a>
+{% if showArtist %}<a class="disco-artist" href="{{ path('app_artist', {name: d.artist}) }}">{{ d.artist }}</a>{% endif %}
+{% if app.user %}
+    <button type="button" class="disco-fav-btn{{ d.favorite ? ' fav-on' }}" data-fav-toggle
+            data-fav-url="{{ path('app_album_favorite_toggle', {id: d.id, artist: d.artist}) }}"
+            title="To listen to (Favorite discography)" aria-label="Favorite: {{ d.title }}">
+        <svg viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.33-8.24C.9 10.06 1.4 6.5 4.2 5.2 6.2 4.3 8.6 5 12 8.5 15.4 5 17.8 4.3 19.8 5.2c2.8 1.3 3.3 4.86 1.53 7.56C18.7 16.65 12 21 12 21z"/></svg>
+    </button>
+{% endif %}
+{% if d.tracklist is defined and d.tracklist is iterable %}
+    {% set tl = d.tracklist %}
+    <button type="button" class="disco-tracks-btn" popovertarget="disco-tl-{{ idx }}" title="Track list" aria-label="Track list of {{ d.title }}">?</button>
+    <div popover id="disco-tl-{{ idx }}" class="disco-tracklist">
+        <div class="disco-tl-head">
+            <strong>{{ d.title }}</strong>
+            <span class="muted">{{ [tl.date ? tl.date|slice(0, 4) : null, tl.format, tl.country]|filter(v => v)|join(' · ') }} · {{ tl.tracks|length }} tracks{% if tl.tracks|filter(t => t.have)|length %} · {{ tl.tracks|filter(t => t.have)|length }} in the library{% endif %}</span>
+            <button type="button" class="disco-tl-close" popovertarget="disco-tl-{{ idx }}" popovertargetaction="hide" aria-label="Close">×</button>
+        </div>
+        <ol>
+            {% for t in tl.tracks %}
+                <li class="{{ t.have ? 'have' : '' }}">
+                    <span class="muted">{{ t.n }}</span>
+                    <span>{{ t.title }}{% if t.have %} <span class="disco-owned" title="In the library">✓</span>{% endif %}</span>
+                    <span class="muted">{% if t.length %}{{ '%d:%02d'|format(t.length // 60, t.length % 60) }}{% endif %}</span>
+                </li>
+            {% endfor %}
+        </ol>
+    </div>
+{% endif %}
+</div>
+{% endmacro %}

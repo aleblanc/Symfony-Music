@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+{% import 'partials/_disco.html.twig' as disco %}
+
+{% block title %}Favorite discography · PHP Music{% endblock %}
+
+{% block body %}
+    <h1>Favorite discography</h1>
+    <p class="section-sub">
+        {{ cards|length }} album{{ cards|length == 1 ? '' : 's' }} to listen to, latest hearted first
+        {%- set owned = cards|filter(c => c.owned)|length %}{% if owned %} · {{ owned }} already in the library{% endif %}.
+        Heart an album in the <em>Discography</em> of an artist page to add it here.
+    </p>
+    {% if cards is empty %}
+        <p class="muted">No album yet.</p>
+    {% else %}
+        <div class="card-grid">
+            {% for d in cards %}
+                {{ disco.card(d, loop.index, true) }}
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

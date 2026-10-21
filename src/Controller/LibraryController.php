@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Repository\AlbumFavoriteRepository;
 use App\Repository\ArtistProfileRepository;
 use App\Repository\FavoriteRepository;
 use App\Repository\HistoryRepository;
@@ -10,7 +11,7 @@ use App\Repository\ListenLaterRepository;
 use App\Repository\MusicRepository;
 use App\Repository\OfflineSongRepository;
 use App\Repository\PlayCountRepository;
-use App\Service\Enrichment\MatchScorer;
+use App\Service\Artist\DiscographyView;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -152,7 +153,7 @@ class LibraryController extends AbstractController
     }
 
     #[Route('/artist/{name}', name: 'app_artist', requirements: ['name' => '.+'])]
-    public function artist(string $name, #[CurrentUser] ?User $user, MusicRepository $music, ArtistProfileRepository $profiles, EntityManagerInterface $em, ClockInterface $clock, MatchScorer $scorer): Response
+    public function artist(string $name, #[CurrentUser] ?User $user, MusicRepository $music, ArtistProfileRepository $profiles, EntityManagerInterface $em, ClockInterface $clock, DiscographyView $discographyView, AlbumFavoriteRepository $albumFavorites): Response
     {
         $songs = $music->findByArtist($name, $user);
         if ($songs === []) {
@@ -170,45 +171,8 @@ class LibraryController extends AbstractController
             }
         }
 
-        // The artist's whole discography (MusicBrainz), each entry pointing at the library album when there is one.
         $albums = $music->albumsOfArtist($name, $user);
-        $discography = [];
-        foreach ($profile?->getDiscography() ?? [] as $entry) {
-            $owned = null;
-            foreach ($albums as $a) {
-                if ($scorer->similarity($entry['title'], $a['album']) >= 0.85) {
-                    $owned = $a['album'];
-                    break;
-                }
-            }
-            $discography[] = $entry + ['owned' => $owned];
-        }
-        // Tracks of each album's list already in the library (same title, case/accents/punctuation ignored).
-        $latin = \Transliterator::create('Any-Latin; Latin-ASCII; Lower()');
-        $key = static fn(string $t): string => trim((string) preg_replace('/[^a-z0-9]+/', ' ', (string) ($latin?->transliterate($t) ?: mb_strtolower($t))));
-        $have = [];
-        foreach ($songs as $song) {
-            $have[$key((string) $song->getTitle())] = true;
-        }
-        foreach ($discography as &$d) {
-            if (\is_array($d['tracklist'] ?? null)) {
-                foreach ($d['tracklist']['tracks'] as &$t) {
-                    $t['have'] = isset($have[$key($t['title'])]);
-                }
-                unset($t);
-            }
-        }
-        unset($d);
-        // ListenBrainz listeners: a bar relative to the artist's most listened album, a star on the top 3.
-        $listeners = array_filter(array_map(static fn(array $d): int => (int) ($d['listeners'] ?? 0), $discography));
-        arsort($listeners);
-        $top = \array_slice(array_keys($listeners), 0, min(3, intdiv(\count($listeners) + 1, 2)), true);
-        $max = $listeners === [] ? 0 : max($listeners);
-        foreach ($discography as $i => &$d) {
-            $d['popularity'] = $max > 0 ? (int) round(100 * (int) ($d['listeners'] ?? 0) / $max) : null;
-            $d['top'] = \in_array($i, $top, true);
-        }
-        unset($d);
+        $discography = $discographyView->build($profile?->getDiscography() ?? [], $name, $user, $albumFavorites->releaseGroupIdsForUser($user));
 
         return $this->render('library/artist.html.twig', [
             'artist' => $name,
