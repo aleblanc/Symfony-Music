@@ -47,8 +47,15 @@ class DiscographyView
             }
             // Tracks already in the library: same title, case / accents / punctuation ignored.
             if (\is_array($entry['tracklist'] ?? null)) {
-                foreach ($entry['tracklist']['tracks'] as &$t) {
+                // Track listeners: a bar relative to the album's most listened track, a star on its top 3.
+                $listeners = array_filter(array_map(static fn(array $t): int => (int) ($t['listeners'] ?? 0), $entry['tracklist']['tracks']));
+                arsort($listeners);
+                $stars = \array_slice(array_keys($listeners), 0, min(3, intdiv(\count($listeners), 3)), true);
+                $max = $listeners === [] ? 0 : max($listeners);
+                foreach ($entry['tracklist']['tracks'] as $i => &$t) {
                     $t['have'] = isset($have[$key((string) $t['title'])]);
+                    $t['pop'] = $max > 0 && ($t['listeners'] ?? null) !== null ? (int) round(100 * $t['listeners'] / $max) : null;
+                    $t['star'] = \in_array($i, $stars, true);
                 }
                 unset($t);
             }

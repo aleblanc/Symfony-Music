@@ -143,7 +143,7 @@ class MusicBrainzClient
      * Track list of an album: its original edition (the earliest dated
      * official release), one request for every edition with its tracks.
      *
-     * @return array{release: string, date: ?string, country: ?string, format: ?string, tracks: list<array{n: string, title: string, length: ?int}>}|null null when the album has no official release
+     * @return array{release: string, date: ?string, country: ?string, format: ?string, tracks: list<array{n: string, title: string, length: ?int, recording: ?string}>}|null null when the album has no official release
      */
     public function getReleaseGroupTracks(string $releaseGroupId): ?array
     {
@@ -166,6 +166,7 @@ class MusicBrainzClient
                     'n' => \count($media) > 1 ? ($disc['position'] ?? '?') . '-' . $n : $n,
                     'title' => (string) ($t['title'] ?? ''),
                     'length' => isset($t['length']) ? (int) round($t['length'] / 1000) : null,
+                    'recording' => isset($t['recording']['id']) ? (string) $t['recording']['id'] : null,
                 ];
             }
         }

@@ -72,6 +72,27 @@ class ArtistProfileUpdater
             }
         }
         unset($album);
+
+        // Listeners of each track (its recording, whatever release it was played from): the album's standout titles.
+        $recordings = [];
+        foreach ($albums as $album) {
+            foreach (\is_array($album['tracklist'] ?? null) ? $album['tracklist']['tracks'] : [] as $t) {
+                if (($t['recording'] ?? null) !== null) {
+                    $recordings[] = $t['recording'];
+                }
+            }
+        }
+        $trackPopularity = $this->listenBrainz->recordingPopularity($recordings);
+        foreach ($albums as &$album) {
+            if (!\is_array($album['tracklist'] ?? null)) {
+                continue;
+            }
+            foreach ($album['tracklist']['tracks'] as &$t) {
+                $t['listeners'] = $trackPopularity === null || ($t['recording'] ?? null) === null ? null : ($trackPopularity[$t['recording']]['listeners'] ?? 0);
+            }
+            unset($t);
+        }
+        unset($album);
         $profile->setDiscography($albums);
 
         return true;

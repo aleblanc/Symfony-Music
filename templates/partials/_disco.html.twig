@@ -42,7 +42,8 @@
             {% for t in tl.tracks %}
                 <li class="{{ t.have ? 'have' : '' }}">
                     <span class="muted">{{ t.n }}</span>
-                    <span>{{ t.title }}{% if t.have %} <span class="disco-owned" title="In the library">✓</span>{% endif %}</span>
+                    <span>{% if t.star %}<span class="disco-star" title="One of the album's most listened tracks">★</span> {% endif %}{{ t.title }}{% if t.have %} <span class="disco-owned" title="In the library">✓</span>{% endif %}</span>
+                    <span class="disco-tl-pop" {% if t.pop is not null %}title="{{ t.listeners|number_format(0, ',', ' ') }} listeners on ListenBrainz"{% endif %}>{% if t.pop is not null %}<span class="disco-pop-bar"><span style="width: {{ max(t.pop, 2) }}%"></span></span><span class="muted">{{ t.listeners|number_format(0, ',', ' ') }}</span>{% endif %}</span>
                     <span class="muted">{% if t.length %}{{ '%d:%02d'|format(t.length // 60, t.length % 60) }}{% endif %}</span>
                 </li>
             {% endfor %}

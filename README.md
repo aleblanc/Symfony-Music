@@ -119,8 +119,8 @@ rerun it and it continues with what is left.
   **Discography**: every studio album / EP (MusicBrainz), newest first, even
   those not in the library (dimmed, ✓ on the ones you have), with their
   popularity (listeners on ListenBrainz) and **★ Essential** on the most listened;
-  the **?** on a cover shows its track list (original edition, ✓ on the tracks
-  you have); the **♥** marks an album to listen to.
+  the **?** on a cover shows its track list (original edition, listeners of each
+  track with ★ on the album's standout titles, ✓ on the tracks you have); the **♥** marks an album to listen to.
 - **Favorite discography** (left menu) — the albums hearted in artist
   discographies, latest first, with their track list and a ✓ when already in
   the library.

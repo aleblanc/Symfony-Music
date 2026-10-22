@@ -184,7 +184,8 @@ class ArtistProfile
     /** True when the discography lacks popularity figures or track lists (fetched before them, or a service was down). */
     public function needsDiscography(): bool
     {
-        return $this->discography === null || array_filter($this->discography, static fn(array $a): bool => ($a['listeners'] ?? null) === null || ($a['tracklist'] ?? null) === null) !== [];
+        return $this->discography === null || array_filter($this->discography, static fn(array $a): bool => ($a['listeners'] ?? null) === null || ($a['tracklist'] ?? null) === null
+            || (\is_array($a['tracklist']) && array_filter($a['tracklist']['tracks'], static fn(array $t): bool => !\array_key_exists('listeners', $t)) !== [])) !== [];
     }
 
     public function getFetchedAt(): ?\DateTimeImmutable
