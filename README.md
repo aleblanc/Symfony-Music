@@ -124,6 +124,11 @@ rerun it and it continues with what is left.
 - **Favorite discography** (left menu) — the albums hearted in artist
   discographies, latest first, with their track list and a ✓ when already in
   the library.
+- **Discover** — trending tracks, random tracks / albums / artists you never
+  played, mixes, and **Albums to discover from your artists**: the most
+  listened albums (ListenBrainz) missing from the library, for the artists
+  you have at least 11 tracks of, one per artist per round (**See all →**:
+  up to 120 on /discover/albums).
 - **Song page** — details, quality, Spotify link, raw tags, per-track volume / EQ
   (applied live while the song plays).
 - **Player bar** — title → song page, artist and album → their pages; playback

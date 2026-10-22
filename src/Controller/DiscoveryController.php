@@ -6,11 +6,13 @@ use App\Entity\Mix;
 use App\Entity\MixSong;
 use App\Entity\Music;
 use App\Entity\User;
+use App\Repository\AlbumFavoriteRepository;
 use App\Repository\FavoriteRepository;
 use App\Repository\ListenLaterRepository;
 use App\Repository\MixRepository;
 use App\Repository\MixSongRepository;
 use App\Repository\OfflineSongRepository;
+use App\Service\Artist\DiscographyView;
 use App\Service\RecommendationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -50,17 +52,35 @@ class DiscoveryController extends AbstractController
      * logged in.
      */
     #[Route('/discover', name: 'app_discover')]
-    public function hub(#[CurrentUser] ?User $user): Response
+    public function hub(#[CurrentUser] ?User $user, DiscographyView $discography, AlbumFavoriteRepository $albumFavorites): Response
     {
         $this->recommendations->refreshMixes();
+        $shelves = $this->recommendations->explore($user);
+        $toDiscover = $discography->albumsToDiscover($user, $albumFavorites->releaseGroupIdsForUser($user));
+        if ($toDiscover !== []) {
+            // Right after the random "Discover…" shelves, before "Frequently Played".
+            $at = \count(array_filter($shelves, static fn(array $s): bool => str_starts_with($s['title'], 'Discover')));
+            array_splice($shelves, $at, 0, [['title' => 'Albums to discover from your artists', 'type' => 'discography', 'items' => $toDiscover, 'more' => $this->generateUrl('app_discover_albums')]]);
+        }
 
         return $this->render('discovery/hub.html.twig', [
             'trending' => $this->recommendations->trending($user, 12),
-            'shelves' => $this->recommendations->explore($user),
+            'shelves' => $shelves,
             'mixes' => iterator_to_array($this->mixes->paginate(null, MixRepository::DEFAULT_SORT, 1, 6)),
             'favoriteIds' => $this->favoriteIds($user),
             'listenLaterIds' => $this->listenLaterIds($user),
             'offlineIds' => $this->offlineIds($user),
+        ]);
+    }
+
+    /**
+     * Every album to discover from your artists (the hub shows the first 12).
+     */
+    #[Route('/discover/albums', name: 'app_discover_albums')]
+    public function albumsToDiscover(#[CurrentUser] ?User $user, DiscographyView $discography, AlbumFavoriteRepository $albumFavorites): Response
+    {
+        return $this->render('discovery/albums.html.twig', [
+            'cards' => $discography->albumsToDiscover($user, $albumFavorites->releaseGroupIdsForUser($user), limit: 120),
         ]);
     }
 

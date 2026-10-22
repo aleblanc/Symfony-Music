@@ -740,3 +740,4 @@ html.nav-loading { cursor: progress; }
 .disco-tl-pop { display: flex; align-items: center; gap: 6px; font-size: 11px; }
 .disco-tl-pop .muted { min-width: 3.5em; text-align: right; }
 .disco-star { color: #f5c518; }
+.disco-discover .disco-missing { opacity: 1; }

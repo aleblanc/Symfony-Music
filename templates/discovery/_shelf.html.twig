@@ -1,13 +1,13 @@
 {#
  # Renders one "shelf" (a titled row of items) from RecommendationService.
- # A shelf is {title, type, items} where type is 'songs', 'albums' or
- # 'artists' — each rendered differently since they carry different data
+ # A shelf is {title, type, items} where type is 'songs', 'albums',
+ # 'artists' or 'discography' (DiscographyView cards) — each rendered differently since they carry different data
  # shapes (Music entities vs plain album/artist arrays).
  #}
 {% macro shelf(shelf, favoriteIds, listenLaterIds = [], offlineIds = []) %}
     {% import 'partials/_tracks.html.twig' as tracks %}
     <section class="shelf">
-        <h2>{{ shelf.title }}</h2>
+        <h2>{{ shelf.title }}{% if shelf.more is defined %} <a class="btn-link" href="{{ shelf.more }}">See all →</a>{% endif %}</h2>
         {% if shelf.type == 'songs' %}
             {{ tracks.track_list(shelf.items, favoriteIds, listenLaterIds, offlineIds) }}
         {% elseif shelf.type == 'albums' %}
@@ -19,6 +19,14 @@
                         <div class="card-title">{{ a.album }}</div>
                         <div class="card-sub">{{ a.artist }} · {{ a.songCount }} track{{ a.songCount == 1 ? '' : 's' }}</div>
                     </a>
+                {% endfor %}
+            </div>
+        {% elseif shelf.type == 'discography' %}
+            {% import 'partials/_disco.html.twig' as disco %}
+            <p class="muted shelf-sub">Not in the library yet, from the artists you have at least 11 tracks of — most listened (ListenBrainz) first.</p>
+            <div class="card-grid disco-discover">
+                {% for d in shelf.items %}
+                    {{ disco.card(d, 'discover-' ~ loop.index, true) }}
                 {% endfor %}
             </div>
         {% elseif shelf.type == 'artists' %}
