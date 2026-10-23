@@ -17,6 +17,7 @@ use Symfony\Component\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
@@ -181,6 +182,32 @@ class LibraryController extends AbstractController
             'albums' => $albums,
             'discography' => $discography,
             'songs' => $songs,
+            'favoriteIds' => $this->favoriteIds($user),
+            'listenLaterIds' => $this->listenLaterIds($user),
+            'offlineIds' => $this->offlineIds($user),
+        ]);
+    }
+
+    /**
+     * The library's special folders: _unclassified (files app:import could not
+     * identify, kept as they are) and _discover (albums fetched by
+     * app:discovery-dl), grouped by sub-folder.
+     */
+    #[Route('/folder/{name}', name: 'app_folder', requirements: ['name' => 'unclassified|discover'])]
+    public function folder(string $name, #[CurrentUser] ?User $user, MusicRepository $music, #[Autowire('%app.music_dir%')] string $musicDir): Response
+    {
+        $root = rtrim($musicDir, '/') . '/_' . $name;
+        $groups = [];
+        foreach ($music->findInFolder($root, $user) as $song) {
+            $relative = substr(\dirname((string) $song->getFile()), \strlen($root) + 1);
+            $groups[$relative !== false && $relative !== '' ? $relative : '.'][] = $song;
+        }
+
+        return $this->render('library/folder.html.twig', [
+            'name' => $name,
+            'folder' => '_' . $name,
+            'groups' => $groups,
+            'count' => array_sum(array_map('count', $groups)),
             'favoriteIds' => $this->favoriteIds($user),
             'listenLaterIds' => $this->listenLaterIds($user),
             'offlineIds' => $this->offlineIds($user),

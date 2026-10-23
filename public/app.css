@@ -746,3 +746,7 @@ html.nav-loading { cursor: progress; }
 .play-all-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 16px; }
 .play-all-playlist { display: flex; gap: 6px; align-items: center; }
 .play-all-playlist select { background: var(--bg-elev); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 14px; max-width: 260px; }
+
+/* Folder pages (_discover, _unclassified): one block per sub-folder */
+.folder-group { margin-bottom: 22px; }
+.folder-path { font-size: 15px; font-weight: 700; margin: 0 0 8px; word-break: break-word; }

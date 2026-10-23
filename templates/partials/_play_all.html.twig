@@ -3,7 +3,7 @@
  # the #page-tracks block) and "Add all to playlist" (PlaylistController::addAll)
  # for the album, artist, genre and year pages. kind: album|artist|genre|year.
  #}
-{% macro bar(kind, value, tracksSelector = '#page-tracks') %}
+{% macro bar(kind, value, tracksSelector = '#page-tracks', label = null) %}
     <div class="play-all-bar">
         <button class="btn" type="button" data-play-all="{{ tracksSelector }}">▶ Play all</button>
         <button class="btn btn-ghost" type="button" data-queue-all="{{ tracksSelector }}" title="Add every track to the play queue">+ Add all to queue</button>
@@ -12,12 +12,13 @@
                 <input type="hidden" name="_token" value="{{ csrf_token('playlist_add_all') }}">
                 <input type="hidden" name="kind" value="{{ kind }}">
                 <input type="hidden" name="value" value="{{ value }}">
+                <input type="hidden" name="name" value="{{ label ?? value }}">
                 <select name="playlist" aria-label="Playlist to add every track to" required>
                     <option value="" disabled selected>Add all to playlist…</option>
                     {% for p in editable_playlists() %}
                         <option value="{{ p.id }}">{{ p.name }}</option>
                     {% endfor %}
-                    <option value="new">+ New playlist “{{ value }}”</option>
+                    <option value="new">+ New playlist “{{ label ?? value }}”</option>
                 </select>
                 <button class="btn btn-ghost" type="submit">Add</button>
             </form>

@@ -20,6 +20,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
@@ -374,7 +375,7 @@ class PlaylistController extends AbstractController
      * in the playlist are skipped.
      */
     #[Route('/playlists/add-all', name: 'app_playlist_add_all', methods: ['POST'])]
-    public function addAll(Request $request, #[CurrentUser] User $user): Response
+    public function addAll(Request $request, #[CurrentUser] User $user, #[Autowire('%app.music_dir%')] string $musicDir): Response
     {
         $this->assertCsrf($request, 'playlist_add_all');
         $kind = (string) $request->request->get('kind', '');
@@ -384,6 +385,7 @@ class PlaylistController extends AbstractController
             'artist' => $this->music->findByArtist($value, $user),
             'genre' => $this->music->findByGenre($value, $user),
             'year' => ctype_digit($value) ? $this->music->findByYear((int) $value, $user) : [],
+            'folder' => \in_array($value, ['unclassified', 'discover'], true) ? $this->music->findInFolder(rtrim($musicDir, '/') . '/_' . $value, $user) : [],
             default => [],
         };
         $back = $this->backTo($request);
@@ -397,7 +399,7 @@ class PlaylistController extends AbstractController
         if ($target === 'new') {
             $playlist = new Playlist();
             $playlist->setOwner($user);
-            $playlist->setName(mb_substr($value, 0, 255));
+            $playlist->setName(mb_substr(trim((string) $request->request->get('name', '')) ?: $value, 0, 255));
             $playlist->setPublicId(bin2hex(random_bytes(8)));
             $playlist->setIsPrivate(true);
             $this->playlists->save($playlist);

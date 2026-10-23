@@ -23,6 +23,8 @@
                     <a href="{{ path('app_genres') }}" class="{{ route starts with 'app_genre' ? 'active' }}">{{ icons.icon('genre') }}<span>Genres</span></a>
                     <a href="{{ path('app_years') }}" class="{{ route starts with 'app_year' ? 'active' }}">{{ icons.icon('year') }}<span>Years</span></a>
                     <a href="{{ path('app_discover') }}" class="{{ route starts with 'app_discover' or route == 'app_mix_show' ? 'active' }}">{{ icons.icon('discover') }}<span>Discover</span></a>
+                    <a href="{{ path('app_folder', {name: 'discover'}) }}" class="{{ route == 'app_folder' and app.request.attributes.get('name') == 'discover' ? 'active' }}">{{ icons.icon('folder') }}<span>Discover folder</span></a>
+                    <a href="{{ path('app_folder', {name: 'unclassified'}) }}" class="{{ route == 'app_folder' and app.request.attributes.get('name') == 'unclassified' ? 'active' }}">{{ icons.icon('folder') }}<span>Unclassified folder</span></a>
                     {% if app.user %}
                         <div class="nav-label">Your music</div>
                         <a href="{{ path('app_favorites') }}" class="{{ route == 'app_favorites' ? 'active' }}">{{ icons.icon('heart') }}<span>Favorites</span></a>

@@ -119,6 +119,23 @@ class MusicRepository extends ServiceEntityRepository
     /**
      * @return Music[]
      */
+    /**
+     * Tracks whose file lies under $folder (an absolute path), in path order:
+     * the library's _unclassified and _discover folders.
+     *
+     * @return Music[]
+     */
+    public function findInFolder(string $folder, ?User $viewer): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->andWhere("m.file LIKE :prefix ESCAPE '\\'")
+            ->setParameter('prefix', addcslashes(rtrim($folder, '/') . '/', '%_\\') . '%')
+            ->orderBy('m.file', 'ASC');
+        $this->applyVisibility($qb, $viewer);
+
+        return $qb->getQuery()->getResult();
+    }
+
     public function findByAlbum(string $album, ?User $viewer): array
     {
         // Album order: disc, then track number; tracks without a number last, by title. Grouped by
