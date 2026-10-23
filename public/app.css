@@ -741,3 +741,8 @@ html.nav-loading { cursor: progress; }
 .disco-tl-pop .muted { min-width: 3.5em; text-align: right; }
 .disco-star { color: #f5c518; }
 .disco-discover .disco-missing { opacity: 1; }
+
+/* "Play all" / "Add all to queue" / "Add all to playlist" (album, artist, genre, year pages) */
+.play-all-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 16px; }
+.play-all-playlist { display: flex; gap: 6px; align-items: center; }
+.play-all-playlist select { background: var(--bg-elev); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 14px; max-width: 260px; }

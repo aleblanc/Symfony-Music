@@ -22,6 +22,8 @@ class QualityStatsController extends AbstractController
     private const LIST_LIMIT = 200;
     /** Default list: every lossy track up to this bitrate (below 193 kb/s: worth replacing). */
     private const LOW_MAX_KBPS = 192;
+    /** AAC / Vorbis / Opus: an AAC 128 is about an MP3 160-192, so only the clearly low ones. */
+    private const LOW_MAX_KBPS_EFFICIENT = 112;
     private const LOW_LIST_LIMIT = 2000;
 
     #[Route('/admin/quality', name: 'app_quality_stats', methods: ['GET'])]
@@ -43,8 +45,8 @@ class QualityStatsController extends AbstractController
             };
         } else {
             $limit = self::LOW_LIST_LIMIT;
-            $tracks = $music->lossyTracksByBitrate(null, null, self::LOW_MAX_KBPS, $limit);
-            $listTitle = \sprintf('Tracks under %d kb/s', self::LOW_MAX_KBPS + 1);
+            $tracks = $music->lossyTracksByBitrate(null, null, self::LOW_MAX_KBPS, $limit, self::LOW_MAX_KBPS_EFFICIENT);
+            $listTitle = \sprintf('Tracks worth replacing (MP3 ≤ %d kb/s, AAC / Vorbis / Opus ≤ %d kb/s)', self::LOW_MAX_KBPS, self::LOW_MAX_KBPS_EFFICIENT);
         }
 
         return $this->render('quality/index.html.twig', [

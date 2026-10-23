@@ -114,8 +114,11 @@ rerun it and it continues with what is left.
 ## 5. Web pages
 
 - **Library / Artists / Years / Genres** — artist and year tiles show album cover mosaics.
+- **Album, artist, genre and year pages** — *Play all*, *Add all to queue* and
+  *Add all to playlist* (an existing one, or a new private one named after the
+  page; tracks already in it are skipped). Albums play in track order.
 - **Artist page** — photo, Wikipedia summary, links, latest YouTube videos
-  (**New** since your last visit), albums, tracks, *Play all* / *Add all to queue*.
+  (**New** since your last visit), albums, tracks.
   **Discography**: every studio album / EP (MusicBrainz), newest first, even
   those not in the library (dimmed, ✓ on the ones you have), with their
   popularity (listeners on ListenBrainz) and **★ Essential** on the most listened;
@@ -138,8 +141,9 @@ rerun it and it continues with what is left.
 - Admin (buttons on the Library page): **/admin/import** (doubtful imports,
   keys 1–5 to choose, S skip, U keep as is in `_unclassified`, N next),
   **/admin/suggestions** (`app:enrich` proposals, revertible), **/admin/quality**
-  (bitrate / format stats, worst first, the tracks under 193 kb/s with their
-  Spotify link).
+  (bitrate / format stats, worst first, the tracks worth replacing with their
+  Spotify link: MP3 ≤ 192 kb/s, AAC / Vorbis / Opus ≤ 112 kb/s, which sound
+  better than MP3 at the same bitrate).
 
 ## 6. Good to know
 

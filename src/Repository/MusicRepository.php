@@ -21,6 +21,9 @@ class MusicRepository extends ServiceEntityRepository
      */
     public const DEFAULT_SORT = 'artist_asc';
 
+    /** getID3 formats more efficient than MP3 at the same bitrate (AAC in .m4a is reported as 'mp4'). */
+    public const EFFICIENT_LOSSY = ['mp4', 'aac', 'm4a', 'vorbis', 'ogg', 'opus'];
+
     public const SORT_KEYS = [
         'artist_asc', 'artist_desc',
         'album_asc', 'album_desc',
@@ -118,10 +121,19 @@ class MusicRepository extends ServiceEntityRepository
      */
     public function findByAlbum(string $album, ?User $viewer): array
     {
+        // Album order: disc, then track number; tracks without a number last, by title. Grouped by
+        // album artist first, so two albums sharing a name ("Greatest Hits") do not interleave.
         $qb = $this->createQueryBuilder('m')
+            ->addSelect('COALESCE(m.albumArtist, m.artist) AS HIDDEN byArtist')
+            ->addSelect('COALESCE(m.discNumber, 1) AS HIDDEN disc')
+            ->addSelect('CASE WHEN m.trackNumber IS NULL THEN 1 ELSE 0 END AS HIDDEN noNumber')
             ->andWhere('m.album = :album')
             ->setParameter('album', $album)
-            ->orderBy('m.title', 'ASC');
+            ->orderBy('byArtist', 'ASC')
+            ->addOrderBy('disc', 'ASC')
+            ->addOrderBy('noNumber', 'ASC')
+            ->addOrderBy('m.trackNumber', 'ASC')
+            ->addOrderBy('m.title', 'ASC');
 
         $this->applyVisibility($qb, $viewer);
 
@@ -1035,7 +1047,12 @@ class MusicRepository extends ServiceEntityRepository
      *
      * @return list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string}>
      */
-    public function lossyTracksByBitrate(?string $format, ?int $minKbps, ?int $maxKbps, int $limit): array
+    /**
+     * @param ?int $maxKbpsEfficient when given, the ceiling for the formats that sound better than MP3 at the
+     *                               same bitrate (AAC, Vorbis, Opus: an AAC 128 is about an MP3 160-192);
+     *                               $maxKbps then only applies to the others (MP3...)
+     */
+    public function lossyTracksByBitrate(?string $format, ?int $minKbps, ?int $maxKbps, int $limit, ?int $maxKbpsEfficient = null): array
     {
         $qb = $this->createQueryBuilder('m')
             ->select('m.id', 'm.title', 'm.artist', 'm.album', 'm.file', 'm.audioFormat AS format', 'm.lossless', 'm.bitrate', 'm.bitrateMode', 'm.spotifyId')
@@ -1050,7 +1067,12 @@ class MusicRepository extends ServiceEntityRepository
         if ($minKbps !== null) {
             $qb->andWhere('(m.bitrate + 500) / 1000 >= :min')->setParameter('min', $minKbps);
         }
-        if ($maxKbps !== null) {
+        if ($maxKbps !== null && $maxKbpsEfficient !== null) {
+            $qb->andWhere('(m.audioFormat IN (:efficient) AND (m.bitrate + 500) / 1000 <= :maxEfficient) OR (m.audioFormat NOT IN (:efficient) AND (m.bitrate + 500) / 1000 <= :max)')
+                ->setParameter('efficient', self::EFFICIENT_LOSSY)
+                ->setParameter('maxEfficient', $maxKbpsEfficient)
+                ->setParameter('max', $maxKbps);
+        } elseif ($maxKbps !== null) {
             $qb->andWhere('(m.bitrate + 500) / 1000 <= :max')->setParameter('max', $maxKbps);
         }
 

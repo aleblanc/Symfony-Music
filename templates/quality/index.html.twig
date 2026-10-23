@@ -71,7 +71,7 @@
 
     <section class="qs-block" id="tracks">
         <h2>{{ listTitle }} <span class="muted">· {{ tracks|length }} track{{ tracks|length == 1 ? '' : 's' }}, {{ tracks|filter(t => t.spotifyId)|length }} with a Spotify link · lowest bitrate first{% if tracks|length >= listLimit %}, first {{ listLimit }}{% endif %}</span></h2>
-        {% if filtered %}<p><a class="link" href="{{ path('app_quality_stats') }}#tracks">← Back to the tracks under 193 kb/s</a></p>{% endif %}
+        {% if filtered %}<p><a class="link" href="{{ path('app_quality_stats') }}#tracks">← Back to the tracks worth replacing</a></p>{% endif %}
         {% if tracks is empty %}
             <p class="muted">No track here.</p>
         {% else %}

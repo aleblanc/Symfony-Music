@@ -368,6 +368,88 @@ class PlaylistController extends AbstractController
     }
 
     /**
+     * "Add all to playlist" of the album, artist, genre and year pages: every
+     * track of that page (visible to the user) into one of their playlists,
+     * or into a new private one named after the page ("new"). Tracks already
+     * in the playlist are skipped.
+     */
+    #[Route('/playlists/add-all', name: 'app_playlist_add_all', methods: ['POST'])]
+    public function addAll(Request $request, #[CurrentUser] User $user): Response
+    {
+        $this->assertCsrf($request, 'playlist_add_all');
+        $kind = (string) $request->request->get('kind', '');
+        $value = trim((string) $request->request->get('value', ''));
+        $songs = match ($kind) {
+            'album' => $this->music->findByAlbum($value, $user),
+            'artist' => $this->music->findByArtist($value, $user),
+            'genre' => $this->music->findByGenre($value, $user),
+            'year' => ctype_digit($value) ? $this->music->findByYear((int) $value, $user) : [],
+            default => [],
+        };
+        $back = $this->backTo($request);
+        if ($songs === []) {
+            $this->addFlash('error', 'No track to add.');
+
+            return $back;
+        }
+
+        $target = (string) $request->request->get('playlist', '');
+        if ($target === 'new') {
+            $playlist = new Playlist();
+            $playlist->setOwner($user);
+            $playlist->setName(mb_substr($value, 0, 255));
+            $playlist->setPublicId(bin2hex(random_bytes(8)));
+            $playlist->setIsPrivate(true);
+            $this->playlists->save($playlist);
+        } else {
+            $playlist = ctype_digit($target) ? $this->playlists->find((int) $target) : null;
+            if ($playlist === null) {
+                $this->addFlash('error', 'Playlist not found.');
+
+                return $back;
+            }
+            $this->assertCanEdit($playlist, $user);
+        }
+
+        $present = [];
+        foreach ($playlist->getItems() as $item) {
+            $present[$item->getSong()?->getId()] = true;
+        }
+        $order = $this->playlistSongs->nextSortOrder($playlist);
+        $added = 0;
+        foreach ($songs as $song) {
+            if (isset($present[$song->getId()])) {
+                continue;
+            }
+            $present[$song->getId()] = true;
+            $item = new PlaylistSong();
+            $item->setSong($song);
+            $item->setAddedBy($user);
+            $item->setSortOrder($order++);
+            $playlist->addItem($item);
+            $this->em->persist($item);
+            ++$added;
+        }
+        $this->em->flush();
+
+        $skipped = \count($songs) - $added;
+        $this->addFlash('success', \sprintf('%d track%s added to "%s"%s.', $added, $added === 1 ? '' : 's', $playlist->getName(), $skipped > 0 ? \sprintf(' (%d already there)', $skipped) : ''));
+
+        return $back;
+    }
+
+    /** Back to the page the form was sent from (same site only), else the playlists. */
+    private function backTo(Request $request): Response
+    {
+        $referer = (string) $request->headers->get('referer', '');
+        if ($referer !== '' && parse_url($referer, \PHP_URL_HOST) === $request->getHost()) {
+            return $this->redirect($referer);
+        }
+
+        return $this->redirectToRoute('app_playlists');
+    }
+
+    /**
      * @return bool Whether the track was newly added (false if it was already there).
      */
     private function doAddSong(Playlist $playlist, Music $song, User $user): bool
