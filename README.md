@@ -118,10 +118,10 @@ rerun it and it continues with what is left.
 
 - **Library / Artists / Years / Genres** — artist and year tiles show album cover mosaics.
 - **Discover folder / Unclassified folder** (left menu) — the tracks under
-  `MUSIC_DIR/_discover` (albums fetched by `app:discovery-dl`) and
+  `MUSIC_DIR/_discover` (albums to discover, e.g. from your Favorite discography) and
   `MUSIC_DIR/_unclassified` (files `app:import` could not identify), grouped by
   sub-folder, with the same play / queue / playlist buttons. Both folders are
-  scanned like the rest of the library (only `_backup_redl` is not).
+  scanned like the rest of the library.
 - **Album, artist, genre and year pages** — *Play all*, *Add all to queue* and
   *Add all to playlist* (an existing one, or a new private one named after the
   page; tracks already in it are skipped). Albums play in track order.

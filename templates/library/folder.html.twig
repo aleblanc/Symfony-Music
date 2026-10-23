@@ -9,11 +9,11 @@
     <h1>{{ label }}</h1>
     <p class="section-sub">
         {{ count }} track{{ count == 1 ? '' : 's' }} in <code>MUSIC_DIR/{{ folder }}</code>
-        {% if name == 'discover' %}— albums fetched by <code>app:discovery-dl</code> from your Favorite discography.
+        {% if name == 'discover' %}— albums to discover, e.g. from your Favorite discography.
         {% else %}— files <code>app:import</code> could not identify, kept as they are.{% endif %}
     </p>
     {% if count == 0 %}
-        <p class="muted">Empty for now{% if name == 'discover' %}: run <code>php bin/console app:discovery-dl</code>{% endif %}, then <code>app:scan</code>.</p>
+        <p class="muted">Empty for now: files put in this folder show up here after <code>php bin/console app:scan</code>.</p>
     {% else %}
         {# The playlist form takes the folder's name; the folder itself is under MUSIC_DIR. #}
         {{ playAll.bar('folder', name, '#page-tracks', label) }}

@@ -7,7 +7,7 @@ use App\Service\Browser\ChromePipe;
 
 /**
  * Spotify's own search page in the locally installed Google Chrome, run
- * headless and driven over the DevTools protocol (ChromePipe, as app:lowdl):
+ * headless and driven over the DevTools protocol (ChromePipe):
  * the last resort of app:spotify:match --browser. One browser for a batch.
  *
  * The page is rendered by Spotify's JavaScript, so a plain HTTP fetch sees

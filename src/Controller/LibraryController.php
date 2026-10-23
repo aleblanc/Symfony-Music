@@ -190,8 +190,8 @@ class LibraryController extends AbstractController
 
     /**
      * The library's special folders: _unclassified (files app:import could not
-     * identify, kept as they are) and _discover (albums fetched by
-     * app:discovery-dl), grouped by sub-folder.
+     * identify, kept as they are) and _discover (albums to discover, e.g.
+     * from your Favorite discography), grouped by sub-folder.
      */
     #[Route('/folder/{name}', name: 'app_folder', requirements: ['name' => 'unclassified|discover'])]
     public function folder(string $name, #[CurrentUser] ?User $user, MusicRepository $music, #[Autowire('%app.music_dir%')] string $musicDir): Response
