@@ -58,7 +58,9 @@ class AudioFileReader
             new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::UNIX_PATHS),
             static function (\SplFileInfo $f) use ($root): bool {
                 if ($f->isDir()) {
-                    return !str_starts_with($f->getFilename(), '.') && $f->getPathname() !== $root . '/' . FileImporter::DUPLICATES_DIR;
+                    // Duplicates and the FLAC originals kept by --flac-to-aac are not imported again.
+                    return !str_starts_with($f->getFilename(), '.')
+                        && !\in_array($f->getPathname(), [$root . '/' . FileImporter::DUPLICATES_DIR, $root . '/' . FlacConverter::ORIGINALS_DIR], true);
                 }
 
                 return !str_starts_with($f->getFilename(), '.')

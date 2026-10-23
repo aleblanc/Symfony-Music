@@ -9,6 +9,7 @@ use App\Service\Enrichment\MetadataEnricher;
 use App\Service\Enrichment\Proposal;
 use App\Service\Import\AudioFileReader;
 use App\Service\Import\FileImporter;
+use App\Service\Import\FlacConverter;
 use App\Service\Import\ImportResult;
 use App\Service\Import\LibraryPath;
 use App\Service\MetadataWriter;
@@ -42,6 +43,7 @@ class ImportCommand extends Command
         private readonly AudioFileReader $reader,
         private readonly MetadataEnricher $enricher,
         private readonly FileImporter $filer,
+        private readonly FlacConverter $flacConverter,
         private readonly LibraryPath $libraryPath,
         private readonly MetadataWriter $writer,
         private readonly ImportItemRepository $items,
@@ -61,6 +63,7 @@ class ImportCommand extends Command
             ->addOption('retry', null, InputOption::VALUE_NONE, 'Also retry files already tried (unchanged since)')
             ->addOption('only', null, InputOption::VALUE_REQUIRED, 'Only files already tried with these statuses, comma-separated: failed, skipped, pending, unmatched (e.g. --only=failed,skipped)')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Process at most this many files')
+            ->addOption('flac-to-aac', null, InputOption::VALUE_NONE, 'Convert the FLAC files to M4A (AAC 256 kb/s, about 4 times smaller) before filing them; originals moved to IMPORT_DIR/' . FlacConverter::ORIGINALS_DIR)
             ->addOption('no-unclassified', null, InputOption::VALUE_NONE, 'Leave the files nothing identifies in the import folder instead of filing them as they are under MUSIC_DIR/' . FileImporter::UNCLASSIFIED_DIR);
     }
 
@@ -101,6 +104,9 @@ class ImportCommand extends Command
         }
 
         $io->definitionList(['From' => $source], ['Into' => $library . ($dryRun ? '  (dry run: nothing written or moved)' : '')]);
+        if ($input->getOption('flac-to-aac') && !$this->convertFlac($io, $source, $dryRun)) {
+            return Command::FAILURE;
+        }
         if ($this->enricher->canFingerprint()) {
             $io->text('Audio fingerprinting: <info>on</info> (AcoustID + fpcalc)');
         } else {
@@ -301,6 +307,46 @@ class ImportCommand extends Command
         $io->writeln(\sprintf('  <fg=cyan>·</> %s — not identified → %s', $name, substr($result->destination, \strlen(rtrim($this->musicDir, '/')) + 1)));
 
         return 'unclassified';
+    }
+
+    /**
+     * --flac-to-aac: every FLAC of the import folder becomes M4A (AAC 256)
+     * first, so it is identified and filed like any other file. False when
+     * the conversion cannot run at all.
+     */
+    private function convertFlac(SymfonyStyle $io, string $source, bool $dryRun): bool
+    {
+        $files = $this->flacConverter->findFlac($source);
+        if ($files === []) {
+            return true;
+        }
+        if ($this->flacConverter->binaryPath() === null) {
+            $io->error('--flac-to-aac needs ffmpeg: brew install ffmpeg (or set FFMPEG_PATH).');
+
+            return false;
+        }
+        if (!$this->writer->canWrite('m4a')) {
+            $io->warning('AtomicParsley not found (brew install atomicparsley): the converted M4A files would be filed without their identified tags.');
+        }
+        if ($dryRun) {
+            $io->text(\sprintf('%d FLAC file(s) would be converted to M4A (AAC 256 kb/s) first; this dry run shows them as FLAC.', \count($files)));
+
+            return true;
+        }
+
+        $io->text(\sprintf('Converting %d FLAC file(s) to M4A (AAC 256 kb/s, %s encoder), originals to IMPORT_DIR/%s…', \count($files), $this->flacConverter->encoder(), FlacConverter::ORIGINALS_DIR));
+        foreach ($files as $file) {
+            $name = substr($file, \strlen($source) + 1);
+            try {
+                $m4a = $this->flacConverter->convert($file, $source);
+                $io->writeln(\sprintf('  <info>♪</info> %s → %s <fg=gray>[%.1f → %.1f MB]</>', $name, basename($m4a), filesize($source . '/' . FlacConverter::ORIGINALS_DIR . '/' . $name) / 1048576, filesize($m4a) / 1048576));
+            } catch (\RuntimeException $e) {
+                $io->writeln(\sprintf('  <error>!</error> %s — %s (left as FLAC)', $name, $e->getMessage()));
+            }
+        }
+        $io->newLine();
+
+        return true;
     }
 
     private function item(string $file, int $size, int $mtime, ?ImportItem $item): ImportItem

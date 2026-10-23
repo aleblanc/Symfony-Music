@@ -75,7 +75,10 @@ What happens to each file in `app:import`:
 | not identified (no candidate at all) | `MUSIC_DIR/_unclassified/` + its path in the import folder, untouched (indexed by `app:scan`; `--no-unclassified` leaves it in `IMPORT_DIR`) |
 | error | stays in `IMPORT_DIR` (retried when the file changes, or `--retry`) |
 
-Nothing is ever deleted: converted WMA go to `_wma/`, duplicates to `_duplicates/`.
+Nothing is ever deleted: converted WMA go to `_wma/`, FLAC converted with
+`--flac-to-aac` to `_flac/`, duplicates to `_duplicates/`. Without that option
+FLAC files are filed as they are (lossless; their tags need `metaflac`:
+`brew install flac`).
 
 Files AcoustID does not know are searched by their names, typos forgiven:
 exact title first, then every word fuzzy ("Papa Roach - Last Ressort"), then
@@ -99,7 +102,7 @@ tracks outside `MUSIC_DIR` (files kept on disk).
 | Command | Main options |
 |---|---|
 | `app:convert` | `--dry-run`, `--bitrate=auto\|192\|256\|320` (auto: WMA Lossless or ≥ 256 kb/s → 320, 160–255 → 256, below → 192), `--limit`, `--source` |
-| `app:import` | `--dry-run`, `--limit`, `--threshold=0.85`, `--retry`, `--only=failed,skipped,pending,unmatched`, `--source`, `--no-unclassified` |
+| `app:import` | `--dry-run`, `--limit`, `--threshold=0.85`, `--retry`, `--only=failed,skipped,pending,unmatched`, `--source`, `--no-unclassified`, `--flac-to-aac` (FLAC → M4A AAC 256 kb/s before filing, originals to `IMPORT_DIR/_flac`) |
 | `app:scan` | `--force` (re-read every file), `--verbose-scan` |
 | `app:spotify:match` | `-v` (list matches), `--limit`, `--retry` (tracks not found before), `--write-tags` / `--tags-only` (URL into the MP3), `--browser` (last resort: Spotify's search page in headless Google Chrome), `--browser-only` (only that step, e.g. with `--retry`) |
 | `app:enrich` | `--dry-run`, `--limit`, `--path=TEXT`, `--threshold`, `--retry`, `--all` |
