@@ -766,3 +766,37 @@ html.nav-loading { cursor: progress; }
 /* Quality tag in track lists: a dot in the tier colour (very low → lossless) + format and bitrate */
 .q-tag { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; font-size: 11px; font-weight: 600; color: var(--text-faint); letter-spacing: .02em; vertical-align: 1px; }
 .q-tag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--q, var(--text-faint)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--q, transparent) 25%, transparent); }
+
+/* "?" (album track list) in the text flow: album title, folder headings */
+.disco-tracks-btn--inline { position: static; display: inline-grid; place-items: center; vertical-align: middle; margin-left: 10px; font-size: 13px; }
+.folder-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 8px; }
+.folder-head .folder-path { margin: 0 auto 0 0; }
+/* The track-list popover can sit inside a heading (album title, folder name): its own typography. */
+.disco-tracklist { font-size: 14px; font-weight: 400; line-height: 1.45; letter-spacing: normal; text-transform: none; }
+.disco-tracklist .disco-tl-head strong { font-size: 16px; font-weight: 700; }
+
+/* Play queue panel (same place as the lyrics panel) */
+.player-controls .player-queue-btn svg { width: 18px; height: 18px; fill: currentColor; }
+.player-controls .player-queue-btn:not(.has-queue) { opacity: .55; }
+.player-controls .player-queue-btn.active { color: var(--accent); opacity: 1; }
+.queue-head-actions { display: flex; align-items: center; gap: 4px; }
+.lyrics-panel-head button.queue-clear { width: auto; height: auto; border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+.queue-list { list-style: none; margin: 0; padding: 4px 10px 14px; }
+.queue-item { display: grid; grid-template-columns: 36px 1fr auto auto; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.queue-item:hover { background: var(--bg-hover); }
+.queue-item img { width: 36px; height: 36px; border-radius: 4px; object-fit: cover; background: var(--bg-elev-2); }
+.queue-text { min-width: 0; display: flex; flex-direction: column; }
+.queue-text strong, .queue-text span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.queue-item.current { background: var(--accent-soft); }
+.queue-item.current strong { color: var(--accent-2); }
+.queue-item.played { opacity: .5; }
+.queue-remove { background: none; border: 0; color: var(--text-dim); font-size: 18px; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; opacity: 0; }
+.queue-item:hover .queue-remove { opacity: 1; }
+.queue-remove:hover { color: var(--text); background: var(--bg-elev-2); }
+
+/* Rating of the playing track (player bar) and of the queued ones */
+.player-rate { margin-top: 2px; }
+.player-rate button { font-size: 13px; }
+.queue-rate button { font-size: 12px; padding: 0; }
+.queue-rate:not(.rated) { opacity: 0; }
+.queue-item:hover .queue-rate, .queue-item.current .queue-rate { opacity: 1; }

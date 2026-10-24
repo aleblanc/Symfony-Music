@@ -5,7 +5,8 @@
 {% block title %}{{ album }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>{{ album }}</h1>
+    {% import 'partials/_disco.html.twig' as disco %}
+    <h1>{{ album }}{% if tracklist %}{{ disco.tracklist(tracklist, 'album', true) }}{% endif %}</h1>
     <p class="section-sub">{{ songs|length }} track{{ songs|length == 1 ? '' : 's' }}</p>
     {{ playAll.bar('album', album) }}
     <div id="page-tracks">

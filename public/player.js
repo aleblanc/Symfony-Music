@@ -108,6 +108,11 @@ if (audio && bar) {
             .then((d) => {
                 if (!d || queue[index] !== t) return;
                 info = d;
+                if (d.rating != null) {
+                    t.rating = Number(d.rating);
+                    if (playerRate) fillStars(playerRate, t);
+                    renderQueue();
+                }
                 applyProcessing();
                 renderLyrics();
             })
@@ -301,6 +306,7 @@ if (audio && bar) {
 
     function setLyricsOpen(open) {
         if (!lyricsPanel) return;
+        if (open) setQueueOpen(false);
         lyricsPanel.hidden = !open;
         if (lyricsBtn) {
             lyricsBtn.classList.toggle('active', open);
@@ -317,6 +323,125 @@ if (audio && bar) {
         lyricsBody.addEventListener('click', (e) => {
             const line = e.target.closest('.lyric-line');
             if (line) audio.currentTime = parseFloat(line.dataset.time);
+        });
+    }
+
+    // ---------------- Play queue panel ----------------
+    // What plays now and next: click a track to jump to it, × to remove it,
+    // "Clear upcoming" to drop everything after the current track. Same place
+    // as the lyrics panel (one or the other); Q toggles it.
+    const queueBtn = document.getElementById('player-queue');
+    const queuePanel = document.getElementById('queue-panel');
+    const queueBody = document.getElementById('queue-body');
+    const queueCount = document.getElementById('queue-count');
+
+    // ---------------- Ratings of the playing / queued tracks ----------------
+    // Same star boxes as partials/_rating.html.twig (the click handler below
+    // saves them), built here for the player bar and the queue panel.
+    const playerRate = document.getElementById('player-rate');
+    const rateUrl = (id) => (cfg.ratingUrl && cfg.ratingCsrf && id ? cfg.ratingUrl.replace(/\/0$/, '/' + id) : '');
+    // Known rating: the queue entry's, else a star box of the page, else none.
+    function ratingOf(t) {
+        if (t.rating != null) return Number(t.rating);
+        const box = document.querySelector(`[data-rate-url="${rateUrl(t.id)}"]:not(#player-rate)`);
+        return box ? Number(box.dataset.stars || 0) : 0;
+    }
+    function fillStars(box, t) {
+        const url = rateUrl(t.id);
+        box.hidden = !url;
+        if (!url) return box;
+        const v = ratingOf(t);
+        box.dataset.rateUrl = url;
+        box.dataset.stars = String(v);
+        box.classList.toggle('rated', v > 0);
+        box.replaceChildren(...[1, 2, 3, 4, 5].map((n) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = '★';
+            b.dataset.rate = String(n);
+            b.className = n <= v ? 'on' : '';
+            b.setAttribute('role', 'radio');
+            b.setAttribute('aria-checked', n === v ? 'true' : 'false');
+            b.title = `${n} star${n > 1 ? 's' : ''}`;
+            return b;
+        }));
+        return box;
+    }
+
+    function renderQueue() {
+        if (queueBtn) queueBtn.classList.toggle('has-queue', queue.length > 1);
+        if (!queuePanel || !queueBody || queuePanel.hidden) return;
+        const upcoming = Math.max(0, queue.length - index - 1);
+        if (queueCount) queueCount.textContent = queue.length ? `· ${index + 1}/${queue.length}${upcoming ? `, ${upcoming} next` : ''}` : '';
+        queueBody.replaceChildren(...queue.map((t, i) => {
+            const li = document.createElement('li');
+            li.className = 'queue-item' + (i === index ? ' current' : '') + (i < index ? ' played' : '');
+            li.dataset.queueIndex = String(i);
+            const img = document.createElement('img');
+            img.alt = '';
+            img.loading = 'lazy';
+            if (t.cover) img.src = t.cover;
+            const text = document.createElement('span');
+            text.className = 'queue-text';
+            const title = document.createElement('strong');
+            title.textContent = t.title;
+            const artist = document.createElement('span');
+            artist.className = 'muted';
+            artist.textContent = t.artist;
+            text.append(title, artist);
+            li.append(img, text);
+            if (rateUrl(t.id)) {
+                const rate = document.createElement('span');
+                rate.className = 'rate queue-rate';
+                rate.setAttribute('role', 'radiogroup');
+                rate.setAttribute('aria-label', 'Rating');
+                li.append(fillStars(rate, t));
+            }
+            if (i !== index) {
+                const rm = document.createElement('button');
+                rm.type = 'button';
+                rm.className = 'queue-remove';
+                rm.title = 'Remove from the queue';
+                rm.setAttribute('aria-label', `Remove ${t.title} from the queue`);
+                rm.textContent = '×';
+                li.append(rm);
+            }
+            return li;
+        }));
+    }
+
+    function setQueueOpen(open) {
+        if (!queuePanel) return;
+        if (open && lyricsPanel && !lyricsPanel.hidden) setLyricsOpen(false);
+        queuePanel.hidden = !open;
+        if (queueBtn) {
+            queueBtn.classList.toggle('active', open);
+            queueBtn.setAttribute('aria-expanded', String(open));
+        }
+        if (open) {
+            renderQueue();
+            const cur = queueBody && queueBody.querySelector('.current');
+            if (cur) cur.scrollIntoView({ block: 'center' });
+        }
+    }
+
+    if (queuePanel && queueBody) {
+        if (queueBtn) queueBtn.addEventListener('click', () => setQueueOpen(queuePanel.hidden));
+        const closeQueue = document.getElementById('queue-close');
+        if (closeQueue) closeQueue.addEventListener('click', () => setQueueOpen(false));
+        const clearQueue = document.getElementById('queue-clear');
+        if (clearQueue) clearQueue.addEventListener('click', () => { queue.splice(index + 1); renderQueue(); });
+        queueBody.addEventListener('click', (e) => {
+            const li = e.target.closest('[data-queue-index]');
+            if (!li || e.target.closest('[data-rate]')) return;
+            const i = Number(li.dataset.queueIndex);
+            if (e.target.closest('.queue-remove')) {
+                queue.splice(i, 1);
+                if (i < index) index -= 1;
+                renderQueue();
+                return;
+            }
+            if (i !== index) load(i);
         });
     }
 
@@ -374,10 +499,12 @@ if (audio && bar) {
         }
         if (t.cover) { els.cover.src = t.cover; els.cover.style.visibility = 'visible'; }
         else { els.cover.removeAttribute('src'); }
+        if (playerRate) fillStars(playerRate, t);
         bar.hidden = false;
         audio.play().catch(() => {});
         highlight();
         updateMediaSession(t);
+        renderQueue();
     }
 
     // Metadata + action handlers for the OS media controls and the PiP window.
@@ -416,11 +543,13 @@ if (audio && bar) {
     function playNext(t) {
         if (index < 0) { queue = [t]; load(0); return; }
         queue.splice(index + 1, 0, t);
+        renderQueue();
         toast(`Playing next: ${t.title}`);
     }
     function addToQueue(t) {
         if (index < 0) { queue = [t]; load(0); return; }
         queue.push(t);
+        renderQueue();
         toast(`Added to queue: ${t.title}`);
     }
 
@@ -476,6 +605,7 @@ if (audio && bar) {
             return;
         }
         queue.push(...tracks);
+        renderQueue();
         toast(`${tracks.length} track${tracks.length === 1 ? '' : 's'} added to queue`);
     });
 
@@ -518,6 +648,8 @@ if (audio && bar) {
         if (e.code === 'Space') { e.preventDefault(); audio.paused ? audio.play() : audio.pause(); }
         if (e.code === 'KeyL' && !e.metaKey && !e.ctrlKey && !e.altKey && lyricsPanel && !bar.hidden) setLyricsOpen(lyricsPanel.hidden);
         if (e.key === 'Escape' && lyricsPanel && !lyricsPanel.hidden) setLyricsOpen(false);
+        if (e.code === 'KeyQ' && !e.metaKey && !e.ctrlKey && !e.altKey && queuePanel && !bar.hidden) setQueueOpen(queuePanel.hidden);
+        if (e.key === 'Escape' && queuePanel && !queuePanel.hidden) setQueueOpen(false);
     });
 
     // ---------------- Mini player (Picture-in-Picture) ----------------
@@ -635,17 +767,23 @@ if (audio && bar) {
         const before = Number(box.dataset.stars || 0);
         const n = Number(star.dataset.rate);
         const stars = n === before ? 0 : n;
+        // Every box of this track (list, player bar, queue) and its queue entries.
+        const url = box.dataset.rateUrl;
         const paint = (v) => {
-            box.dataset.stars = String(v);
-            box.classList.toggle('rated', v > 0);
-            box.querySelectorAll('[data-rate]').forEach((b) => {
-                const k = Number(b.dataset.rate);
-                b.classList.toggle('on', k <= v);
-                b.setAttribute('aria-checked', k === v ? 'true' : 'false');
+            queue.forEach((t) => { if (rateUrl(t.id) === url) t.rating = v; });
+            document.querySelectorAll('[data-rate-url]').forEach((other) => {
+                if (other.dataset.rateUrl !== url) return;
+                other.dataset.stars = String(v);
+                other.classList.toggle('rated', v > 0);
+                other.querySelectorAll('[data-rate]').forEach((b) => {
+                    const k = Number(b.dataset.rate);
+                    b.classList.toggle('on', k <= v);
+                    b.setAttribute('aria-checked', k === v ? 'true' : 'false');
+                });
             });
         };
         paint(stars);
-        fetch(box.dataset.rateUrl, {
+        fetch(url, {
             method: 'POST',
             headers: { 'X-Requested-With': 'fetch', 'X-CSRF-TOKEN': cfg.ratingCsrf || '', 'Content-Type': 'application/x-www-form-urlencoded' },
             body: 'stars=' + stars,

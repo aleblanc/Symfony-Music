@@ -67,7 +67,7 @@ class SongController extends AbstractController
     }
 
     /**
-     * What the player bar needs when a track starts: lyrics (LRC or plain),
+     * What the player bar needs when a track starts: lyrics (LRC or plain), rating,
      * ReplayGain values and the viewer's own volume / EQ for this track.
      */
     #[Route('/song/{id}/playback', name: 'app_song_playback', methods: ['GET'], requirements: ['id' => '\d+'])]
@@ -90,6 +90,7 @@ class SongController extends AbstractController
         return new JsonResponse([
             'id' => $song->getId(),
             'lyrics' => $song->getLyrics(),
+            'rating' => $song->getRating() ?? 0,
             'replayGain' => [
                 'trackGain' => $rg->trackGain,
                 'trackPeak' => $rg->trackPeak,

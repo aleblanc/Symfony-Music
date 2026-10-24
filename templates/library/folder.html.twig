@@ -1,6 +1,7 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_tracks.html.twig' as tracks %}
 {% import 'partials/_play_all.html.twig' as playAll %}
+{% import 'partials/_disco.html.twig' as disco %}
 
 {% set label = name == 'discover' ? 'Discover folder' : 'Unclassified folder' %}
 {% block title %}{{ label }} · PHP Music{% endblock %}
@@ -20,8 +21,15 @@
         <div id="page-tracks">
             {% for dir, songs in groups %}
                 <section class="folder-group">
-                    <h2 class="folder-path">{{ dir == '.' ? '(folder root)' : dir }} <span class="muted">· {{ songs|length }}</span></h2>
-                    {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
+                    <div class="folder-head">
+                        <h2 class="folder-path">{{ dir == '.' ? '(folder root)' : dir }} <span class="muted">· {{ songs|length }}</span>
+                            {%- if tracklists[dir] is defined %}{{ disco.tracklist(tracklists[dir], 'folder-' ~ loop.index, true) }}{% endif %}</h2>
+                        <button class="btn btn-sm" type="button" data-play-all="#folder-group-{{ loop.index }}">▶ Play all</button>
+                        <button class="btn btn-sm btn-ghost" type="button" data-queue-all="#folder-group-{{ loop.index }}" title="Add this folder's tracks to the play queue">+ Queue</button>
+                    </div>
+                    <div id="folder-group-{{ loop.index }}">
+                        {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
+                    </div>
                 </section>
             {% endfor %}
         </div>

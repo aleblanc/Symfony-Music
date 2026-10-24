@@ -75,11 +75,14 @@
             <h2>Albums</h2>
             <div class="card-grid">
                 {% for a in albums %}
+                    <div class="disco-item">
                     <a class="card" href="{{ path('app_album', {name: a.album}) }}">
                         {{ tiles.mosaic(a.coverId ? [a.coverId] : [], a.album|slice(0, 1)|upper) }}
                         <div class="card-title">{{ a.album }}</div>
                         <div class="card-sub">{% if a.year %}{{ a.year }} · {% endif %}{{ a.cnt }} track{{ a.cnt == 1 ? '' : 's' }}</div>
                     </a>
+                    {% if albumTracklists[a.album] is defined %}{{ disco.tracklist(albumTracklists[a.album], 'own-' ~ loop.index) }}{% endif %}
+                    </div>
                 {% endfor %}
             </div>
         </section>

@@ -68,6 +68,27 @@ class DiscographyView
     }
 
     /**
+     * The discography entry (as build() makes it: track list with listeners,
+     * ★, owned tracks) of one library album, for its "?" button; null when the
+     * artist has no profile or the album is not in their MusicBrainz discography.
+     *
+     * @param list<string> $hearted
+     *
+     * @return ?array<string, mixed>
+     */
+    public function forAlbum(string $artist, string $album, ?User $viewer, array $hearted = []): ?array
+    {
+        $entries = $this->profiles->findOneByName($artist)?->getDiscography() ?? [];
+        foreach ($entries === [] ? [] : $this->build($entries, $artist, $viewer, $hearted, false, true, [$album]) as $entry) {
+            if ($entry['owned'] !== null && \is_array($entry['tracklist'] ?? null)) {
+                return $entry;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @param list<array<string, mixed>> $entries  discography entries of one artist
      * @param bool                       $rank        popularity bar relative to these entries, star on the most listened
      * @param bool                       $ownedTracks mark the tracks of each list already in the library (one more query)
@@ -82,8 +103,8 @@ class DiscographyView
         $latin = \Transliterator::create('Any-Latin; Latin-ASCII; Lower()');
         $key = static fn(string $t): string => trim((string) preg_replace('/[^a-z0-9]+/', ' ', (string) ($latin?->transliterate($t) ?: mb_strtolower($t))));
         $have = [];
-        foreach ($ownedTracks ? $this->music->findByArtist($artist, $viewer) : [] as $song) {
-            $have[$key((string) $song->getTitle())] = true;
+        foreach ($ownedTracks ? $this->music->titlesOfArtist($artist, $viewer) : [] as $title) {
+            $have[$key($title)] = true;
         }
 
         $out = [];

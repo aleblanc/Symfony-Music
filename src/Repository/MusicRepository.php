@@ -117,8 +117,23 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return Music[]
+     * Titles of one artist's visible tracks, without hydrating the entities
+     * (and their cover BLOBs): the discography's "already in the library" check.
+     *
+     * @return list<string>
      */
+    public function titlesOfArtist(string $artist, ?User $viewer): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->select('m.title AS title')
+            ->andWhere('m.artist = :artist')
+            ->setParameter('artist', $artist);
+
+        $this->applyVisibility($qb, $viewer);
+
+        return array_map(static fn(array $r): string => (string) $r['title'], $qb->getQuery()->getScalarResult());
+    }
+
     /**
      * Tracks whose file lies under $folder (an absolute path), in path order:
      * the library's _unclassified and _discover folders.

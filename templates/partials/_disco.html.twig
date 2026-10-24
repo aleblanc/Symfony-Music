@@ -1,6 +1,7 @@
 {# One album of a discography (artist page, Favorite discography page): cover, year,
    popularity, heart, track list behind "?". d comes from DiscographyView::build(). #}
 {% macro card(d, idx, showArtist = false) %}
+{% import _self as disco %}
 <div class="disco-item">
 <a class="card{{ d.owned ? '' : ' disco-missing' }}"
    href="{{ d.owned ? path('app_album', {name: d.owned}) : 'https://musicbrainz.org/release-group/' ~ d.id }}"
@@ -29,9 +30,16 @@
         <svg viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.33-8.24C.9 10.06 1.4 6.5 4.2 5.2 6.2 4.3 8.6 5 12 8.5 15.4 5 17.8 4.3 19.8 5.2c2.8 1.3 3.3 4.86 1.53 7.56C18.7 16.65 12 21 12 21z"/></svg>
     </button>
 {% endif %}
+{{ disco.tracklist(d, idx) }}
+</div>
+{% endmacro %}
+
+{# The "?" button and its popover: the album's MusicBrainz track list (original edition) with each
+   track's listeners and ★ on the most listened. inline: a button in the text flow (headings, cards). #}
+{% macro tracklist(d, idx, inline = false) %}
 {% if d.tracklist is defined and d.tracklist is iterable %}
     {% set tl = d.tracklist %}
-    <button type="button" class="disco-tracks-btn" popovertarget="disco-tl-{{ idx }}" title="Track list" aria-label="Track list of {{ d.title }}">?</button>
+    <button type="button" class="disco-tracks-btn {{ inline ? 'disco-tracks-btn--inline' }}" popovertarget="disco-tl-{{ idx }}" title="Track list" aria-label="Track list of {{ d.title }}">?</button>
     <div popover id="disco-tl-{{ idx }}" class="disco-tracklist">
         <div class="disco-tl-head">
             <strong>{{ d.title }}</strong>
@@ -50,5 +58,4 @@
         </ol>
     </div>
 {% endif %}
-</div>
 {% endmacro %}

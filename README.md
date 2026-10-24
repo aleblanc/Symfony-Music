@@ -120,8 +120,11 @@ rerun it and it continues with what is left.
 - **Discover folder / Unclassified folder** (left menu) — the tracks under
   `MUSIC_DIR/_discover` (albums to discover, e.g. from your Favorite discography) and
   `MUSIC_DIR/_unclassified` (files `app:import` could not identify), grouped by
-  sub-folder, with the same play / queue / playlist buttons. Both folders are
-  scanned like the rest of the library.
+  sub-folder, with the same play / queue / playlist buttons, plus *Play all* /
+  *Queue* per album. Both folders are scanned like the rest of the library.
+- The **?** track list (MusicBrainz original edition, listeners of each track,
+  ★ on the most listened) also shows on the album page, on the artist page's
+  album cards and on each album of the Discover folder.
 - **Album, artist, genre and year pages** — *Play all*, *Add all to queue* and
   *Add all to playlist* (an existing one, or a new private one named after the
   page; tracks already in it are skipped). Albums play in track order.
@@ -148,7 +151,9 @@ rerun it and it continues with what is left.
   (applied live while the song plays).
 - **Player bar** — title → song page, artist and album → their pages; playback
   continues while browsing. Lyrics button (or **L**): synced lyrics scroll with
-  the song, click a line to jump there. **RG** button: ReplayGain normalization
+  the song, click a line to jump there. Queue button (or **Q**): the play queue —
+  current track highlighted, played ones dimmed; click a track to jump to it,
+  × to remove it, *Clear upcoming* to drop what follows. **RG** button: ReplayGain normalization
   track → album → off (needs ReplayGain tags, read by `app:scan`).
 - Admin (buttons on the Library page): **/admin/import** (doubtful imports,
   keys 1–5 to choose, S skip, U keep as is in `_unclassified`, N next),

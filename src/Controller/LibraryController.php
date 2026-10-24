@@ -181,6 +181,8 @@ class LibraryController extends AbstractController
             'newVideoIds' => $newVideoIds,
             'albums' => $albums,
             'discography' => $discography,
+            // Library album name => its discography entry (track list behind the "?" of the album cards).
+            'albumTracklists' => array_column(array_filter($discography, static fn(array $d): bool => $d['owned'] !== null && \is_array($d['tracklist'] ?? null)), null, 'owned'),
             'songs' => $songs,
             'favoriteIds' => $this->favoriteIds($user),
             'listenLaterIds' => $this->listenLaterIds($user),
@@ -194,7 +196,7 @@ class LibraryController extends AbstractController
      * from your Favorite discography), grouped by sub-folder.
      */
     #[Route('/folder/{name}', name: 'app_folder', requirements: ['name' => 'unclassified|discover'])]
-    public function folder(string $name, #[CurrentUser] ?User $user, MusicRepository $music, #[Autowire('%app.music_dir%')] string $musicDir): Response
+    public function folder(string $name, #[CurrentUser] ?User $user, MusicRepository $music, DiscographyView $discographyView, #[Autowire('%app.music_dir%')] string $musicDir): Response
     {
         $root = rtrim($musicDir, '/') . '/_' . $name;
         $groups = [];
@@ -207,6 +209,9 @@ class LibraryController extends AbstractController
             'name' => $name,
             'folder' => '_' . $name,
             'groups' => $groups,
+            // Sub-folder => its album's MusicBrainz track list, when its tracks form a known album.
+            'tracklists' => array_filter(array_map(fn(array $songs): ?array => ($album = $songs[0]->getAlbum()) !== null && $album !== ''
+                ? $this->albumTracklist($songs, $album, $user, $discographyView) : null, $groups)),
             'count' => array_sum(array_map('count', $groups)),
             'favoriteIds' => $this->favoriteIds($user),
             'listenLaterIds' => $this->listenLaterIds($user),
@@ -215,7 +220,7 @@ class LibraryController extends AbstractController
     }
 
     #[Route('/album/{name}', name: 'app_album', requirements: ['name' => '.+'])]
-    public function album(string $name, #[CurrentUser] ?User $user, MusicRepository $music): Response
+    public function album(string $name, #[CurrentUser] ?User $user, MusicRepository $music, DiscographyView $discographyView): Response
     {
         $songs = $music->findByAlbum($name, $user);
         if ($songs === []) {
@@ -225,10 +230,29 @@ class LibraryController extends AbstractController
         return $this->render('library/album.html.twig', [
             'album' => $name,
             'songs' => $songs,
+            // Its MusicBrainz track list (most listened tracks), for the "?" next to the title.
+            'tracklist' => $this->albumTracklist($songs, $name, $user, $discographyView),
             'favoriteIds' => $this->favoriteIds($user),
             'listenLaterIds' => $this->listenLaterIds($user),
             'offlineIds' => $this->offlineIds($user),
         ]);
+    }
+
+    /**
+     * The discography entry of an album of the library, found from its
+     * album artist (else its most frequent artist).
+     *
+     * @param list<\App\Entity\Music> $songs
+     *
+     * @return ?array<string, mixed>
+     */
+    private function albumTracklist(array $songs, string $album, ?User $user, DiscographyView $discographyView): ?array
+    {
+        $artists = array_count_values(array_filter(array_map(static fn($s): string => (string) ($s->getAlbumArtist() ?: $s->getArtist()), $songs)));
+        arsort($artists);
+        $artist = (string) array_key_first($artists);
+
+        return $artist !== '' ? $discographyView->forAlbum($artist, $album, $user) : null;
     }
 
     /**
