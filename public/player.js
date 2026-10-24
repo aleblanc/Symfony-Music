@@ -623,6 +623,38 @@ if (audio && bar) {
             .catch(() => {});
     });
 
+    // Star rating (partials/_rating.html.twig): a click on the Nth star rates
+    // the track N; on its current value it removes the rating. Optimistic UI,
+    // reverted if the server refuses.
+    document.addEventListener('click', (e) => {
+        const star = e.target.closest('[data-rate]');
+        const box = star && star.closest('[data-rate-url]');
+        if (!box) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const before = Number(box.dataset.stars || 0);
+        const n = Number(star.dataset.rate);
+        const stars = n === before ? 0 : n;
+        const paint = (v) => {
+            box.dataset.stars = String(v);
+            box.classList.toggle('rated', v > 0);
+            box.querySelectorAll('[data-rate]').forEach((b) => {
+                const k = Number(b.dataset.rate);
+                b.classList.toggle('on', k <= v);
+                b.setAttribute('aria-checked', k === v ? 'true' : 'false');
+            });
+        };
+        paint(stars);
+        fetch(box.dataset.rateUrl, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'fetch', 'X-CSRF-TOKEN': cfg.ratingCsrf || '', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'stars=' + stars,
+        })
+            .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+            .then((d) => paint(Number(d.stars)))
+            .catch(() => paint(before));
+    });
+
     // Listen Later / Offline toggling for the standalone buttons on the song
     // detail page (data-ll-toggle / data-off-toggle). The kebab menu uses its
     // own handler (toggleByUrl) below.

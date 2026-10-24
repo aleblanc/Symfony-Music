@@ -98,6 +98,10 @@ class Music
     #[ORM\Column(nullable: true)]
     private ?int $lastModified = null;
 
+    /** Star rating, 1 (lowest) to 5 (highest); null when not rated. One note per track. */
+    #[ORM\Column(type: 'smallint', nullable: true)]
+    private ?int $rating = null;
+
     /** Bits per second (getID3 `audio.bitrate`), not kbps. */
     #[ORM\Column(nullable: true)]
     private ?int $bitrate = null;
@@ -374,6 +378,19 @@ class Music
     public function setLastModified(?int $lastModified): static
     {
         $this->lastModified = $lastModified;
+
+        return $this;
+    }
+
+    public function getRating(): ?int
+    {
+        return $this->rating;
+    }
+
+    /** 1 to 5 stars, null (or 0) to remove the rating. */
+    public function setRating(?int $rating): static
+    {
+        $this->rating = $rating === null || $rating <= 0 ? null : min(5, $rating);
 
         return $this;
     }

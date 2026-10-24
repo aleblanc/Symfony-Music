@@ -25,6 +25,12 @@
         <div class="track-main">
             <a class="track-title" href="#" data-play>{{ song.displayTitle }}</a>
             <div class="track-sub">
+                {% set q = song.quality %}
+                {% if q %}
+                    {% set fmt = {mp3: 'MP3', mp4: 'AAC', aac: 'AAC', m4a: 'AAC', alac: 'ALAC', flac: 'FLAC', vorbis: 'OGG', ogg: 'OGG', opus: 'OPUS', wav: 'WAV', aiff: 'AIFF'}[song.audioFormat] ?? song.audioFormat|upper %}
+                    {% set kbps = song.bitrate ? (song.bitrate / 1000)|round : null %}
+                    <span class="q-tag quality-{{ q.value }}" title="{{ q.label }}{{ kbps ? ' · ' ~ fmt ~ ' ' ~ kbps ~ ' kb/s' }}">{{ fmt }}{% if kbps and q.value != 'lossless' %} {{ kbps }}{% endif %}</span>
+                {% endif %}
                 {% if song.artist %}<a href="{{ path('app_artist', {name: song.artist}) }}">{{ song.artist }}</a>{% endif %}
             </div>
         </div>
@@ -34,6 +40,8 @@
         <div class="track-dur">{{ song.duration ? '%d:%02d'|format(song.duration // 60, song.duration % 60) : '' }}</div>
         <div class="track-actions">
             {% if app.user %}
+                {% import 'partials/_rating.html.twig' as rating %}
+                {{ rating.stars(song, 'track-rate') }}
                 <button class="icon-btn track-fav {{ isFav ? 'fav-on' }}" data-fav-toggle
                         data-fav-url="{{ path('app_favorite_toggle', {id: song.id}) }}"
                         title="Favorite" aria-label="Favorite">

@@ -209,7 +209,7 @@ h2 { font-size: 20px; margin: 30px 0 14px; font-weight: 700; }
 .track-list { display: flex; flex-direction: column; margin: 0 -8px; }
 .track {
     display: grid;
-    grid-template-columns: 30px 42px minmax(0, 2fr) minmax(0, 1.4fr) 54px 44px;
+    grid-template-columns: 30px 42px minmax(0, 2fr) minmax(0, 1.4fr) 54px auto;
     align-items: center;
     gap: 14px;
     padding: 7px 8px;
@@ -422,7 +422,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px;
     .sidebar nav a.active::before { display: none; }
     .home-hero { padding: 20px; }
     .home-hero h1 { font-size: 26px; }
-    .track { grid-template-columns: 28px 40px minmax(0, 1fr) 44px 40px; gap: 10px; }
+    .track { grid-template-columns: 28px 40px minmax(0, 1fr) 44px auto; gap: 10px; }
     .track-album { display: none; }
     .player { grid-template-columns: 1fr auto; gap: 10px; }
     .player-volume { display: none; }
@@ -750,3 +750,19 @@ html.nav-loading { cursor: progress; }
 /* Folder pages (_discover, _unclassified): one block per sub-folder */
 .folder-group { margin-bottom: 22px; }
 .folder-path { font-size: 15px; font-weight: 700; margin: 0 0 8px; word-break: break-word; }
+
+/* Star rating (1-5): subtle until row hover in lists, always shown once rated */
+.rate { display: inline-flex; align-items: center; }
+.rate button { background: none; border: 0; padding: 0 1px; cursor: pointer; color: var(--text-faint); font-size: 15px; line-height: 1; transition: color .1s, transform .1s; }
+.rate button.on { color: #f5c518; }
+.rate:hover button { color: #f5c518; }
+.rate button:hover ~ button { color: var(--text-faint); }
+.rate button:hover { transform: scale(1.2); }
+.track .track-rate { opacity: 0; margin-right: 4px; }
+.track:hover .track-rate, .track:focus-within .track-rate, .track .track-rate.rated { opacity: 1; }
+.song-rate { margin: 0 6px; }
+.song-rate button { font-size: 22px; padding: 0 2px; }
+
+/* Quality tag in track lists: a dot in the tier colour (very low → lossless) + format and bitrate */
+.q-tag { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; font-size: 11px; font-weight: 600; color: var(--text-faint); letter-spacing: .02em; vertical-align: 1px; }
+.q-tag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--q, var(--text-faint)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--q, transparent) 25%, transparent); }

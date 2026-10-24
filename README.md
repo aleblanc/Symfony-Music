@@ -140,6 +140,10 @@ rerun it and it continues with what is left.
   listened albums (ListenBrainz) missing from the library, for the artists
   you have at least 11 tracks of, one per artist per round (**See all →**:
   up to 120 on /discover/albums).
+- **Track lists** (everywhere) — a coloured quality tag before the artist
+  (very low → lossless, with format and bitrate) and a **★★★★★ rating**: one
+  click rates the track 1 to 5 (click the current star again to remove it);
+  one note per track, also on the song page.
 - **Song page** — details, quality, Spotify link, raw tags, per-track volume / EQ
   (applied live while the song plays).
 - **Player bar** — title → song page, artist and album → their pages; playback
