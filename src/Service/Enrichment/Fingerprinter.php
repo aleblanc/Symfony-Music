@@ -89,4 +89,35 @@ class Fingerprinter
 
         return new Fingerprint((string) $data['fingerprint'], (int) round((float) $data['duration']));
     }
+
+    /**
+     * Raw fingerprint (one 32-bit word every ~0.124 s), for comparing two
+     * files with {@see RawFingerprint::compare()}.
+     *
+     * @return array{list<int>, float} words, duration in seconds
+     *
+     * @throws EnrichmentException when fpcalc is missing or fails on this file
+     */
+    public function raw(string $file, int $seconds = 120): array
+    {
+        $binary = $this->binaryPath()
+            ?? throw new EnrichmentException('fpcalc not found: install Chromaprint (brew install chromaprint / apt install libchromaprint-tools) or set FPCALC_PATH.');
+        $process = new Process([$binary, '-raw', '-json', '-length', (string) $seconds, $file]);
+        $process->setTimeout(120);
+
+        try {
+            $process->run();
+        } catch (ProcessException $e) {
+            throw new EnrichmentException('fpcalc failed: ' . $e->getMessage(), 0, $e);
+        }
+        if (!$process->isSuccessful()) {
+            throw new EnrichmentException(\sprintf('fpcalc failed on %s: %s', basename($file), trim($process->getErrorOutput())));
+        }
+        $data = json_decode($process->getOutput(), true);
+        if (!\is_array($data) || !\is_array($data['fingerprint'] ?? null)) {
+            throw new EnrichmentException('fpcalc returned unexpected output for ' . basename($file));
+        }
+
+        return [array_map('intval', $data['fingerprint']), (float) ($data['duration'] ?? 0)];
+    }
 }

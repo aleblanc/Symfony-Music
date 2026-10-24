@@ -800,3 +800,7 @@ html.nav-loading { cursor: progress; }
 .queue-rate button { font-size: 12px; padding: 0; }
 .queue-rate:not(.rated) { opacity: 0; }
 .queue-item:hover .queue-rate, .queue-item.current .queue-rate { opacity: 1; }
+
+/* "Not this song" (ban) on the song page */
+.song-actions form { display: contents; }
+.pill-ban:hover { color: #ff6b6b; border-color: #ff6b6b; }

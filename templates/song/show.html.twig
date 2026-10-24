@@ -84,6 +84,16 @@
                             <span>Edit metadata</span>
                         </a>
                     {% endif %}
+                    {% if is_granted('ROLE_ADMIN') %}
+                        <form method="post" action="{{ path('app_song_ban', {id: song.id}) }}" data-no-nav
+                              onsubmit="return confirm('Ban this track?\n\nIts audio is not this song: it leaves the library and this recording will never be downloaded again for it.')">
+                            <input type="hidden" name="_token" value="{{ csrf_token('ban') }}">
+                            <button class="pill-btn pill-ban" type="submit" title="The audio is another song: ban this recording for this track">
+                                {{ ui.icon('M12 2a10 10 0 100 20 10 10 0 000-20zM4 12a8 8 0 0112.9-6.3L5.7 16.9A7.9 7.9 0 014 12zm8 8a7.9 7.9 0 01-4.9-1.7L18.3 7.1A8 8 0 0112 20z') }}
+                                <span>Not this song</span>
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
             </div>
         </header>

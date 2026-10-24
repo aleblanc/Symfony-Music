@@ -154,6 +154,10 @@
                     , "favoriteCsrf": "{{ csrf_token('favorite') }}"
                     , "ratingCsrf": "{{ csrf_token('rating') }}"
                     , "ratingUrl": "{{ path('app_rating_set', {id: 0}) }}"
+                    {% if is_granted('ROLE_ADMIN') %}
+                    , "banUrl": "{{ path('app_song_ban', {id: 0}) }}"
+                    , "banCsrf": "{{ csrf_token('ban') }}"
+                    {% endif %}
                     , "listenLaterToggleUrl": "{{ path('app_listen_later_toggle', {id: 0}) }}"
                     , "listenLaterCsrf": "{{ csrf_token('listen_later') }}"
                     , "offlineToggleUrl": "{{ path('app_offline_toggle', {id: 0}) }}"

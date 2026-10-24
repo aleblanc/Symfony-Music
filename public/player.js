@@ -25,6 +25,7 @@ const ICON = {
     clock: 'M12 2a10 10 0 100 20 10 10 0 000-20zm1 11H8v-2h3V7h2z',
     cloud: 'M19.35 10.04A7.49 7.49 0 0012 4a7.5 7.5 0 00-6.96 4.73A6 6 0 006 20h13a5 5 0 00.35-9.96zM12 11l4 4h-3v3h-2v-3H8z',
     edit: 'M3 17.25V21h3.75L17.8 9.94l-3.75-3.75zM20.7 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75z',
+    ban: 'M12 2a10 10 0 100 20 10 10 0 000-20zM4 12a8 8 0 0112.9-6.3L5.7 16.9A7.9 7.9 0 014 12zm8 8a7.9 7.9 0 01-4.9-1.7L18.3 7.1A8 8 0 0112 20z',
 };
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -902,7 +903,36 @@ if (audio && bar) {
                 menu.appendChild(menuSep());
                 menu.appendChild(menuLink(ICON.edit, 'Edit metadata', d.editUrl));
             }
+            if (cfg.banUrl && d.id) {
+                if (!d.editUrl) menu.appendChild(menuSep());
+                menu.appendChild(menuItem(ICON.ban, 'Not this song (ban)', () => banTrack(d.id, d.title, row)));
+            }
         }
+    }
+
+    // "Not this song": its recording is fingerprinted and refused from now on
+    // for this track (BanController); the file leaves the library.
+    function banTrack(id, title, row) {
+        if (!window.confirm(`Ban "${title || 'this track'}"?\n\nIts audio is not this song: it leaves the library and this recording will never be downloaded again for it.`)) return;
+        fetch(cfg.banUrl.replace(/\/0\/ban$/, `/${id}/ban`), {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'fetch', 'X-CSRF-TOKEN': cfg.banCsrf || '' },
+        })
+            .then((r) => r.json().then((d) => (r.ok ? d : Promise.reject(d))))
+            .then((d) => {
+                if (d.removed) {
+                    if (row && !row.classList.contains('song-detail')) row.remove();
+                    for (let i = queue.length - 1; i >= 0; i--) {
+                        if (String(queue[i].id) === String(id) && i !== index) {
+                            queue.splice(i, 1);
+                            if (i < index) index -= 1;
+                        }
+                    }
+                    renderQueue();
+                }
+                toast(d.message || 'Banned');
+            })
+            .catch((d) => toast('Not banned: ' + ((d && d.error) || 'error')));
     }
 
     function openMenu(k) {
