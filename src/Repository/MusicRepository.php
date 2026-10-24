@@ -28,6 +28,7 @@ class MusicRepository extends ServiceEntityRepository
         'artist_asc', 'artist_desc',
         'album_asc', 'album_desc',
         'year_asc', 'year_desc',
+        'added_desc', 'added_asc',
     ];
 
     public function __construct(ManagerRegistry $registry)
@@ -92,6 +93,12 @@ class MusicRepository extends ServiceEntityRepository
                 break;
             case 'year_desc':
                 $qb->orderBy('m.year', 'DESC')->addOrderBy('m.album', 'ASC')->addOrderBy('m.title', 'ASC');
+                break;
+            case 'added_desc':
+                $qb->orderBy('m.lastModified', 'DESC')->addOrderBy('m.id', 'DESC');
+                break;
+            case 'added_asc':
+                $qb->orderBy('m.lastModified', 'ASC')->addOrderBy('m.id', 'ASC');
                 break;
             case 'artist_asc':
             default:

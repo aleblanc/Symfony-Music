@@ -29,6 +29,8 @@
            class="{{ sort starts with 'album' ? 'active' }}">Album {{ sort == 'album_desc' ? '↓' : '↑' }}</a>
         <a href="{{ path('app_library', {q: query, sort: sort == 'year_desc' ? 'year_asc' : 'year_desc'}) }}"
            class="{{ sort starts with 'year' ? 'active' }}">Year {{ sort == 'year_asc' ? '↑' : '↓' }}</a>
+        <a href="{{ path('app_library', {q: query, sort: sort == 'added_desc' ? 'added_asc' : 'added_desc'}) }}"
+           class="{{ sort starts with 'added' ? 'active' }}" title="File date (last modified)">Date added {{ sort == 'added_asc' ? '↑' : '↓' }}</a>
     </nav>
 
     {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
