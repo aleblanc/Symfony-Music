@@ -135,6 +135,7 @@
                     , "playbackUrl": "{{ path('app_song_playback', {id: 0}) }}"
                     {% if app.user %}
                     , "favoriteCsrf": "{{ csrf_token('favorite') }}"
+                    , "ratingCsrf": "{{ csrf_token('rating') }}"
                     , "listenLaterToggleUrl": "{{ path('app_listen_later_toggle', {id: 0}) }}"
                     , "listenLaterCsrf": "{{ csrf_token('listen_later') }}"
                     , "offlineToggleUrl": "{{ path('app_offline_toggle', {id: 0}) }}"
