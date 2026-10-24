@@ -804,3 +804,14 @@ html.nav-loading { cursor: progress; }
 /* "Not this song" (ban) on the song page */
 .song-actions form { display: contents; }
 .pill-ban:hover { color: #ff6b6b; border-color: #ff6b6b; }
+
+/* Ratings page: one tab per note */
+.rating-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+.rating-tabs a { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; background: var(--bg-elev); font-size: 14px; }
+.rating-tabs a:hover { background: var(--bg-elev-2); }
+.rating-tabs a.active { background: var(--accent); color: #fff; }
+.rating-tabs a.active .muted { color: rgba(255,255,255,.8); }
+.rating-tab-stars { color: #f5c518; letter-spacing: 1px; }
+.rating-tab-stars .off { color: var(--text-faint); }
+.rating-tabs a.active .rating-tab-stars .off { color: rgba(255,255,255,.35); }
+.rating-tabs a.active .rating-tab-stars { color: #fff; }

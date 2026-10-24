@@ -117,6 +117,51 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
+     * Tracks with this star rating (0: not rated), by artist, album, disc,
+     * track number; one page, or all of them when $perPage is null.
+     *
+     * @return Paginator<Music>|list<Music>
+     */
+    public function findByRating(int $stars, ?User $viewer, ?int $page = null, ?int $perPage = null): Paginator|array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->orderBy('m.artist', 'ASC')
+            ->addOrderBy('m.album', 'ASC')
+            ->addOrderBy('m.discNumber', 'ASC')
+            ->addOrderBy('m.trackNumber', 'ASC')
+            ->addOrderBy('m.title', 'ASC');
+        $stars === 0
+            ? $qb->andWhere('m.rating IS NULL OR m.rating = 0')
+            : $qb->andWhere('m.rating = :stars')->setParameter('stars', $stars);
+        $this->applyVisibility($qb, $viewer);
+        if ($perPage === null) {
+            return $qb->getQuery()->getResult();
+        }
+        $qb->setFirstResult((max(1, (int) $page) - 1) * $perPage)->setMaxResults($perPage);
+
+        return new Paginator($qb->getQuery(), fetchJoinCollection: false);
+    }
+
+    /**
+     * Visible tracks per star rating (0: not rated).
+     *
+     * @return array<int, int> 5 => count, ..., 1 => count, 0 => count
+     */
+    public function countByRating(?User $viewer): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->select('COALESCE(m.rating, 0) AS stars', 'COUNT(m.id) AS cnt')
+            ->groupBy('stars');
+        $this->applyVisibility($qb, $viewer);
+        $counts = array_fill_keys([5, 4, 3, 2, 1, 0], 0);
+        foreach ($qb->getQuery()->getScalarResult() as $row) {
+            $counts[(int) $row['stars']] = (int) $row['cnt'];
+        }
+
+        return $counts;
+    }
+
+    /**
      * Titles of one artist's visible tracks, without hydrating the entities
      * (and their cover BLOBs): the discography's "already in the library" check.
      *

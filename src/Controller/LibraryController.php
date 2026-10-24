@@ -219,6 +219,30 @@ class LibraryController extends AbstractController
         ]);
     }
 
+    /**
+     * Tracks by star rating: one tab per note (5 to 1) and the unrated ones.
+     */
+    #[Route('/ratings/{stars}', name: 'app_ratings', requirements: ['stars' => '[0-5]'], defaults: ['stars' => 5])]
+    public function ratings(int $stars, Request $request, #[CurrentUser] ?User $user, MusicRepository $music): Response
+    {
+        $page = max(1, $request->query->getInt('page', 1));
+        $perPage = 100;
+        $paginator = $music->findByRating($stars, $user, $page, $perPage);
+        $total = \count($paginator);
+
+        return $this->render('library/ratings.html.twig', [
+            'stars' => $stars,
+            'counts' => $music->countByRating($user),
+            'songs' => iterator_to_array($paginator),
+            'page' => $page,
+            'pages' => (int) ceil($total / $perPage),
+            'total' => $total,
+            'favoriteIds' => $this->favoriteIds($user),
+            'listenLaterIds' => $this->listenLaterIds($user),
+            'offlineIds' => $this->offlineIds($user),
+        ]);
+    }
+
     #[Route('/album/{name}', name: 'app_album', requirements: ['name' => '.+'])]
     public function album(string $name, #[CurrentUser] ?User $user, MusicRepository $music, DiscographyView $discographyView): Response
     {

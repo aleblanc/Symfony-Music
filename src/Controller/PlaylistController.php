@@ -386,6 +386,7 @@ class PlaylistController extends AbstractController
             'genre' => $this->music->findByGenre($value, $user),
             'year' => ctype_digit($value) ? $this->music->findByYear((int) $value, $user) : [],
             'folder' => \in_array($value, ['unclassified', 'discover'], true) ? $this->music->findInFolder(rtrim($musicDir, '/') . '/_' . $value, $user) : [],
+            'rating' => preg_match('/^[0-5]$/', $value) === 1 ? $this->music->findByRating((int) $value, $user) : [],
             default => [],
         };
         $back = $this->backTo($request);
