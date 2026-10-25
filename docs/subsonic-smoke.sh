@@ -13,7 +13,7 @@ AUTH=()
 COMMON="u=smoke&t=x&s=y&v=1.16.1&c=smoke&f=json"
 FAIL=0
 
-call() { curl -s "${AUTH[@]}" "$BASE/rest/$1?$COMMON${2:+&$2}"; }
+call() { curl -s ${AUTH[@]+"${AUTH[@]}"} "$BASE/rest/$1?$COMMON${2:+&$2}"; }
 check() {
     local method="$1" params="${2:-}"
     if call "$method" "$params" | grep -q '"status":"ok"'; then
@@ -75,9 +75,9 @@ for stub in getShares getInternetRadioStations getPodcasts getNewestPodcasts get
 done
 
 # Media (raw responses, not JSON)
-CODE=$(curl -s "${AUTH[@]}" -o /dev/null -r 0-99 -w '%{http_code}' "$BASE/rest/stream?$COMMON&id=$SONG")
+CODE=$(curl -s ${AUTH[@]+"${AUTH[@]}"} -o /dev/null -r 0-99 -w '%{http_code}' "$BASE/rest/stream?$COMMON&id=$SONG")
 if [ "$CODE" = "206" ]; then echo "OK    stream (Range → 206)"; else echo "FAIL  stream (Range → $CODE)"; FAIL=$((FAIL + 1)); fi
-CODE=$(curl -s "${AUTH[@]}" -o /dev/null -w '%{http_code}' "$BASE/rest/getCoverArt?$COMMON&id=$ALBUM&size=300")
+CODE=$(curl -s ${AUTH[@]+"${AUTH[@]}"} -o /dev/null -w '%{http_code}' "$BASE/rest/getCoverArt?$COMMON&id=$ALBUM&size=300")
 if [ "$CODE" = "200" ]; then echo "OK    getCoverArt"; else echo "FAIL  getCoverArt ($CODE)"; FAIL=$((FAIL + 1)); fi
 
 echo
