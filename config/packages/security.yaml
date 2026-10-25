@@ -15,6 +15,14 @@ security:
             # Ensure dev tools and static assets are always allowed
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
+        # Subsonic API (/rest/*): stateless, same single auto-logged-in user;
+        # real access control is Apache Basic Auth in front of PHP.
+        subsonic:
+            pattern: ^/rest/
+            stateless: true
+            provider: app_user_provider
+            custom_authenticators:
+                - App\Security\AutoLoginAuthenticator
         main:
             lazy: true
             # Stateless: the auto-login below authenticates every request on

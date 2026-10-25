@@ -2,12 +2,11 @@
 
 namespace App\Controller;
 
-use App\Entity\History;
-use App\Entity\PlayCount;
 use App\Entity\User;
 use App\Repository\MusicRepository;
 use App\Repository\PlayCountRepository;
 use App\Repository\PlaylistRepository;
+use App\Service\PlayRecorder;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -28,6 +27,7 @@ class PlaybackController extends AbstractController
         private readonly PlayCountRepository $playCounts,
         private readonly PlaylistRepository $playlists,
         private readonly EntityManagerInterface $em,
+        private readonly PlayRecorder $recorder,
     ) {}
 
     #[Route('/play/{id}', name: 'app_play_record', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -43,24 +43,7 @@ class PlaybackController extends AbstractController
             return new JsonResponse(['tracked' => false]);
         }
 
-        $now = new \DateTimeImmutable();
-
-        $playCount = $this->playCounts->findOneForUser($user, $song);
-        if ($playCount === null) {
-            $playCount = new PlayCount();
-            $playCount->setUser($user);
-            $playCount->setSong($song);
-            $this->em->persist($playCount);
-        } else {
-            $playCount->increment();
-        }
-        $playCount->touch($now);
-
-        $history = new History();
-        $history->setUser($user);
-        $history->setSong($song);
-        $history->setPlayedAt($now);
-        $this->em->persist($history);
+        $this->recorder->record($user, $song, new \DateTimeImmutable());
 
         // Ported from the legacy `log_play`: when the client mentions which
         // playlist the track was played from, bump that playlist's view counter.
@@ -72,6 +55,6 @@ class PlaybackController extends AbstractController
 
         $this->em->flush();
 
-        return new JsonResponse(['tracked' => true, 'plays' => $playCount->getPlayCount()]);
+        return new JsonResponse(['tracked' => true, 'plays' => $this->playCounts->findOneForUser($user, $song)?->getPlayCount() ?? 1]);
     }
 }

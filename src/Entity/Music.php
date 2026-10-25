@@ -6,6 +6,7 @@ use App\Enum\AudioQuality;
 use App\Repository\MusicRepository;
 use App\Service\AudioFormat;
 use App\Service\ReplayGain;
+use App\Subsonic\IdCodec;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -17,6 +18,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'music')]
 #[ORM\Index(name: 'music_artist_idx', columns: ['artist'])]
 #[ORM\Index(name: 'music_album_idx', columns: ['album'])]
+#[ORM\Index(name: 'music_album_key_idx', columns: ['album_key', 'disc_number', 'track_number'])]
+#[ORM\Index(name: 'music_artist_key_idx', columns: ['artist_key'])]
+#[ORM\Index(name: 'music_updated_at_idx', columns: ['updated_at'])]
 class Music
 {
     #[ORM\Id]
@@ -173,6 +177,25 @@ class Music
 
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $isPrivate = false;
+
+    /**
+     * Subsonic album id (see IdCodec::albumKey), maintained by
+     * MusicSubsonicFieldsListener on every insert/update.
+     */
+    #[ORM\Column(length: 16, nullable: true)]
+    private ?string $albumKey = null;
+
+    /** Subsonic artist id (see IdCodec::artistKey), maintained like albumKey. */
+    #[ORM\Column(length: 16, nullable: true)]
+    private ?string $artistKey = null;
+
+    /** When the track entered the library; set once, never changed on update. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $addedAt = null;
+
+    /** Last change to the row, for incremental client sync (search3 changedSince). */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $updatedAt = null;
 
     public function getId(): ?int
     {
@@ -552,6 +575,40 @@ class Music
         $this->isPrivate = $isPrivate;
 
         return $this;
+    }
+
+    public function getAlbumKey(): ?string
+    {
+        return $this->albumKey;
+    }
+
+    public function getArtistKey(): ?string
+    {
+        return $this->artistKey;
+    }
+
+    public function getAddedAt(): ?\DateTimeImmutable
+    {
+        return $this->addedAt;
+    }
+
+    public function getUpdatedAt(): ?\DateTimeImmutable
+    {
+        return $this->updatedAt;
+    }
+
+    /**
+     * Recomputes the Subsonic keys and timestamps. Called by
+     * MusicSubsonicFieldsListener; $isNew sets addedAt (insert only).
+     */
+    public function refreshSubsonicFields(bool $isNew, \DateTimeImmutable $now): void
+    {
+        $this->artistKey = IdCodec::artistKey($this->albumArtist, $this->artist);
+        $this->albumKey = IdCodec::albumKey($this->albumArtist, $this->artist, $this->album);
+        $this->updatedAt = $now;
+        if ($isNew && $this->addedAt === null) {
+            $this->addedAt = $now;
+        }
     }
 
     /**
