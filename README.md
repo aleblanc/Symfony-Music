@@ -111,7 +111,6 @@ tracks outside `MUSIC_DIR` (files kept on disk).
 | `app:artist:videos` | `--artist=NAME`, `-v` |
 | `app:lyrics:fetch` | `-v` (list results), `--dry-run`, `--limit`, `--id`, `--retry` (tracks not found before), `--force` (also tracks with lyrics; synced ones are never replaced by plain ones), `--write-tags` (lyrics into the file too), `--delay=200` (ms between tracks) |
 | `app:artist:merge` | `--dry-run`, `--artist=NAME --to=NEW_NAME` |
-| `app:subsonic:backfill` | `--dry-run`, `--keys` (recompute every album/artist id) |
 
 The long commands save as they go (per track, folder or artist): if one stops,
 rerun it and it continues with what is left.
@@ -187,7 +186,6 @@ Set up once, after updating the code:
 
 ```bash
 php bin/console doctrine:migrations:migrate   # adds the Subsonic columns and tables (back up music.db first)
-php bin/console app:subsonic:backfill         # fills album/artist ids and dates for the tracks already indexed
 ```
 
 Then, to use it from a phone on the same Wi-Fi:

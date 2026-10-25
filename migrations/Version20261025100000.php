@@ -10,8 +10,8 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Subsonic API support. Hand-written on purpose: Doctrine's generated diff
  * rebuilds the whole `music` table (copy → DROP → CREATE) on SQLite; plain
- * ADD COLUMN keeps every existing row and BLOB untouched. Existing rows are
- * filled afterwards by `app:subsonic:backfill`.
+ * ADD COLUMN keeps every existing row and BLOB untouched. The new columns
+ * are kept up to date by MusicSubsonicFieldsListener on every insert/update.
  */
 final class Version20261025100000 extends AbstractMigration
 {
