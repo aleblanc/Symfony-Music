@@ -3,7 +3,6 @@
 namespace App\Controller\Api\Subsonic;
 
 use App\Entity\User;
-use App\Repository\MusicRepository;
 use App\Subsonic\SubsonicHandler;
 use App\Subsonic\SubsonicRequest;
 
@@ -15,7 +14,7 @@ use App\Subsonic\SubsonicRequest;
  */
 final class StubHandler implements SubsonicHandler
 {
-    public function __construct(private readonly MusicRepository $music) {}
+    public function __construct(private readonly SystemHandler $system) {}
 
     public static function methods(): array
     {
@@ -34,7 +33,7 @@ final class StubHandler implements SubsonicHandler
             'getBookmarks' => ['bookmarks' => new \stdClass()],
             'getVideos' => ['videos' => new \stdClass()],
             // Scans stay a manual `app:scan`; report the current state.
-            'startScan' => ['scanStatus' => ['scanning' => false, 'count' => $this->music->countAll($user)]],
+            'startScan' => ['scanStatus' => $this->system->scanStatus($user)],
             default => throw new \LogicException("Unhandled Subsonic method {$method}"),
         };
     }

@@ -18,7 +18,10 @@ use App\Subsonic\SubsonicRequest;
  */
 final class SearchHandler implements SubsonicHandler
 {
-    private const MAX_COUNT = 500;
+    // Clients sync the whole library through search3 with big pages
+    // (Substreamer: 10000 albums / 5000 songs) and advance the offset by the
+    // size they ASKED for: capping lower would silently skip the rest.
+    private const MAX_COUNT = 10000;
 
     public function __construct(
         private readonly LibraryQuery $library,

@@ -170,7 +170,10 @@ The library is served over the **Subsonic / OpenSubsonic** protocol at
 `/rest/*`, so any Subsonic client can browse it, stream it and download
 tracks for offline listening. Tested with **[Substreamer](https://substreamer.app)**
 (Android / iOS, free). Other Subsonic clients should work the same way:
-Symfonium, Tempo / Tempus, DSub2000, SubTune, the official Subsonic app.
+**[Tempus](https://github.com/eddyizm/tempus)** (Android, free, open source,
+the maintained successor of Tempo; take the `degoogled` APK from its GitHub
+releases for a build without Google services), Symfonium, DSub2000, SubTune,
+the official Subsonic app.
 
 What the apps get: artists, albums, genres, years, tracks (in disc/track
 order), search, covers (one per album), synced lyrics, ★ ratings, favorites
