@@ -47,8 +47,9 @@
                 <div class="song-actions">
                     <button class="btn" data-play>{{ ui.icon('M8 5v14l11-7z') }} Play</button>
                     {% if app.user %}
-                        {% import 'partials/_rating.html.twig' as rating %}
-                        {{ rating.stars(song, 'song-rate') }}
+                        {# alias must not be "rating": that name is the POPM tag variable used below #}
+                        {% import 'partials/_rating.html.twig' as rate %}
+                        {{ rate.stars(song, 'song-rate') }}
                         <button class="pill-btn {{ isFavorite ? 'fav-on' }}" data-fav-toggle
                                 data-fav-url="{{ path('app_favorite_toggle', {id: song.id}) }}"
                                 aria-label="Favorite">

@@ -21,7 +21,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 class MusicScanner
 {
     private const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'flac', 'ogg', 'wav'];
-    private const EXCLUDED_DIRS = ['.git', 'getid3', '.drive_trash_bin', '.drive_thumbnails', '.file_version', '.tmp_db', 'covers', '_backup_redl', '_banned'];
+    private const EXCLUDED_DIRS = ['.git', 'getid3', '.drive_trash_bin', '.drive_thumbnails', '.file_version', '.tmp_db', 'covers', '_backup_redl', '_banned', '_duplicates'];
     private const COVER_CANDIDATES = ['cover.jpg', 'cover.png', 'folder.jpg', 'folder.png', 'artwork.jpg'];
 
     public function __construct(

@@ -40,8 +40,8 @@
         <div class="track-dur">{{ song.duration ? '%d:%02d'|format(song.duration // 60, song.duration % 60) : '' }}</div>
         <div class="track-actions">
             {% if app.user %}
-                {% import 'partials/_rating.html.twig' as rating %}
-                {{ rating.stars(song, 'track-rate') }}
+                {% import 'partials/_rating.html.twig' as rate %}
+                {{ rate.stars(song, 'track-rate') }}
                 <button class="icon-btn track-fav {{ isFav ? 'fav-on' }}" data-fav-toggle
                         data-fav-url="{{ path('app_favorite_toggle', {id: song.id}) }}"
                         title="Favorite" aria-label="Favorite">

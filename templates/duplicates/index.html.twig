@@ -1,0 +1,67 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Duplicates · PHP Music{% endblock %}
+
+{% set kinds = {
+    same_file: {label: 'Same file, another format', hint: 'The same name with another extension next to it (an old MP3 left beside its replacement)'},
+    same_album: {label: 'Same album', hint: 'Same artist, title and album, durations within 3 s'},
+    other_album: {label: 'Different albums', hint: 'Same artist and title, durations within 3 s, on several albums (best-of, compilation): maybe on purpose'},
+} %}
+
+{% block body %}
+<div class="quality-stats duplicates">
+    <h1>Duplicates</h1>
+    <p class="section-sub">
+        {{ groups|length }} track{{ groups|length == 1 ? '' : 's' }} found more than once.
+        “Keep this one” removes the others of its group: their hearts, plays and playlist entries move to the kept one,
+        their files go to <code>{{ trashDir }}/</code> in the music folder (same path, nothing is lost).
+    </p>
+
+    {% for kind, info in kinds %}
+        {% set list = groups|filter(g => g.kind == kind) %}
+        <section class="qs-block" id="{{ kind }}">
+            <h2>{{ info.label }} <span class="muted">· {{ list|length }} group{{ list|length == 1 ? '' : 's' }}</span></h2>
+            <p class="muted qs-note">{{ info.hint }}</p>
+            {% if list is empty %}
+                <p class="muted">None.</p>
+            {% endif %}
+            {% for group in list %}
+                {% set anchor = 'g' ~ group.tracks[0].id %}
+                <table class="qs-tracks dup-group" id="{{ anchor }}">
+                    <thead><tr><th>Quality</th><th>Title</th><th>Album</th><th>Length</th><th>Used</th><th>File</th><th></th></tr></thead>
+                    <tbody>
+                        {% for t in group.tracks %}
+                            <tr class="{{ t.id == group.keep ? 'dup-best' }}">
+                                <td class="qs-num">
+                                    {{ t.format }} {% if t.bitrate %}{{ (t.bitrate / 1000)|round }} kb/s{% endif %}
+                                    {% if t.quality %}<span class="quality-badge quality-{{ t.quality.value }}">{{ t.quality.label }}</span>{% endif %}
+                                </td>
+                                <td><a class="link" href="{{ path('app_song', {id: t.id}) }}">{{ t.title ?: t.file|split('/')|last }}</a><br><span class="muted">{{ t.artist }}</span></td>
+                                <td class="muted">{{ t.album }}{% if t.year %} ({{ t.year }}){% endif %}</td>
+                                <td class="qs-num">{{ (t.duration // 60) }}:{{ '%02d'|format(t.duration % 60) }}</td>
+                                <td class="qs-num">
+                                    {% if t.favorites %}♥ {{ t.favorites }} {% endif %}
+                                    {% if t.plays %}▶ {{ t.plays }} {% endif %}
+                                    {% if t.playlists %}☰ {{ t.playlists }}{% endif %}
+                                </td>
+                                <td class="dup-file">{{ t.relative }}{% if not t.exists %} <span class="pill-count pill-warn">file missing</span>{% endif %}</td>
+                                <td>
+                                    <form method="post" action="{{ path('app_duplicates_keep', {id: t.id}) }}"
+                                          onsubmit="return confirm('Keep this one and remove the {{ group.tracks|length - 1 }} other{{ group.tracks|length > 2 ? 's' }}?');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('duplicates_keep_' ~ t.id) }}">
+                                        <input type="hidden" name="next" value="{{ anchor }}">
+                                        {% for other in group.tracks|filter(o => o.id != t.id) %}
+                                            <input type="hidden" name="drop[]" value="{{ other.id }}">
+                                        {% endfor %}
+                                        <button class="btn btn-sm {{ t.id == group.keep ? '' : 'btn-ghost' }}" type="submit" title="{{ t.id == group.keep ? 'Suggested: best quality' : '' }}">Keep this one</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endfor %}
+        </section>
+    {% endfor %}
+</div>
+{% endblock %}

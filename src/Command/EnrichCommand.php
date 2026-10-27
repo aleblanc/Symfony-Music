@@ -25,11 +25,17 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * track number, no cover) from MusicBrainz, AcoustID fingerprints and the
  * Cover Art Archive. Confident matches are written to the files and the
  * database; the others wait in /admin/suggestions.
+ *
+ * --missing-year only fills the year: first from the other tracks of the
+ * same album (no network), then from MusicBrainz for the rest; nothing else
+ * of the track is changed.
  */
 #[AsCommand(name: 'app:enrich', description: 'Complete track metadata (titles, album, track numbers, covers) from MusicBrainz/AcoustID')]
 class EnrichCommand extends Command
 {
     private const DEFAULT_THRESHOLD = 0.85;
+    /** Source of a year copied from the other tracks of the album. */
+    private const SOURCE_ALBUM_YEAR = 'album-year';
 
     public function __construct(
         private readonly MusicRepository $musicRepository,
@@ -51,7 +57,9 @@ class EnrichCommand extends Command
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Process at most this many tracks')
             ->addOption('path', null, InputOption::VALUE_REQUIRED, 'Only tracks whose path contains this text (e.g. an artist folder)')
             ->addOption('retry', null, InputOption::VALUE_NONE, 'Also retry incomplete tracks already attempted')
-            ->addOption('all', null, InputOption::VALUE_NONE, 'Process every track, even complete ones');
+            ->addOption('all', null, InputOption::VALUE_NONE, 'Process every track, even complete ones')
+            ->addOption('missing-year', null, InputOption::VALUE_NONE, 'Only fill the year of the tracks without one: from the other tracks of the album, else MusicBrainz; nothing else changed')
+            ->addOption('album-only', null, InputOption::VALUE_NONE, 'With --missing-year: only copy the year from the other tracks of the album, no MusicBrainz lookup');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -65,6 +73,8 @@ class EnrichCommand extends Command
         $path = $input->getOption('path') !== null ? mb_strtolower((string) HintExtractor::nfc((string) $input->getOption('path'))) : null;
         $retry = (bool) $input->getOption('retry');
         $all = (bool) $input->getOption('all');
+        $albumOnly = (bool) $input->getOption('album-only');
+        $missingYear = $albumOnly || $input->getOption('missing-year');
 
         if ($this->enricher->canFingerprint()) {
             $io->text('Audio fingerprinting: <info>on</info> (AcoustID + fpcalc)');
@@ -75,16 +85,26 @@ class EnrichCommand extends Command
             $io->note('Dry run: nothing is written.');
         }
 
-        [$folders, $targetCount] = $this->planFolders($path, $retry, $all, $limit);
+        $stats = ['applied' => 0, 'pending' => 0, 'unmatched' => 0, 'failed' => 0];
+        $filled = [];
+        if ($missingYear) {
+            $filled = $this->yearsFromAlbums($io, $path, $dryRun, $stats);
+            if ($albumOnly) {
+                $io->success(\sprintf('%d track(s) %s the year of their album%s.', \count($filled), $dryRun ? 'would get' : 'got', $stats['failed'] > 0 ? \sprintf(', %d failed', $stats['failed']) : ''));
+
+                return Command::SUCCESS;
+            }
+        }
+
+        [$folders, $targetCount] = $this->planFolders($path, $retry, $all, $limit, $missingYear, $filled);
         if ($folders === []) {
-            $io->success('Nothing to enrich.');
+            $io->success($filled !== [] ? \sprintf('%d year(s) %s from the album, nothing left for MusicBrainz.', \count($filled), $dryRun ? 'would be copied' : 'copied') : 'Nothing to enrich.');
 
             return Command::SUCCESS;
         }
         $io->text(\sprintf('%d track(s) to enrich in %d folder(s). MusicBrainz allows 1 request/s: this takes a while.', $targetCount, \count($folders)));
         $io->newLine();
 
-        $stats = ['applied' => 0, 'pending' => 0, 'unmatched' => 0, 'failed' => 0];
         $log = static fn(string $line) => $io->writeln($line);
         $musicDir = $this->scanner->getMusicDir();
 
@@ -107,7 +127,7 @@ class EnrichCommand extends Command
                     ++$stats['unmatched'];
                     $io->writeln(\sprintf('  <fg=gray>· %s — no match</>', basename($track->file)));
                 } else {
-                    $stats[$this->handle($io, $track, $proposal, $threshold, $dryRun)]++;
+                    $stats[$this->handle($io, $track, $proposal, $threshold, $dryRun, $missingYear)]++;
                 }
             }
 
@@ -140,7 +160,10 @@ class EnrichCommand extends Command
      *
      * @return array{0: array<string, list<EnrichmentTrack>>, 1: int} folders, number of tracks to enrich
      */
-    private function planFolders(?string $path, bool $retry, bool $all, ?int $limit): array
+    /**
+     * @param array<int, true> $skip tracks already given a year from their album
+     */
+    private function planFolders(?string $path, bool $retry, bool $all, ?int $limit, bool $missingYear = false, array $skip = []): array
     {
         $musicDir = $this->scanner->getMusicDir();
         $byDir = [];
@@ -156,7 +179,9 @@ class EnrichCommand extends Command
             foreach ($rows as $row) {
                 $target = ($limit === null || $targetCount < $limit)
                     && ($path === null || str_contains(mb_strtolower((string) HintExtractor::nfc($row['file'])), $path))
-                    && ($all || (($retry || $row['enrichedAt'] === null) && $this->isIncomplete($row, $musicDir)));
+                    && ($missingYear
+                        ? $row['year'] === null && !isset($skip[(int) $row['id']])
+                        : ($all || (($retry || $row['enrichedAt'] === null) && $this->isIncomplete($row, $musicDir))));
                 if ($target) {
                     ++$targetCount;
                     $hasTarget = true;
@@ -199,8 +224,18 @@ class EnrichCommand extends Command
     /**
      * @return 'applied'|'pending'|'failed'
      */
-    private function handle(SymfonyStyle $io, EnrichmentTrack $track, Proposal $proposal, float $threshold, bool $dryRun): string
+    private function handle(SymfonyStyle $io, EnrichmentTrack $track, Proposal $proposal, float $threshold, bool $dryRun, bool $yearOnly = false): string
     {
+        if ($yearOnly) {
+            $year = (int) ($proposal->fields['year'] ?? 0);
+            if ($year <= 0) {
+                $io->writeln(\sprintf('  <fg=gray>· %s — matched, but MusicBrainz has no year</>', basename($track->file)));
+
+                return 'unmatched';
+            }
+            // The year alone: the title, album, cover... of the track stay as they are.
+            $proposal = new Proposal($proposal->musicId, ['year' => $year], $proposal->score, $proposal->source, $proposal->releaseId, $proposal->recordingId, $proposal->breakdown);
+        }
         $auto = $proposal->score >= $threshold;
         $f = $proposal->fields;
         $summary = \sprintf(
@@ -245,6 +280,65 @@ class EnrichCommand extends Command
         $io->writeln(\sprintf('  <info>✓</info> %s <fg=gray>[%s]</>', $summary, $tag));
 
         return 'applied';
+    }
+
+    /**
+     * Tracks without a year whose album has one on its other tracks: the
+     * album's (most common) year, applied like a suggestion (file + database,
+     * revertable from /admin/suggestions).
+     *
+     * @param array{applied: int, pending: int, unmatched: int, failed: int} $stats
+     *
+     * @return array<int, true> the tracks given a year
+     */
+    private function yearsFromAlbums(SymfonyStyle $io, ?string $path, bool $dryRun, array &$stats): array
+    {
+        $albums = [];
+        foreach ($this->musicRepository->findEnrichmentRows() as $row) {
+            if ($row['albumKey'] !== null && trim((string) $row['album']) !== '') {
+                $albums[$row['albumKey']][] = $row;
+            }
+        }
+        $filled = [];
+        foreach ($albums as $rows) {
+            $years = array_count_values(array_filter(array_column($rows, 'year')));
+            $missing = array_filter($rows, static fn (array $r): bool => $r['year'] === null
+                && ($path === null || str_contains(mb_strtolower((string) HintExtractor::nfc($r['file'])), $path)));
+            if ($years === [] || $missing === []) {
+                continue;
+            }
+            arsort($years);
+            $year = (int) array_key_first($years);
+            $io->writeln(\sprintf('<comment>%s</comment> — %s: year %d (%d of %d tracks have it) → %d track(s)', $rows[0]['artist'] ?? '?', $rows[0]['album'], $year, array_sum($years), \count($rows), \count($missing)));
+            foreach ($missing as $row) {
+                $filled[(int) $row['id']] = true;
+                if ($dryRun) {
+                    ++$stats['applied'];
+                    continue;
+                }
+                $music = $this->em->find(Music::class, $row['id']);
+                if ($music === null) {
+                    continue;
+                }
+                $suggestion = new MetadataSuggestion($music, self::SOURCE_ALBUM_YEAR, 1.0, ['year' => $year]);
+                $this->em->persist($suggestion);
+                if ($this->applier->apply($suggestion)) {
+                    ++$stats['applied'];
+                } else {
+                    ++$stats['failed'];
+                    $io->writeln(\sprintf('  <error>!</error> %s: %s', basename($row['file']), $suggestion->getError()));
+                }
+            }
+            if (!$dryRun) {
+                $this->em->flush();
+                $this->em->clear();
+            }
+        }
+        if ($filled !== []) {
+            $io->newLine();
+        }
+
+        return $filled;
     }
 
     /**
