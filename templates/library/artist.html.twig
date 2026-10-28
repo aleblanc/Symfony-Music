@@ -29,7 +29,7 @@
                 <div class="song-chips artist-members">
                     <span class="muted">{{ 'library.artist.members'|trans }}</span>
                     {% for m in members %}
-                        <a class="chip" href="{{ path('app_artist', {name: m.artist}) }}">{{ m.artist }}</a>
+                        <a class="chip" href="{{ path('app_artist', {name: m}) }}">{{ m }}</a>
                     {% endfor %}
                 </div>
             {% endif %}

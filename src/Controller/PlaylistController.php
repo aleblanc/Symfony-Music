@@ -385,7 +385,7 @@ class PlaylistController extends AbstractController
         $value = trim((string) $request->request->get('value', ''));
         $songs = match ($kind) {
             'album' => $this->music->findByAlbum($value, $user),
-            'artist' => $this->music->findByArtist($value, $user),
+            'artist' => $this->music->findByArtistWithCollaborations($value, $user),
             'genre' => $this->music->findByGenre($value, $user),
             'year' => ctype_digit($value) ? $this->music->findByYear((int) $value, $user) : [],
             'folder' => \in_array($value, ['unclassified', 'discover'], true) ? $this->music->findInFolder(rtrim($musicDir, '/') . '/_' . $value, $user) : [],

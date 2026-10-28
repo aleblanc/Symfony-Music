@@ -156,7 +156,8 @@ class LibraryController extends AbstractController
     #[Route('/artist/{name}', name: 'app_artist', requirements: ['name' => '.+'])]
     public function artist(string $name, #[CurrentUser] ?User $user, MusicRepository $music, ArtistProfileRepository $profiles, EntityManagerInterface $em, ClockInterface $clock, DiscographyView $discographyView, AlbumFavoriteRepository $albumFavorites): Response
     {
-        $songs = $music->findByArtist($name, $user);
+        // Its duos / trios / feat. included: a name only credited with others gets a page too.
+        $songs = $music->findByArtistWithCollaborations($name, $user);
         if ($songs === []) {
             throw $this->createNotFoundException('Artist not found or has no visible tracks.');
         }

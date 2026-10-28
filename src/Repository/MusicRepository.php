@@ -111,6 +111,26 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
+     * The tracks of an artist plus those of the duos / trios / feat. naming it
+     * (collaborationsOf), for the artist page and its "Add all to playlist".
+     *
+     * @return Music[]
+     */
+    public function findByArtistWithCollaborations(string $artist, ?User $viewer): array
+    {
+        $names = [$artist, ...array_column($this->collaborationsOf($artist, $viewer), 'artist')];
+        $qb = $this->createQueryBuilder('m')
+            ->andWhere('m.artist IN (:names)')
+            ->setParameter('names', $names)
+            ->orderBy('m.album', 'ASC')
+            ->addOrderBy('m.title', 'ASC');
+
+        $this->applyVisibility($qb, $viewer);
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
      * @return Music[]
      */
     public function findByArtist(string $artist, ?User $viewer): array
@@ -452,10 +472,11 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
-     * The library artists among the names of a multi-artist credit, in credit
-     * order (case-insensitive match, the library's spelling returned).
+     * The artists of a multi-artist credit, in credit order, each with the
+     * library's spelling when it also has tracks of its own (every one has an
+     * artist page: findByArtistWithCollaborations finds this credit).
      *
-     * @return list<array{artist: string, cnt: int}>
+     * @return list<string>
      */
     public function membersOf(string $credit, ?User $viewer): array
     {
@@ -469,10 +490,10 @@ class MusicRepository extends ServiceEntityRepository
             ->setParameter('names', array_map('mb_strtolower', $names))
             ->groupBy('m.artist');
         $this->applyVisibility($qb, $viewer);
-        $found = array_column($qb->getQuery()->getResult(), null, 'artist');
-        $byLower = array_combine(array_map('mb_strtolower', array_keys($found)), $found);
+        $found = array_column($qb->getQuery()->getResult(), 'artist');
+        $byLower = array_combine(array_map('mb_strtolower', $found), $found);
 
-        return array_values(array_filter(array_map(static fn(string $n): ?array => $byLower[mb_strtolower($n)] ?? null, $names)));
+        return array_map(static fn(string $n): string => $byLower[mb_strtolower($n)] ?? $n, $names);
     }
 
     /**
