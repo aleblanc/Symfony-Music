@@ -544,7 +544,6 @@ library:
         fetch_info: "Fetch photo, Wikipedia, YouTube…"
         latest_posts: "Latest Instagram posts"
         latest_videos: "Latest videos"
-        more_concerts: "{count, plural, one {# more date on Songkick} other {# more dates on Songkick}}"
         new_concerts_badge: "{count, plural, other {# new}}"
         new_posts_badge: "{count, plural, other {# new}}"
         new_videos_badge: "{count, plural, other {# new}}"

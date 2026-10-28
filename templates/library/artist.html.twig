@@ -90,13 +90,10 @@
                 <a class="link muted" href="{{ path('app_concerts') }}" style="font-size: 13px; font-weight: 400; margin-left: 8px">{{ 'library.artist.all_concerts_link'|trans }} →</a>
             </h2>
             <ul class="concert-list">
-                {% for c in upcoming|slice(0, 10) %}
+                {% for c in upcoming %}
                     {{ concert.row(c, c.id in newConcertIds) }}
                 {% endfor %}
             </ul>
-            {% if upcoming|length > 10 and profile.songkickId %}
-                <p><a class="link" href="https://www.songkick.com/artists/{{ profile.songkickId|url_encode }}/calendar" target="_blank" rel="noopener">{{ 'library.artist.more_concerts'|trans({count: upcoming|length - 10}) }} ↗</a></p>
-            {% endif %}
         </section>
     {% endif %}
 
