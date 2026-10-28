@@ -14,6 +14,9 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class MusicRepository extends ServiceEntityRepository
 {
+    /** Between two artists of a credit: "A, B & C", "A feat. B", "A x B", "A et B"... */
+    private const CREDIT_SEPARATOR = '\\s*(?:[,;\\/&+]|\\s(?:feat\\.?|ft\\.?|featuring|with|x|vs\\.?|and|et)\\s)\\s*';
+
     /**
      * Sort keys accepted by `?sort=` on the library listing, ported from the
      * legacy `sort_map` in the `get_view_ids` action. Each entry maps to the
@@ -418,6 +421,71 @@ class MusicRepository extends ServiceEntityRepository
             ->orderBy('m.file', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * The other credits of the library naming this artist among several
+     * ("A, B & C", "A feat. B"...), most tracks first, for the artist page.
+     *
+     * @return list<array{artist: string, cnt: int}>
+     */
+    public function collaborationsOf(string $artist, ?User $viewer): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->select('m.artist AS artist, COUNT(m.id) AS cnt')
+            ->andWhere("m.artist LIKE :like ESCAPE '!'")
+            ->andWhere('m.artist <> :artist')
+            ->setParameter('like', '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $artist) . '%')
+            ->setParameter('artist', $artist)
+            ->groupBy('m.artist')
+            ->orderBy('cnt', 'DESC')
+            ->addOrderBy('m.artist', 'ASC');
+        $this->applyVisibility($qb, $viewer);
+
+        // The whole name between separators: "AC/DC & X" names AC/DC, "Blackpink" does not name Pink.
+        $named = '/(?:^|' . self::CREDIT_SEPARATOR . ')' . preg_quote(trim($artist), '/') . '(?:' . self::CREDIT_SEPARATOR . '|$)/iu';
+
+        return array_values(array_filter(
+            $qb->getQuery()->getResult(),
+            static fn(array $row): bool => preg_match($named, trim((string) $row['artist'])) === 1,
+        ));
+    }
+
+    /**
+     * The library artists among the names of a multi-artist credit, in credit
+     * order (case-insensitive match, the library's spelling returned).
+     *
+     * @return list<array{artist: string, cnt: int}>
+     */
+    public function membersOf(string $credit, ?User $viewer): array
+    {
+        $names = self::creditedArtists($credit);
+        if (\count($names) < 2) {
+            return [];
+        }
+        $qb = $this->createQueryBuilder('m')
+            ->select('m.artist AS artist, COUNT(m.id) AS cnt')
+            ->andWhere('LOWER(m.artist) IN (:names)')
+            ->setParameter('names', array_map('mb_strtolower', $names))
+            ->groupBy('m.artist');
+        $this->applyVisibility($qb, $viewer);
+        $found = array_column($qb->getQuery()->getResult(), null, 'artist');
+        $byLower = array_combine(array_map('mb_strtolower', array_keys($found)), $found);
+
+        return array_values(array_filter(array_map(static fn(string $n): ?array => $byLower[mb_strtolower($n)] ?? null, $names)));
+    }
+
+    /**
+     * The names of a credit: "A, B & C", "A feat. B", "A x B", "A et B"...
+     * give [A, B, C]; a single artist gives [A].
+     *
+     * @return list<string>
+     */
+    public static function creditedArtists(string $credit): array
+    {
+        $parts = preg_split('/' . self::CREDIT_SEPARATOR . '/iu', $credit) ?: [];
+
+        return array_values(array_filter(array_map('trim', $parts), static fn(string $p): bool => $p !== ''));
     }
 
     /**

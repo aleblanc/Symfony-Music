@@ -107,8 +107,9 @@ class MusicBrainzClient
      */
     /**
      * The artist's studio albums and EPs (release groups without a secondary
-     * type: no live, compilation, remix, demo, soundtrack...), newest first,
-     * undated ones last.
+     * type: no compilation, remix, demo...), plus live albums and soundtracks
+     * (Live or Soundtrack as the only secondary type, typed "Live" /
+     * "Soundtrack"), newest first, undated ones last.
      *
      * @return list<array{id: string, title: string, type: string, date: ?string}>
      */
@@ -119,14 +120,16 @@ class MusicBrainzClient
             $data = $this->get('release-group', ['artist' => $mbid, 'type' => 'album|ep', 'limit' => 100, 'offset' => $offset]);
             $page = $data['release-groups'] ?? [];
             foreach ($page as $g) {
-                if (($g['secondary-types'] ?? []) !== [] || !isset($g['id'], $g['title'])) {
+                $secondary = $g['secondary-types'] ?? [];
+                $kept = \count($secondary) === 1 && \in_array($secondary[0], ['Live', 'Soundtrack'], true) ? $secondary[0] : null;
+                if (($secondary !== [] && $kept === null) || !isset($g['id'], $g['title'])) {
                     continue;
                 }
                 $date = (string) ($g['first-release-date'] ?? '');
                 $groups[] = [
                     'id' => (string) $g['id'],
                     'title' => (string) $g['title'],
-                    'type' => (string) ($g['primary-type'] ?? 'Album'),
+                    'type' => $kept ?? (string) ($g['primary-type'] ?? 'Album'),
                     'date' => $date !== '' ? $date : null,
                 ];
             }

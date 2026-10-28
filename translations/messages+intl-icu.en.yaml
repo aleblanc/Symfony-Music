@@ -94,8 +94,10 @@ disco:
     type:
         broadcast: "Broadcast"
         ep: "EP"
+        live: "Live"
         other: "Other"
         single: "Single"
+        soundtrack: "Soundtrack"
 discovery:
     albums:
         empty_html: "Nothing yet: run <code>php bin/console app:artist:fetch</code> to get the discographies."
@@ -538,12 +540,15 @@ library:
         all_concerts_link: "all artists' concerts"
         all_posts_link: "all artists' posts"
         all_videos_link: "all artists' videos"
+        collaborations: "Collaborations"
+        collaborations_sub: "{count, plural, one {# duo, trio or feat.} other {# duos, trios or feats.}}"
         discography: "Discography"
         discography_bars: "bars: listeners on ListenBrainz"
         discography_sub: "{total, plural, one {# album or EP} other {# albums & EPs}}, {owned} in the library"
         fetch_info: "Fetch photo, Wikipedia, YouTube…"
         latest_posts: "Latest Instagram posts"
         latest_videos: "Latest videos"
+        members: "Artists:"
         new_concerts_badge: "{count, plural, other {# new}}"
         new_posts_badge: "{count, plural, other {# new}}"
         new_videos_badge: "{count, plural, other {# new}}"

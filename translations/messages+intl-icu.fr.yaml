@@ -94,8 +94,10 @@ disco:
     type:
         broadcast: "Émission"
         ep: "EP"
+        live: "Live"
         other: "Autre"
         single: "Single"
+        soundtrack: "Bande originale"
 discovery:
     albums:
         empty_html: "Rien pour l’instant : lance <code>php bin/console app:artist:fetch</code> pour récupérer les discographies."
@@ -538,12 +540,15 @@ library:
         all_concerts_link: "concerts de tous les artistes"
         all_posts_link: "publications de tous les artistes"
         all_videos_link: "vidéos de tous les artistes"
+        collaborations: "Collaborations"
+        collaborations_sub: "{count, plural, one {# duo, trio ou feat.} other {# duos, trios ou feats.}}"
         discography: "Discographie"
         discography_bars: "barres : auditeurs sur ListenBrainz"
         discography_sub: "{total, plural, one {# album ou EP} other {# albums et EP}}, {owned} dans la bibliothèque"
         fetch_info: "Récupérer photo, Wikipédia, YouTube…"
         latest_posts: "Dernières publications Instagram"
         latest_videos: "Dernières vidéos"
+        members: "Artistes :"
         new_concerts_badge: "{count, plural, one {# nouveau} other {# nouveaux}}"
         new_posts_badge: "{count, plural, one {# nouvelle} other {# nouvelles}}"
         new_videos_badge: "{count, plural, one {# nouvelle} other {# nouvelles}}"

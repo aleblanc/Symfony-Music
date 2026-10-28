@@ -184,6 +184,9 @@ class LibraryController extends AbstractController
             'newPostIds' => $newPostIds,
             'newConcertIds' => $newConcertIds,
             'albums' => $albums,
+            // Duos / trios / feat. this artist appears in, and the library artists of a collaboration credit.
+            'collaborations' => $music->collaborationsOf($name, $user),
+            'members' => $music->membersOf($name, $user),
             'discography' => $discography,
             // Library album name => its discography entry (track list behind the "?" of the album cards).
             'albumTracklists' => array_column(array_filter($discography, static fn(array $d): bool => $d['owned'] !== null && \is_array($d['tracklist'] ?? null)), null, 'owned'),

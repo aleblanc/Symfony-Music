@@ -856,3 +856,6 @@ html.nav-loading { cursor: progress; }
 }
 .lang-switch button:hover { color: var(--text); background: var(--bg-elev-2); }
 .lang-switch button[aria-current="true"] { color: var(--text); border-color: var(--accent); }
+
+/* Artist page: the artists of a collaboration credit (header) */
+.artist-members { margin: 4px 0 10px; }

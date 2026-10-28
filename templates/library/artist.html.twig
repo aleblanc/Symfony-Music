@@ -25,6 +25,14 @@
                 {% if found and profile.description %}{{ profile.description|capitalize }} · {% endif %}
                 {{ 'common.count.albums'|trans({count: albums|length}) }} · {{ 'common.track_count'|trans({count: songs|length}) }}
             </p>
+            {% if members is not empty %}
+                <div class="song-chips artist-members">
+                    <span class="muted">{{ 'library.artist.members'|trans }}</span>
+                    {% for m in members %}
+                        <a class="chip" href="{{ path('app_artist', {name: m.artist}) }}">{{ m.artist }}</a>
+                    {% endfor %}
+                </div>
+            {% endif %}
             {% if found and profile.summary %}
                 <p class="artist-summary">{{ profile.summary }}</p>
             {% endif %}
@@ -110,6 +118,17 @@
                     </a>
                     {% if albumTracklists[a.album] is defined %}{{ disco.tracklist(albumTracklists[a.album], 'own-' ~ loop.index) }}{% endif %}
                     </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    {% if collaborations is not empty %}
+        <section class="artist-section">
+            <h2>{{ 'library.artist.collaborations'|trans }} <span class="muted">· {{ 'library.artist.collaborations_sub'|trans({count: collaborations|length}) }}</span></h2>
+            <div class="song-chips">
+                {% for c in collaborations %}
+                    <a class="chip" href="{{ path('app_artist', {name: c.artist}) }}">{{ c.artist }} <span class="muted">&nbsp;· {{ 'common.track_count'|trans({count: c.cnt}) }}</span></a>
                 {% endfor %}
             </div>
         </section>
