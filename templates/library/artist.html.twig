@@ -1,5 +1,6 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_video_card.html.twig' as video %}
+{% import 'partials/_post_card.html.twig' as post %}
 {% import 'partials/_tracks.html.twig' as tracks %}
 {% import 'partials/_mosaic.html.twig' as tiles %}
 {% import 'partials/_play_all.html.twig' as playAll %}
@@ -60,6 +61,20 @@
             <div class="video-grid">
                 {% for v in videos %}
                     {{ video.card(v, v.id in newVideoIds) }}
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    {% if found and profile.posts is not empty %}
+        <section class="artist-section">
+            <h2>Latest Instagram posts
+                {% if newPostIds is not empty %}<span class="badge-new">{{ newPostIds|length }} new</span>{% endif %}
+                <a class="link muted" href="{{ path('app_posts') }}" style="font-size: 13px; font-weight: 400; margin-left: 8px">all artists' posts →</a>
+            </h2>
+            <div class="video-grid post-grid">
+                {% for p in profile.posts|slice(0, 12) %}
+                    {{ post.card(p, p.id in newPostIds) }}
                 {% endfor %}
             </div>
         </section>

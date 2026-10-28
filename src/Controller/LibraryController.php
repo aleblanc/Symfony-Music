@@ -163,10 +163,11 @@ class LibraryController extends AbstractController
 
         // Videos are "new" until this visit: flagged now, not on the next one.
         $profile = $profiles->findOneByName($name);
-        $newVideoIds = [];
+        $newVideoIds = $newPostIds = [];
         if ($profile !== null) {
             $newVideoIds = array_column($profile->newVideos($clock->now()), 'id');
-            if ($profile->getVideos() !== []) {
+            $newPostIds = array_column($profile->newPosts($clock->now()), 'id');
+            if ($profile->getVideos() !== [] || $profile->getPosts() !== []) {
                 $profile->markVideosSeen($clock->now());
                 $em->flush();
             }
@@ -179,6 +180,7 @@ class LibraryController extends AbstractController
             'artist' => $name,
             'profile' => $profile,
             'newVideoIds' => $newVideoIds,
+            'newPostIds' => $newPostIds,
             'albums' => $albums,
             'discography' => $discography,
             // Library album name => its discography entry (track list behind the "?" of the album cards).

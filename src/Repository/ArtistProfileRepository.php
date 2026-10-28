@@ -34,6 +34,12 @@ class ArtistProfileRepository extends ServiceEntityRepository
         return $profiles;
     }
 
+    /** True when a profile keeps this Instagram post (shortcode: letters, digits, - and _, checked by the route; "_" matching any character is harmless here). */
+    public function hasPost(string $shortcode): bool
+    {
+        return (int) $this->getEntityManager()->getConnection()->fetchOne('SELECT COUNT(*) FROM artist_profile WHERE posts LIKE ?', ['%"id":"' . $shortcode . '"%']) > 0;
+    }
+
     /**
      * @return list<ArtistProfile>
      */

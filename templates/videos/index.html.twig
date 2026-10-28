@@ -15,11 +15,11 @@
         {% endif %}
     </p>
 
-    {% if videos is empty %}
+    {% if items is empty %}
         <p class="muted">No video{{ onlyNew ? ' new since your last visits' : ' yet: run php bin/console app:artist:videos' }}.</p>
     {% else %}
         <div class="video-grid">
-            {% for v in videos %}
+            {% for v in items %}
                 {{ video.card(v, v.new, v.artist) }}
             {% endfor %}
         </div>

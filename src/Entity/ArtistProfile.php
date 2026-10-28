@@ -23,6 +23,8 @@ class ArtistProfile
     public const NOT_FOUND = 'not_found';
     /** Videos kept per artist: the RSS feed only gives the last 15, each check adds the new ones to those already known. */
     public const MAX_VIDEOS = 60;
+    /** Instagram posts kept per artist: each check adds the ones on the profile page (about 12) to those already known. */
+    public const MAX_POSTS = 50;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -84,13 +86,25 @@ class ArtistProfile
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $discography = null;
 
+    /**
+     * Latest Instagram posts (shortcode, "p" or "reel", alt text of the
+     * thumbnail, date decoded from the shortcode), newest first, up to MAX_POSTS.
+     *
+     * @var list<array{id: string, type: string, caption: ?string, published: string}>
+     */
+    #[ORM\Column(type: 'json', options: ['default' => '[]'])]
+    private array $posts = [];
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $postsCheckedAt = null;
+
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $fetchedAt = null;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $videosCheckedAt = null;
 
-    /** Last visit of the artist page: videos published after it are "new". */
+    /** Last visit of the artist page: videos (and Instagram posts) published after it are "new". */
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $videosSeenAt = null;
 
@@ -265,6 +279,63 @@ class ArtistProfile
         }
 
         return array_values(array_filter($this->videos, static fn(array $v) => new \DateTimeImmutable($v['published']) > $since));
+    }
+
+    /** The Instagram account, from the profile links ("linkinpark" for instagram.com/linkinpark/). */
+    public function getInstagramHandle(): ?string
+    {
+        foreach ($this->links as $link) {
+            if (preg_match('#^https?://(?:www\.)?instagram\.com/([A-Za-z0-9._]{1,30})/?(?:[?\#].*)?$#', $link['url'], $m) === 1
+                && !\in_array(strtolower($m[1]), ['p', 'reel', 'reels', 'explore', 'stories', 'accounts'], true)) {
+                return $m[1];
+            }
+        }
+
+        return null;
+    }
+
+    /** @return list<array{id: string, type: string, caption: ?string, published: string}> */
+    public function getPosts(): array
+    {
+        return $this->posts;
+    }
+
+    public function getPostsCheckedAt(): ?\DateTimeImmutable
+    {
+        return $this->postsCheckedAt;
+    }
+
+    /**
+     * Adds the posts read on the profile page to the ones already known
+     * (newest copy wins), newest first, MAX_POSTS kept.
+     *
+     * @param list<array{id: string, type: string, caption: ?string, published: string}> $posts
+     */
+    public function setPosts(array $posts, \DateTimeImmutable $now): void
+    {
+        $byId = array_column($this->posts, null, 'id');
+        foreach ($posts as $post) {
+            $byId[$post['id']] = $post;
+        }
+        $merged = array_values($byId);
+        usort($merged, static fn (array $a, array $b): int => strcmp($b['published'], $a['published']));
+        $this->posts = \array_slice($merged, 0, self::MAX_POSTS);
+        $this->postsCheckedAt = $now;
+    }
+
+    /**
+     * Posts published since the last visit of the artist page (at most the last 30 days), as newVideos().
+     *
+     * @return list<array{id: string, type: string, caption: ?string, published: string}>
+     */
+    public function newPosts(\DateTimeImmutable $now): array
+    {
+        $since = $now->modify('-30 days');
+        if ($this->videosSeenAt !== null && $this->videosSeenAt > $since) {
+            $since = $this->videosSeenAt;
+        }
+
+        return array_values(array_filter($this->posts, static fn(array $p) => new \DateTimeImmutable($p['published']) > $since));
     }
 
     public function markVideosSeen(\DateTimeImmutable $now): void
