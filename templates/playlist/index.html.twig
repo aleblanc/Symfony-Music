@@ -1,32 +1,32 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Playlists · PHP Music{% endblock %}
+{% block title %}{{ 'playlist.index.heading'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
     <div class="toolbar" style="justify-content:space-between;">
-        <h1 style="margin:0;">Playlists</h1>
-        <a class="btn btn-ghost" href="{{ path('app_playlists_collab') }}">Collaborating on…</a>
+        <h1 style="margin:0;">{{ 'playlist.index.heading'|trans }}</h1>
+        <a class="btn btn-ghost" href="{{ path('app_playlists_collab') }}">{{ 'playlist.index.collab_link'|trans }}</a>
     </div>
 
     <form class="toolbar" method="post" action="{{ path('app_playlist_new') }}">
         <input type="hidden" name="_token" value="{{ csrf_token('playlist_new') }}">
-        <input class="field search" type="text" name="name" placeholder="New playlist name…" required>
-        <input class="field search" type="text" name="description" placeholder="Description (optional)…">
+        <input class="field search" type="text" name="name" placeholder="{{ 'playlist.index.name_placeholder'|trans }}" required>
+        <input class="field search" type="text" name="description" placeholder="{{ 'playlist.index.description_placeholder'|trans }}">
         <label style="display:flex;align-items:center;gap:6px;">
-            <input type="checkbox" name="is_private" value="1"> Private
+            <input type="checkbox" name="is_private" value="1"> {{ 'playlist.common.private'|trans }}
         </label>
-        <button class="btn" type="submit">Create</button>
+        <button class="btn" type="submit">{{ 'playlist.index.create'|trans }}</button>
     </form>
 
     {% if playlists is empty %}
-        <p class="muted">You have no playlists yet.</p>
+        <p class="muted">{{ 'playlist.index.empty'|trans }}</p>
     {% else %}
         <div class="card-grid">
             {% for p in playlists %}
                 <a class="card" href="{{ path('app_playlist_show', {id: p.id}) }}">
                     <div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:40px;background:var(--bg-elev-2);border-radius:8px;">🎧</div>
                     <div class="card-title">{{ p.name }}</div>
-                    <div class="card-sub">{{ p.items|length }} track{{ p.items|length == 1 ? '' : 's' }}{{ p.isPrivate ? ' · private' }}{{ p.isCollaborative ? ' · collaborative' }}</div>
+                    <div class="card-sub">{{ 'playlist.card.tracks'|trans({count: p.items|length}) }}{{ p.isPrivate ? ' ' ~ 'playlist.card.private_suffix'|trans }}{{ p.isCollaborative ? ' ' ~ 'playlist.card.collaborative_suffix'|trans }}</div>
                 </a>
             {% endfor %}
         </div>
@@ -36,26 +36,26 @@
 
     <div style="display:flex;gap:32px;flex-wrap:wrap;">
         <div style="flex:1;min-width:280px;">
-            <h2>Copy a playlist</h2>
-            <p class="section-sub">Paste the share id (public id) of a public playlist to copy it into your library.</p>
+            <h2>{{ 'playlist.index.copy_heading'|trans }}</h2>
+            <p class="section-sub">{{ 'playlist.index.copy_help'|trans }}</p>
             <form method="post" action="{{ path('app_playlist_copy') }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('playlist_copy') }}">
                 <div class="field">
-                    <input type="text" name="public_id" placeholder="Playlist public id…" required>
+                    <input type="text" name="public_id" placeholder="{{ 'playlist.index.public_id_placeholder'|trans }}" required>
                 </div>
-                <button class="btn" type="submit">Copy</button>
+                <button class="btn" type="submit">{{ 'common.copy'|trans }}</button>
             </form>
         </div>
 
         <div style="flex:1;min-width:280px;">
-            <h2>Import a playlist</h2>
-            <p class="section-sub">Upload a JSON export (name + songs) to recreate it in your library.</p>
+            <h2>{{ 'playlist.index.import_heading'|trans }}</h2>
+            <p class="section-sub">{{ 'playlist.index.import_help'|trans }}</p>
             <form method="post" action="{{ path('app_playlist_import') }}" enctype="multipart/form-data">
                 <input type="hidden" name="_token" value="{{ csrf_token('playlist_import') }}">
                 <div class="field">
                     <input type="file" name="import_file" accept="application/json,.json" required>
                 </div>
-                <button class="btn" type="submit">Import</button>
+                <button class="btn" type="submit">{{ 'playlist.index.import'|trans }}</button>
             </form>
         </div>
     </div>

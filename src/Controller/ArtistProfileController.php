@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
 
 /**
  * "Refresh" button of an artist page: same as
@@ -34,12 +35,12 @@ class ArtistProfileController extends AbstractController
         try {
             $profile = $updater->refreshInfo($name, $albums);
             if ($updater->refreshVideos($profile) === null) {
-                $this->addFlash('error', 'YouTube feed unreachable, videos not updated.');
+                $this->addFlash('error', new TranslatableMessage('flash.artist.youtube_unreachable'));
             }
             $em->flush();
-            $this->addFlash($profile->isFound() ? 'success' : 'error', $profile->isFound() ? 'Artist info updated.' : 'Artist not found on MusicBrainz.');
+            $this->addFlash($profile->isFound() ? 'success' : 'error', new TranslatableMessage($profile->isFound() ? 'flash.artist.info_updated' : 'flash.artist.not_found_musicbrainz'));
         } catch (EnrichmentException $e) {
-            $this->addFlash('error', $e->getMessage());
+            $this->addFlash('error', new TranslatableMessage('flash.artist.musicbrainz_error', ['error' => $e->getMessage()]));
         }
 
         return $this->redirectToRoute('app_artist', ['name' => $name]);

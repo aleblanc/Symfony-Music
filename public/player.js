@@ -211,14 +211,14 @@ if (audio && bar) {
 
     const rgBtn = document.getElementById('player-rg');
     const RG_TITLE = {
-        track: 'Volume normalization: track (ReplayGain). Click: album',
-        album: 'Volume normalization: album (ReplayGain). Click: off',
-        off: 'Volume normalization: off. Click: track',
+        track: 'js.player.rg.title_track',
+        album: 'js.player.rg.title_album',
+        off: 'js.player.rg.title_off',
     };
     function renderRgButton() {
         if (!rgBtn) return;
         rgBtn.textContent = rgMode === 'off' ? 'RG' : (rgMode === 'album' ? 'RG·A' : 'RG·T');
-        rgBtn.title = RG_TITLE[rgMode];
+        rgBtn.title = I18N.t(RG_TITLE[rgMode]);
         rgBtn.classList.toggle('active', rgMode !== 'off');
     }
     if (rgBtn) {
@@ -228,7 +228,7 @@ if (audio && bar) {
             store.set('player.replayGain', rgMode);
             renderRgButton();
             applyProcessing();
-            toast(rgMode === 'off' ? 'Normalization off' : `Normalization: ${rgMode}`);
+            toast(rgMode === 'off' ? I18N.t('js.player.rg.toast_off') : I18N.t('js.player.rg.toast_mode', { mode: rgMode }));
         });
     }
 
@@ -267,8 +267,8 @@ if (audio && bar) {
             p.textContent = text;
             lyricsBody.appendChild(p);
         };
-        if (!info) { message(index < 0 ? 'Nothing playing.' : 'Loading…'); return; }
-        if (!info.lyrics) { message('No lyrics for this track.'); return; }
+        if (!info) { message(index < 0 ? I18N.t('js.player.lyrics.nothing_playing') : I18N.t('js.common.loading')); return; }
+        if (!info.lyrics) { message(I18N.t('js.player.lyrics.none')); return; }
 
         const lines = parseLrc(info.lyrics);
         if (lines.length === 0) {
@@ -363,7 +363,7 @@ if (audio && bar) {
             b.className = n <= v ? 'on' : '';
             b.setAttribute('role', 'radio');
             b.setAttribute('aria-checked', n === v ? 'true' : 'false');
-            b.title = `${n} star${n > 1 ? 's' : ''}`;
+            b.title = I18N.t('js.player.rating.stars', { count: n });
             return b;
         }));
         return box;
@@ -373,7 +373,7 @@ if (audio && bar) {
         if (queueBtn) queueBtn.classList.toggle('has-queue', queue.length > 1);
         if (!queuePanel || !queueBody || queuePanel.hidden) return;
         const upcoming = Math.max(0, queue.length - index - 1);
-        if (queueCount) queueCount.textContent = queue.length ? `· ${index + 1}/${queue.length}${upcoming ? `, ${upcoming} next` : ''}` : '';
+        if (queueCount) queueCount.textContent = queue.length ? I18N.t('js.player.queue.count', { position: index + 1, total: queue.length, upcoming }) : '';
         queueBody.replaceChildren(...queue.map((t, i) => {
             const li = document.createElement('li');
             li.className = 'queue-item' + (i === index ? ' current' : '') + (i < index ? ' played' : '');
@@ -395,15 +395,15 @@ if (audio && bar) {
                 const rate = document.createElement('span');
                 rate.className = 'rate queue-rate';
                 rate.setAttribute('role', 'radiogroup');
-                rate.setAttribute('aria-label', 'Rating');
+                rate.setAttribute('aria-label', I18N.t('js.player.queue.rating'));
                 li.append(fillStars(rate, t));
             }
             if (i !== index) {
                 const rm = document.createElement('button');
                 rm.type = 'button';
                 rm.className = 'queue-remove';
-                rm.title = 'Remove from the queue';
-                rm.setAttribute('aria-label', `Remove ${t.title} from the queue`);
+                rm.title = I18N.t('js.player.queue.remove_title');
+                rm.setAttribute('aria-label', I18N.t('js.player.queue.remove_aria', { title: t.title }));
                 rm.textContent = '×';
                 li.append(rm);
             }
@@ -456,7 +456,7 @@ if (audio && bar) {
     function trackData(el) {
         return {
             id: el.dataset.trackId,
-            title: el.dataset.trackTitle || 'Unknown',
+            title: el.dataset.trackTitle || I18N.t('js.common.unknown'),
             artist: el.dataset.trackArtist || '',
             album: el.dataset.trackAlbum || '',
             url: el.dataset.trackUrl || '',
@@ -545,13 +545,13 @@ if (audio && bar) {
         if (index < 0) { queue = [t]; load(0); return; }
         queue.splice(index + 1, 0, t);
         renderQueue();
-        toast(`Playing next: ${t.title}`);
+        toast(I18N.t('js.player.playing_next', { title: t.title }));
     }
     function addToQueue(t) {
         if (index < 0) { queue = [t]; load(0); return; }
         queue.push(t);
         renderQueue();
-        toast(`Added to queue: ${t.title}`);
+        toast(I18N.t('js.player.added_to_queue', { title: t.title }));
     }
 
     function recordListen() {
@@ -607,7 +607,7 @@ if (audio && bar) {
         }
         queue.push(...tracks);
         renderQueue();
-        toast(`${tracks.length} track${tracks.length === 1 ? '' : 's'} added to queue`);
+        toast(I18N.t('js.player.tracks_added_to_queue', { count: tracks.length }));
     });
 
     els.toggle.addEventListener('click', () => (audio.paused ? audio.play() : audio.pause()));
@@ -702,7 +702,7 @@ if (audio && bar) {
             ctx.textAlign = 'center';
             ctx.fillStyle = '#fff';
             ctx.font = 'bold 34px Roboto, Arial, sans-serif';
-            ctx.fillText(ellipsize(els.title.textContent || 'Not playing', w - 60), w / 2, h / 2 - 4);
+            ctx.fillText(ellipsize(els.title.textContent || I18N.t('js.player.not_playing'), w - 60), w / 2, h / 2 - 4);
             ctx.fillStyle = 'rgba(255,255,255,0.75)';
             ctx.font = '24px Roboto, Arial, sans-serif';
             ctx.fillText(ellipsize(els.artist.textContent || '', w - 60), w / 2, h / 2 + 34);
@@ -822,8 +822,8 @@ if (audio && bar) {
         fetch(urlTpl.replace(/\/\d+$/, '/' + id), {
             method: 'POST', headers: { 'X-Requested-With': 'fetch', 'X-CSRF-TOKEN': csrf },
         }).then((r) => r.json()).then((d) => {
-            if (d && d.listenLater !== undefined) toast(d.listenLater ? 'Added to Listen Later' : 'Removed from Listen Later');
-            else if (d && d.offline !== undefined) toast(d.offline ? 'Saved offline' : 'Removed from offline');
+            if (d && d.listenLater !== undefined) toast(I18N.t(d.listenLater ? 'js.player.listen_later.added' : 'js.player.listen_later.removed'));
+            else if (d && d.offline !== undefined) toast(I18N.t(d.offline ? 'js.player.offline.saved' : 'js.player.offline.removed'));
         }).catch(() => {});
     }
 
@@ -870,42 +870,42 @@ if (audio && bar) {
 
         const title = document.createElement('div');
         title.className = 'cm-title';
-        title.textContent = d.title || 'Track';
+        title.textContent = d.title || I18N.t('js.player.menu.track_fallback');
         menu.appendChild(title);
 
         if (row) {
-            menu.appendChild(menuItem(ICON.play, 'Play', () => playFrom(row)));
-            menu.appendChild(menuItem(ICON.next, 'Play next', () => playNext(trackData(row))));
-            menu.appendChild(menuItem(ICON.queue, 'Add to queue', () => addToQueue(trackData(row))));
+            menu.appendChild(menuItem(ICON.play, I18N.t('js.common.play'), () => playFrom(row)));
+            menu.appendChild(menuItem(ICON.next, I18N.t('js.player.menu.play_next'), () => playNext(trackData(row))));
+            menu.appendChild(menuItem(ICON.queue, I18N.t('js.player.menu.add_to_queue'), () => addToQueue(trackData(row))));
         }
         menu.appendChild(menuSep());
-        if (d.artistUrl) menu.appendChild(menuLink(ICON.artist, 'Go to artist', d.artistUrl));
-        if (d.albumUrl) menu.appendChild(menuLink(ICON.album, 'Go to album', d.albumUrl));
-        if (d.songUrl) menu.appendChild(menuLink(ICON.info, 'View metadata', d.songUrl));
-        if (d.downloadUrl) menu.appendChild(menuLink(ICON.download, 'Download', d.downloadUrl, true));
+        if (d.artistUrl) menu.appendChild(menuLink(ICON.artist, I18N.t('js.player.menu.go_to_artist'), d.artistUrl));
+        if (d.albumUrl) menu.appendChild(menuLink(ICON.album, I18N.t('js.player.menu.go_to_album'), d.albumUrl));
+        if (d.songUrl) menu.appendChild(menuLink(ICON.info, I18N.t('js.player.menu.view_metadata'), d.songUrl));
+        if (d.downloadUrl) menu.appendChild(menuLink(ICON.download, I18N.t('js.common.download'), d.downloadUrl, true));
 
         if (d.user) {
             menu.appendChild(menuSep());
             const favBtn = row ? row.querySelector('.track-fav') : null;
             if (favBtn) {
                 const on = favBtn.classList.contains('fav-on');
-                menu.appendChild(menuItem(ICON.heart, on ? 'Remove from favorites' : 'Add to favorites', () => favBtn.click()));
+                menu.appendChild(menuItem(ICON.heart, I18N.t(on ? 'js.player.menu.remove_favorite' : 'js.player.menu.add_favorite'), () => favBtn.click()));
             }
             if (cfg.listenLaterToggleUrl) {
-                menu.appendChild(menuItem(ICON.clock, d.llOn ? 'Remove from Listen Later' : 'Add to Listen Later',
+                menu.appendChild(menuItem(ICON.clock, I18N.t(d.llOn ? 'js.player.menu.remove_listen_later' : 'js.player.menu.add_listen_later'),
                     () => toggleByUrl(cfg.listenLaterToggleUrl, cfg.listenLaterCsrf, d.id)));
             }
             if (cfg.offlineToggleUrl) {
-                menu.appendChild(menuItem(ICON.cloud, d.offOn ? 'Remove offline copy' : 'Save offline',
+                menu.appendChild(menuItem(ICON.cloud, I18N.t(d.offOn ? 'js.player.menu.remove_offline' : 'js.player.menu.save_offline'),
                     () => toggleByUrl(cfg.offlineToggleUrl, cfg.offlineCsrf, d.id)));
             }
             if (d.editUrl) {
                 menu.appendChild(menuSep());
-                menu.appendChild(menuLink(ICON.edit, 'Edit metadata', d.editUrl));
+                menu.appendChild(menuLink(ICON.edit, I18N.t('js.player.menu.edit_metadata'), d.editUrl));
             }
             if (cfg.banUrl && d.id) {
                 if (!d.editUrl) menu.appendChild(menuSep());
-                menu.appendChild(menuItem(ICON.ban, 'Not this song (ban)', () => banTrack(d.id, d.title, row)));
+                menu.appendChild(menuItem(ICON.ban, I18N.t('js.player.menu.ban'), () => banTrack(d.id, d.title, row)));
             }
         }
     }
@@ -913,7 +913,7 @@ if (audio && bar) {
     // "Not this song": its recording is fingerprinted and refused from now on
     // for this track (BanController); the file leaves the library.
     function banTrack(id, title, row) {
-        if (!window.confirm(`Ban "${title || 'this track'}"?\n\nIts audio is not this song: it leaves the library and this recording will never be downloaded again for it.`)) return;
+        if (!window.confirm(I18N.t('js.player.ban.confirm', { title: title || I18N.t('js.player.ban.this_track') }))) return;
         fetch(cfg.banUrl.replace(/\/0\/ban$/, `/${id}/ban`), {
             method: 'POST',
             headers: { 'X-Requested-With': 'fetch', 'X-CSRF-TOKEN': cfg.banCsrf || '' },
@@ -930,9 +930,9 @@ if (audio && bar) {
                     }
                     renderQueue();
                 }
-                toast(d.message || 'Banned');
+                toast(d.message || I18N.t('js.player.ban.done'));
             })
-            .catch((d) => toast('Not banned: ' + ((d && d.error) || 'error')));
+            .catch((d) => toast(I18N.t('js.player.ban.failed', { error: (d && d.error) || I18N.t('js.player.ban.error') })));
     }
 
     function openMenu(k) {
@@ -1025,8 +1025,8 @@ function initSongAudioSettings() {
             body: JSON.stringify({ volume: parseFloat(volumeInput.value), eq }),
         })
             .then((r) => r.json())
-            .then((d) => { status.textContent = d.status === 'success' ? 'Saved.' : (d.error || 'Failed to save.'); })
-            .catch(() => { status.textContent = 'Failed to save.'; });
+            .then((d) => { status.textContent = d.status === 'success' ? I18N.t('js.player.audio_settings.saved') : (d.error || I18N.t('js.player.audio_settings.save_failed')); })
+            .catch(() => { status.textContent = I18N.t('js.player.audio_settings.save_failed'); });
     });
 
     resetBtn.addEventListener('click', () => {
@@ -1037,10 +1037,10 @@ function initSongAudioSettings() {
         })
             .then((r) => r.json())
             .then((d) => {
-                if (d.status === 'success') { applyValues(1.0, [0, 0, 0, 0, 0]); preview(); status.textContent = 'Reset to default.'; }
-                else { status.textContent = d.error || 'Failed to reset.'; }
+                if (d.status === 'success') { applyValues(1.0, [0, 0, 0, 0, 0]); preview(); status.textContent = I18N.t('js.player.audio_settings.reset_done'); }
+                else { status.textContent = d.error || I18N.t('js.player.audio_settings.reset_failed'); }
             })
-            .catch(() => { status.textContent = 'Failed to reset.'; });
+            .catch(() => { status.textContent = I18N.t('js.player.audio_settings.reset_failed'); });
     });
 }
 

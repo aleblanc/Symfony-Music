@@ -1,45 +1,45 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_tracks.html.twig' as tracks %}
 
-{% block title %}Library · PHP Music{% endblock %}
+{% block title %}{{ 'library.list.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>{{ query ? 'Results for “' ~ query ~ '”' : 'Library' }}</h1>
+    <h1>{{ query ? 'library.list.results_for'|trans({query: query}) : 'library.list.title'|trans }}</h1>
     <p class="section-sub">
-        {{ total }} {{ query ? 'result' : 'track' }}{{ total == 1 ? '' : 's' }}
-        {% if query %} · <a class="link" href="{{ path('app_library') }}">Clear search</a>{% endif %}
+        {{ (query ? 'common.count.results' : 'common.track_count')|trans({count: total}) }}
+        {% if query %} · <a class="link" href="{{ path('app_library') }}">{{ 'library.list.clear_search'|trans }}</a>{% endif %}
     </p>
 
     {% if is_granted('ROLE_ADMIN') %}
         <form class="admin-actions" method="post" action="{{ path('app_admin_rescan') }}">
             <input type="hidden" name="_token" value="{{ csrf_token('admin_rescan') }}">
-            <button class="btn btn-ghost" type="submit" name="force" value="0">Rescan library</button>
-            <button class="btn btn-ghost" type="submit" name="force" value="1">Force full rescan</button>
-            <a class="btn btn-ghost" href="{{ path('app_suggestions') }}">Metadata suggestions</a>
-            <a class="btn btn-ghost" href="{{ path('app_import_queue') }}">Import queue</a>
-            <a class="btn btn-ghost" href="{{ path('app_quality_stats') }}">Audio quality</a>
+            <button class="btn btn-ghost" type="submit" name="force" value="0">{{ 'library.list.rescan'|trans }}</button>
+            <button class="btn btn-ghost" type="submit" name="force" value="1">{{ 'library.list.force_rescan'|trans }}</button>
+            <a class="btn btn-ghost" href="{{ path('app_suggestions') }}">{{ 'library.list.metadata_suggestions'|trans }}</a>
+            <a class="btn btn-ghost" href="{{ path('app_import_queue') }}">{{ 'library.list.import_queue'|trans }}</a>
+            <a class="btn btn-ghost" href="{{ path('app_quality_stats') }}">{{ 'library.list.audio_quality'|trans }}</a>
         </form>
     {% endif %}
 
-    <nav class="sort-bar" aria-label="Sort">
-        <span class="muted">Sort by</span>
+    <nav class="sort-bar" aria-label="{{ 'common.sort'|trans }}">
+        <span class="muted">{{ 'common.sort_by'|trans }}</span>
         <a href="{{ path('app_library', {q: query, sort: sort == 'artist_asc' ? 'artist_desc' : 'artist_asc'}) }}"
-           class="{{ sort starts with 'artist' ? 'active' }}">Artist {{ sort == 'artist_desc' ? '↓' : '↑' }}</a>
+           class="{{ sort starts with 'artist' ? 'active' }}">{{ 'library.list.sort_artist'|trans }} {{ sort == 'artist_desc' ? '↓' : '↑' }}</a>
         <a href="{{ path('app_library', {q: query, sort: sort == 'album_asc' ? 'album_desc' : 'album_asc'}) }}"
-           class="{{ sort starts with 'album' ? 'active' }}">Album {{ sort == 'album_desc' ? '↓' : '↑' }}</a>
+           class="{{ sort starts with 'album' ? 'active' }}">{{ 'library.list.sort_album'|trans }} {{ sort == 'album_desc' ? '↓' : '↑' }}</a>
         <a href="{{ path('app_library', {q: query, sort: sort == 'year_desc' ? 'year_asc' : 'year_desc'}) }}"
-           class="{{ sort starts with 'year' ? 'active' }}">Year {{ sort == 'year_asc' ? '↑' : '↓' }}</a>
+           class="{{ sort starts with 'year' ? 'active' }}">{{ 'library.list.sort_year'|trans }} {{ sort == 'year_asc' ? '↑' : '↓' }}</a>
         <a href="{{ path('app_library', {q: query, sort: sort == 'added_desc' ? 'added_asc' : 'added_desc'}) }}"
-           class="{{ sort starts with 'added' ? 'active' }}" title="File date (last modified)">Date added {{ sort == 'added_asc' ? '↑' : '↓' }}</a>
+           class="{{ sort starts with 'added' ? 'active' }}" title="{{ 'library.list.sort_added_title'|trans }}">{{ 'library.list.sort_added'|trans }} {{ sort == 'added_asc' ? '↑' : '↓' }}</a>
     </nav>
 
     {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
 
     {% if pages > 1 %}
         <div class="pagination">
-            {% if page > 1 %}<a href="{{ path('app_library', {q: query, sort: sort, page: page - 1}) }}">← Prev</a>{% endif %}
+            {% if page > 1 %}<a href="{{ path('app_library', {q: query, sort: sort, page: page - 1}) }}">{{ 'common.pagination.prev'|trans }}</a>{% endif %}
             <span class="current">{{ page }} / {{ pages }}</span>
-            {% if page < pages %}<a href="{{ path('app_library', {q: query, sort: sort, page: page + 1}) }}">Next →</a>{% endif %}
+            {% if page < pages %}<a href="{{ path('app_library', {q: query, sort: sort, page: page + 1}) }}">{{ 'common.pagination.next'|trans }}</a>{% endif %}
         </div>
     {% endif %}
 {% endblock %}

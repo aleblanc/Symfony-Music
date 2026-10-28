@@ -21,6 +21,9 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
+use Symfony\Contracts\Translation\TranslatorInterface;
+use App\Exception\UserFacingException;
 
 /**
  * Single-track detail page. Ported from the legacy `song` / `details` /
@@ -77,10 +80,11 @@ class SongController extends AbstractController
         ?User $user,
         MusicRepository $music,
         UserSongSettingRepository $settings,
+        TranslatorInterface $translator,
     ): JsonResponse {
         $song = $music->find($id);
         if ($song === null) {
-            return new JsonResponse(['error' => 'Track not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => $translator->trans('error.track_not_found')], Response::HTTP_NOT_FOUND);
         }
         $this->assertVisible($song, $user);
 
@@ -131,9 +135,9 @@ class SongController extends AbstractController
         try {
             $versions->restore($song, $versionName);
             $em->flush();
-            $this->addFlash('success', 'Version restored successfully.');
+            $this->addFlash('success', new TranslatableMessage('flash.song.version_restored'));
         } catch (\RuntimeException $e) {
-            $this->addFlash('error', $e->getMessage());
+            $this->addFlash('error', UserFacingException::messageFor($e));
         }
 
         return $this->redirectToRoute('app_song', ['id' => $song->getId()]);

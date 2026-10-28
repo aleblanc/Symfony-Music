@@ -51,6 +51,13 @@
     const escapeHTML = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const showToast = (msg) => { console.log('[rhythm]', msg); };
 
+    // Shared UI labels (i18n): difficulty names/abbreviations and the
+    // "you are offline" placeholder used by every online-only list.
+    const DIFFICULTIES = ['easy', 'medium', 'hard', 'expert', 'master', 'demon'];
+    const diffName = (key) => (DIFFICULTIES.includes(key) ? I18N.t('js.rhythm.difficulty.' + key) : String(key ?? ''));
+    const diffAbbr = (key) => I18N.t('js.rhythm.diff_abbr.' + (DIFFICULTIES.includes(key) ? key : 'unknown'));
+    const offlineBlockHTML = () => `<div class="d-flex flex-column align-items-center justify-content-center text-center p-5 w-100"><i class="bi bi-wifi-off text-secondary mb-3" style="font-size: 4rem;"></i><h5 class="fw-bold text-white">${escapeHTML(I18N.t('js.rhythm.offline.title'))}</h5><p class="text-secondary mt-2 mb-4" style="max-width: 300px;">${escapeHTML(I18N.t('js.rhythm.offline.hint'))}</p><button class="btn btn-outline-light fw-bold px-4 py-2 rounded-pill" onclick="document.querySelector('.rg-nav-item[data-target=\\'offline\\']')?.click()"><i class="bi bi-cloud-check-fill text-success me-2"></i> ${escapeHTML(I18N.t('js.rhythm.offline.go_to_tab'))}</button></div>`;
+
     // Cover-art fallback: a deterministic initial-on-colour SVG data URI, used
     // as the <img onerror> src. Legacy provided this global.
     const getSvgPlaceholder = (title) => {
@@ -65,18 +72,14 @@
     };
 
     // Compact count formatter (plays / followers). Legacy provided this global.
-    const formatSongCount = (n) => {
-        n = Number(n) || 0;
-        if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-        if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-        return String(n);
-    };
+    const formatSongCount = (n) =>
+        new Intl.NumberFormat(I18N.locale, { notation: 'compact', maximumFractionDigits: 1 }).format(Number(n) || 0);
 
     // Minimal share (the legacy opened a full modal). Copies a link + toasts.
     const showShareModal = (type, id, title) => {
         const url = location.origin + '/rhythm';
         if (navigator.clipboard) navigator.clipboard.writeText(url).catch(() => {});
-        showToast('Link copied: ' + (title || url));
+        showToast(I18N.t('js.rhythm.link_copied', { title: title || url }));
     };
 
     // The Cache API (`caches`) only exists in a secure context (HTTPS or
@@ -520,7 +523,7 @@
                 ) {
                   this.openArtistDetail(currentUser.artist);
                 } else {
-                  showToast("Please log in to view your profile.", "error");
+                  showToast(I18N.t('js.rhythm.login_to_view_profile'), "error");
                 }
               });
             }
@@ -587,7 +590,7 @@
     
                 chartModal.classList.remove("rg-hidden");
                 chartContent.innerHTML =
-                  '<div class="spinner-border text-danger mt-4" style="width: 2rem; height: 2rem; border-width: 0.25em;"></div><div class="text-secondary mt-2 small fw-bold text-uppercase">Compiling map...</div>';
+                  '<div class="spinner-border text-danger mt-4" style="width: 2rem; height: 2rem; border-width: 0.25em;"></div><div class="text-secondary mt-2 small fw-bold text-uppercase">' + escapeHTML(I18N.t('js.rhythm.chart.compiling')) + '</div>';
     
                 try {
                   const dbChart = await fetchData(
@@ -621,11 +624,11 @@
                     this.audioBuffer = tempAudio;
                   } else {
                     chartContent.innerHTML =
-                      '<div class="text-danger mt-4 fw-bold">Failed to generate chart.</div>';
+                      '<div class="text-danger mt-4 fw-bold">' + escapeHTML(I18N.t('js.rhythm.chart.failed')) + '</div>';
                   }
                 } catch (err) {
                   chartContent.innerHTML =
-                    '<div class="text-danger mt-4 fw-bold"><i class="bi bi-cloud-slash-fill me-1"></i> Offline or Network Error.</div>';
+                    '<div class="text-danger mt-4 fw-bold"><i class="bi bi-cloud-slash-fill me-1"></i> ' + escapeHTML(I18N.t('js.rhythm.chart.network_error')) + '</div>';
                 }
               });
     
@@ -639,7 +642,7 @@
                 btnDlChart.addEventListener("click", () => {
                   const svgData = chartContent.innerHTML;
                   if (!svgData.includes("<svg"))
-                    return showToast("No chart available to download.", "error");
+                    return showToast(I18N.t('js.rhythm.chart.none_to_download'), "error");
                   const blob = new Blob([svgData], {
                     type: "image/svg+xml;charset=utf-8",
                   });
@@ -807,7 +810,7 @@
             const btnResetOptions = document.getElementById("rg-btn-reset-options");
             if (btnResetOptions) {
               btnResetOptions.addEventListener("click", () => {
-                if (confirm("Reset gameplay options to defaults?")) {
+                if (confirm(I18N.t('js.rhythm.settings.reset_confirm'))) {
                   this.calibrationOffsetMs = 0;
                   this.userTickSpeed = 1.0;
                   this.sfxVolume = 0.3;
@@ -829,7 +832,7 @@
                     sfxSlider.dispatchEvent(new Event("input"));
                   }
     
-                  showToast("Options reset to default.", "success");
+                  showToast(I18N.t('js.rhythm.settings.reset_done'), "success");
                 }
               });
             }
@@ -1058,7 +1061,7 @@
                     favIcon.className = isFav
                       ? "bi bi-heart-fill text-danger"
                       : "bi bi-heart";
-                    favText.textContent = isFav ? "Unfavorite" : "Favorite";
+                    favText.textContent = I18N.t(isFav ? 'js.rhythm.dialog.unfavorite' : 'js.rhythm.dialog.favorite');
                     dialogFavBtn.classList.toggle("text-danger", isFav);
                   }
                   // Synchronize state with standard song cards
@@ -1116,7 +1119,7 @@
                   window.innerWidth < window.innerHeight
                 ) {
                   showToast(
-                    "Demon difficulty requires Landscape orientation or Desktop screen width!",
+                    I18N.t('js.rhythm.dialog.demon_landscape'),
                     "error",
                   );
                   return;
@@ -1169,7 +1172,7 @@
                     runCountdown(count - 1);
                   }, 1000);
                 } else {
-                  countdownEl.textContent = "GO!";
+                  countdownEl.textContent = I18N.t('js.rhythm.game.go');
                   setTimeout(() => {
                     countdownEl.style.opacity = "0";
                     setTimeout(() => {
@@ -1228,7 +1231,7 @@
             document
               .getElementById("rg-btn-result-share")
               .addEventListener("click", () => {
-                const textPayload = `I just scored ${parseInt(this.curScore).toLocaleString()} (${this.maxCombo}x Combo) on ${this.selectedSong.title} [${this.selectedDiff.toUpperCase()}] in PHP Music Rhythm Game!`;
+                const textPayload = I18N.t('js.rhythm.share.score_text', { score: parseInt(this.curScore), combo: this.maxCombo, title: this.selectedSong.title, difficulty: diffName(this.selectedDiff).toLocaleUpperCase(I18N.locale) });
                 const coverUrl = `/cover/${this.selectedSong.id}`;
                 if (typeof showShareModal === "function") {
                   showShareModal(
@@ -1389,7 +1392,7 @@
     
             if (!navigator.onLine) {
               if (!append && this.listSongsEl) {
-                this.listSongsEl.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center text-center p-5 w-100"><i class="bi bi-wifi-off text-secondary mb-3" style="font-size: 4rem;"></i><h5 class="fw-bold text-white">You are offline</h5><p class="text-secondary mt-2 mb-4" style="max-width: 300px;">Play your cached songs in the Offline tab.</p><button class="btn btn-outline-light fw-bold px-4 py-2 rounded-pill" onclick="document.querySelector('.rg-nav-item[data-target=\\'offline\\']')?.click()"><i class="bi bi-cloud-check-fill text-success me-2"></i> Go to Offline Tab</button></div>`;
+                this.listSongsEl.innerHTML = offlineBlockHTML();
               }
               this.allSongsLoaded = true;
               this.isLoadingSongs = false;
@@ -1417,7 +1420,7 @@
               if (!Array.isArray(res) || res.length === 0) {
                 if (!append && this.listSongsEl)
                   this.listSongsEl.innerHTML =
-                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">No songs found.</div>';
+                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">' + escapeHTML(I18N.t('js.rhythm.empty.songs')) + '</div>';
                 this.allSongsLoaded = true;
               } else {
                 if (!append && this.listSongsEl) {
@@ -1508,13 +1511,8 @@
               console.error("Game Engine Failed to Load Tracks:", e);
               if (!append && this.listSongsEl) {
                 this.listSongsEl.innerHTML = !navigator.onLine
-                  ? `<div class="d-flex flex-column align-items-center justify-content-center text-center p-5 w-100">
-                          <i class="bi bi-wifi-off text-secondary mb-3" style="font-size: 4rem;"></i>
-                          <h5 class="fw-bold text-white">You are offline</h5>
-                          <p class="text-secondary mt-2 mb-4" style="max-width: 300px;">Play your cached songs in the Offline tab.</p>
-                          <button class="btn btn-outline-light fw-bold px-4 py-2 rounded-pill" onclick="document.querySelector('.rg-nav-item[data-target=\\'offline\\']')?.click()"><i class="bi bi-cloud-check-fill text-success me-2"></i> Go to Offline Tab</button>
-                        </div>`
-                  : '<div style="text-align:center; padding: 24px; color: #ffb4ab;">Error establishing database connection.</div>';
+                  ? offlineBlockHTML()
+                  : '<div style="text-align:center; padding: 24px; color: #ffb4ab;">' + escapeHTML(I18N.t('js.rhythm.error.db_connection')) + '</div>';
               }
             }
             this.isLoadingSongs = false;
@@ -1536,7 +1534,7 @@
     
             if (!navigator.onLine) {
               if (!append && this.listFavsEl) {
-                this.listFavsEl.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center text-center p-5 w-100"><i class="bi bi-wifi-off text-secondary mb-3" style="font-size: 4rem;"></i><h5 class="fw-bold text-white">You are offline</h5><p class="text-secondary mt-2 mb-4" style="max-width: 300px;">Play your cached songs in the Offline tab.</p><button class="btn btn-outline-light fw-bold px-4 py-2 rounded-pill" onclick="document.querySelector('.rg-nav-item[data-target=\\'offline\\']')?.click()"><i class="bi bi-cloud-check-fill text-success me-2"></i> Go to Offline Tab</button></div>`;
+                this.listFavsEl.innerHTML = offlineBlockHTML();
               }
               this.allFavsLoaded = true;
               this.isLoadingFavs = false;
@@ -1554,7 +1552,7 @@
               if (!Array.isArray(res) || res.length === 0) {
                 if (!append && this.listFavsEl)
                   this.listFavsEl.innerHTML =
-                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">No favorite songs yet. Add some!</div>';
+                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">' + escapeHTML(I18N.t('js.rhythm.empty.favorites')) + '</div>';
                 this.allFavsLoaded = true;
               } else {
                 if (!append && this.listFavsEl) this.listFavsEl.innerHTML = "";
@@ -1568,12 +1566,7 @@
             } catch (e) {
               console.error(e);
               if (!append && this.listFavsEl && !navigator.onLine) {
-                this.listFavsEl.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center text-center p-5 w-100">
-                          <i class="bi bi-wifi-off text-secondary mb-3" style="font-size: 4rem;"></i>
-                          <h5 class="fw-bold text-white">You are offline</h5>
-                          <p class="text-secondary mt-2 mb-4" style="max-width: 300px;">Play your cached songs in the Offline tab.</p>
-                          <button class="btn btn-outline-light fw-bold px-4 py-2 rounded-pill" onclick="document.querySelector('.rg-nav-item[data-target=\\'offline\\']')?.click()"><i class="bi bi-cloud-check-fill text-success me-2"></i> Go to Offline Tab</button>
-                        </div>`;
+                this.listFavsEl.innerHTML = offlineBlockHTML();
               }
             }
             this.isLoadingFavs = false;
@@ -1597,7 +1590,7 @@
             if (!navigator.onLine) {
               const container = document.getElementById("rg-list-leaderboard");
               if (!append && container) {
-                container.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center text-center p-5 w-100"><i class="bi bi-wifi-off text-secondary mb-3" style="font-size: 4rem;"></i><h5 class="fw-bold text-white">You are offline</h5><p class="text-secondary mt-2 mb-4" style="max-width: 300px;">Play your cached songs in the Offline tab.</p><button class="btn btn-outline-light fw-bold px-4 py-2 rounded-pill" onclick="document.querySelector('.rg-nav-item[data-target=\\'offline\\']')?.click()"><i class="bi bi-cloud-check-fill text-success me-2"></i> Go to Offline Tab</button></div>`;
+                container.innerHTML = offlineBlockHTML();
               }
               this.allLeaderboardLoaded = true;
               this.isLoadingLeaderboard = false;
@@ -1615,7 +1608,7 @@
               if (!Array.isArray(data) || data.length === 0) {
                 if (!append && container)
                   container.innerHTML =
-                    '<div style="text-align:center; padding:24px; color:#aaa;">No scores recorded yet. Be the first to play!</div>';
+                    '<div style="text-align:center; padding:24px; color:#aaa;">' + escapeHTML(I18N.t('js.rhythm.leaderboard.empty')) + '</div>';
                 this.allLeaderboardLoaded = true;
               } else {
                 if (!append && container) container.innerHTML = "";
@@ -1638,7 +1631,7 @@
                       parseInt(entry.total_miss || 0);
                     const suspicious =
                       jud.acc === "100.00" && totalHits > 50
-                        ? '<span class="badge bg-danger ms-2" style="font-size: 0.6rem;" title="Suspicious Activity"><i class="bi bi-exclamation-triangle-fill"></i> SUS</span>'
+                        ? `<span class="badge bg-danger ms-2" style="font-size: 0.6rem;" title="${escapeHTML(I18N.t('js.rhythm.badge.suspicious'))}"><i class="bi bi-exclamation-triangle-fill"></i> ${escapeHTML(I18N.t('js.rhythm.badge.sus'))}</span>`
                         : "";
                     return `
                           <div class="rg-list-item rank-row" data-userid="${entry.user_id}" data-player-name="${encodeURIComponent(entry.player_name)}" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
@@ -1648,13 +1641,13 @@
                               <div style="min-width: 0; flex: 1; margin-right: 12px;">
                                 <div class="rg-list-item-title text-truncate">${escapeHTML(entry.player_name)}${suspicious}</div>
                                 <div class="rg-list-item-sub text-truncate" style="color: var(--rg-primary); font-size: 0.8rem; font-weight: 700;">
-                                  Total Score: ${parseInt(entry.total_score).toLocaleString()}
-                                  <span style="color:#aaa; font-size:0.75rem; margin-left:8px;">(${entry.total_plays} Plays)</span>
+                                  ${escapeHTML(I18N.t('js.rhythm.leaderboard.total_score', { score: parseInt(entry.total_score) || 0 }))}
+                                  <span style="color:#aaa; font-size:0.75rem; margin-left:8px;">${escapeHTML(I18N.t('js.rhythm.leaderboard.plays', { count: parseInt(entry.total_plays) || 0 }))}</span>
                                 </div>
                               </div>
                             </div>
                             <div class="d-flex align-items-center gap-2" style="flex-shrink: 0;">
-                              <span class="badge d-flex align-items-center justify-content-center" style="font-family: monospace; font-size: 0.75rem; font-weight: 900; background-color: ${jud.color}; color: #000; height: 26px; min-width: 32px; border-radius: 6px; box-shadow: 0 2px 8px ${jud.color}40;" title="AVERAGE RANK">${jud.rank}</span>
+                              <span class="badge d-flex align-items-center justify-content-center" style="font-family: monospace; font-size: 0.75rem; font-weight: 900; background-color: ${jud.color}; color: #000; height: 26px; min-width: 32px; border-radius: 6px; box-shadow: 0 2px 8px ${jud.color}40;" title="${escapeHTML(I18N.t('js.rhythm.rank.average'))}">${jud.rank}</span>
                             </div>
                           </div>
                         `;
@@ -1681,12 +1674,7 @@
               console.error("Failed to load Leaderboard:", err);
               const container = document.getElementById("rg-list-leaderboard");
               if (!append && container && !navigator.onLine) {
-                container.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center text-center p-5 w-100">
-                          <i class="bi bi-wifi-off text-secondary mb-3" style="font-size: 4rem;"></i>
-                          <h5 class="fw-bold text-white">You are offline</h5>
-                          <p class="text-secondary mt-2 mb-4" style="max-width: 300px;">Play your cached songs in the Offline tab.</p>
-                          <button class="btn btn-outline-light fw-bold px-4 py-2 rounded-pill" onclick="document.querySelector('.rg-nav-item[data-target=\\'offline\\']')?.click()"><i class="bi bi-cloud-check-fill text-success me-2"></i> Go to Offline Tab</button>
-                        </div>`;
+                container.innerHTML = offlineBlockHTML();
               }
             }
             this.isLoadingLeaderboard = false;
@@ -1769,7 +1757,7 @@
               if (!Array.isArray(res) || res.length === 0) {
                 if (!append && this.listOfflineEl)
                   this.listOfflineEl.innerHTML =
-                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">No offline tracks found.</div>';
+                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">' + escapeHTML(I18N.t('js.rhythm.offline.empty')) + '</div>';
                 this.allOfflineLoaded = true;
               } else {
                 // Apply Sorting Client-Side to support pure offline sorting without backend queries
@@ -1799,7 +1787,7 @@
     
                 if (!append && chunk.length === 0 && this.listOfflineEl) {
                   this.listOfflineEl.innerHTML =
-                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">No offline tracks matching search found.</div>';
+                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">' + escapeHTML(I18N.t('js.rhythm.offline.no_match')) + '</div>';
                 }
     
                 chunk.forEach((song) => {
@@ -1853,7 +1841,7 @@
                           if (infoCol) {
                             infoCol.insertAdjacentHTML(
                               "beforeend",
-                              '<div class="text-warning small fw-bold mt-1" style="font-size: 0.75rem;"><i class="bi bi-cloud-slash-fill"></i> Not cached offline</div>',
+                              '<div class="text-warning small fw-bold mt-1" style="font-size: 0.75rem;"><i class="bi bi-cloud-slash-fill"></i> ' + escapeHTML(I18N.t('js.rhythm.offline.not_cached')) + '</div>',
                             );
                           }
                           if (!navigator.onLine) {
@@ -1869,7 +1857,7 @@
               console.error(e);
               if (!append && this.listOfflineEl)
                 this.listOfflineEl.innerHTML =
-                  '<div style="text-align:center; padding: 24px; color: #aaa;">Failed to load offline tracks.</div>';
+                  '<div style="text-align:center; padding: 24px; color: #aaa;">' + escapeHTML(I18N.t('js.rhythm.offline.load_failed')) + '</div>';
             }
             this.isLoadingOffline = false;
           }
@@ -1904,7 +1892,7 @@
               if (!Array.isArray(res) || res.length === 0) {
                 if (!append && container)
                   container.innerHTML =
-                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">Not following anyone.</div>';
+                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">' + escapeHTML(I18N.t('js.rhythm.artist.following_empty')) + '</div>';
                 this.allArtistFollowingLoaded = true;
               } else {
                 if (!append && container) container.innerHTML = "";
@@ -2011,7 +1999,7 @@
             document.getElementById("rg-dialog-song-name").textContent = song.title;
             const dialogArtistEl = document.getElementById("rg-dialog-song-artist");
             if (dialogArtistEl)
-              dialogArtistEl.textContent = song.artist || "Unknown Artist";
+              dialogArtistEl.textContent = song.artist || I18N.t('js.rhythm.unknown_artist');
     
             // Set Favorite UI state
             const isFav = song.rg_favorite == 1;
@@ -2022,7 +2010,7 @@
               favIcon.className = isFav
                 ? "bi bi-heart-fill text-danger"
                 : "bi bi-heart";
-              favText.textContent = isFav ? "Unfavorite" : "Favorite";
+              favText.textContent = I18N.t(isFav ? 'js.rhythm.dialog.unfavorite' : 'js.rhythm.dialog.favorite');
               favBtn.classList.toggle("text-danger", isFav);
             }
     
@@ -2053,7 +2041,7 @@
                   "beforebegin",
                   `
                         <div id="${warningId}" class="alert border-warning text-warning small mb-3 text-start rounded-3" style="background: rgba(255,193,7,0.1); width: 100%; max-width: 360px; margin: 16px auto 0 auto; line-height: 1.4;">
-                          <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Offline Mode:</strong> Played song information/scores will <strong>NOT</strong> be stored in the database, even after you go back online. Only online plays are saved.
+                          <i class="bi bi-exclamation-triangle-fill me-2"></i>${I18N.t('js.rhythm.dialog.offline_warning_html')}
                         </div>
                       `,
                 );
@@ -2075,27 +2063,19 @@
               {},
               true,
             );
-            const diffMap = {
-              easy: "Easy",
-              medium: "Med",
-              hard: "Hard",
-              expert: "Exprt",
-              master: "Mstr",
-              demon: "Demon",
-            };
     
             document.querySelectorAll(".rg-diff-btn").forEach((btn) => {
               const diffKey = btn.dataset.diff;
-              const defaultText = diffMap[diffKey] || "Diff";
+              const defaultText = escapeHTML(diffName(diffKey));
     
               if (
                 lvlData &&
                 lvlData.levels &&
                 lvlData.levels[diffKey] !== undefined
               ) {
-                btn.innerHTML = `<div class="rg-diff-btn-inner">${defaultText} <span class="lvl" style="font-size:0.75rem; font-weight:900; opacity:0.9;">LV.${lvlData.levels[diffKey]}</span></div>`;
+                btn.innerHTML = `<div class="rg-diff-btn-inner">${defaultText} <span class="lvl" style="font-size:0.75rem; font-weight:900; opacity:0.9;">${escapeHTML(I18N.t('js.rhythm.level_badge', { level: lvlData.levels[diffKey] }))}</span></div>`;
               } else {
-                btn.innerHTML = `<div class="rg-diff-btn-inner">${defaultText} <span class="lvl" style="font-size:0.75rem; font-weight:900; opacity:0.5;">LV.--</span></div>`;
+                btn.innerHTML = `<div class="rg-diff-btn-inner">${defaultText} <span class="lvl" style="font-size:0.75rem; font-weight:900; opacity:0.5;">${escapeHTML(I18N.t('js.rhythm.level_badge', { level: '--' }))}</span></div>`;
               }
             });
     
@@ -2117,7 +2097,7 @@
     
             const container = document.getElementById("rg-song-leaderboard");
             container.innerHTML =
-              '<div class="text-center text-secondary small py-2"><div class="spinner-border spinner-border-sm text-danger" style="border-width: 0.15em;"></div> Loading scores...</div>';
+              '<div class="text-center text-secondary small py-2"><div class="spinner-border spinner-border-sm text-danger" style="border-width: 0.15em;"></div> ' + escapeHTML(I18N.t('js.rhythm.leaderboard.loading_scores')) + '</div>';
             const apToggle = document.getElementById("rg-autoplay-toggle");
             if (apToggle) apToggle.checked = false;
             document.getElementById("rg-dialog-play").classList.remove("rg-hidden");
@@ -2130,7 +2110,7 @@
               );
               if (!Array.isArray(data) || data.length === 0) {
                 container.innerHTML =
-                  '<div class="text-center text-secondary small py-4">No scores recorded yet. Be the first!</div>';
+                  '<div class="text-center text-secondary small py-4">' + escapeHTML(I18N.t('js.rhythm.song_leaderboard.empty')) + '</div>';
                 return;
               }
     
@@ -2158,7 +2138,7 @@
                   const suspicious =
                     (jud.acc === "100.00" && totalHits > 50) ||
                     (entry.max_combo > 500 && entry.miss == 0)
-                      ? '<span class="badge bg-danger ms-2" style="font-size: 0.6rem;" title="Perfect Play / Bot Suspected"><i class="bi bi-exclamation-triangle-fill"></i> SUS</span>'
+                      ? '<span class="badge bg-danger ms-2" style="font-size: 0.6rem;" title="' + escapeHTML(I18N.t('js.rhythm.badge.bot_suspected')) + '"><i class="bi bi-exclamation-triangle-fill"></i> ' + escapeHTML(I18N.t('js.rhythm.badge.sus')) + '</span>'
                       : "";
     
                   return `
@@ -2167,11 +2147,11 @@
                             <div style="font-size: 1.1rem; font-weight: 900; color: var(--rg-primary); width: 24px; text-align: center; font-family: monospace;">${idx + 1}</div>
                             <div class="flex-grow-1" style="min-width: 0; display: flex; align-items: center; justify-content: space-between;">
                               <div class="d-flex flex-column align-items-start">
-                                <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">Accuracy</span>
+                                <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">${escapeHTML(I18N.t('js.rhythm.stats.accuracy'))}</span>
                                 <span style="font-size: 1.1rem; font-weight: 800; font-family: monospace; color: #fff;">${jud.acc}%</span>
                               </div>
                               <div class="d-flex flex-column align-items-end">
-                                <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">Rank</span>
+                                <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">${escapeHTML(I18N.t('js.rhythm.stats.rank'))}</span>
                                 <span style="font-size: 1.8rem; font-weight: 900; font-family: 'Arial Black', sans-serif; color: ${jud.color}; text-shadow: 0 0 8px ${jud.color}; line-height: 1;">${jud.rank}</span>
                               </div>
                             </div>
@@ -2179,17 +2159,17 @@
     
                           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px; margin-top: 4px; text-align: center;">
                             <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; background-color: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); padding: 4px 10px; border-radius: 6px; text-align: left;">
-                              <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">Score</span>
-                              <span style="font-size: 0.95rem; font-weight: 900; font-family: monospace; color: var(--rg-primary);">${parseInt(entry.score).toLocaleString()}</span>
+                              <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">${escapeHTML(I18N.t('js.rhythm.stats.score'))}</span>
+                              <span style="font-size: 0.95rem; font-weight: 900; font-family: monospace; color: var(--rg-primary);">${(parseInt(entry.score) || 0).toLocaleString(I18N.locale)}</span>
                             </div>
                             <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; background-color: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); padding: 4px 10px; border-radius: 6px; text-align: left;">
-                              <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">Combo</span>
+                              <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">${escapeHTML(I18N.t('js.rhythm.stats.combo'))}</span>
                               <span style="font-size: 0.95rem; font-weight: 900; font-family: monospace; color: #fff;">${entry.max_combo}x${fcBadge}</span>
                             </div>
-                            <div style="font-size: 0.75rem;"><span style="color:#aaa; display:block; font-size:0.6rem; text-transform:uppercase;">Perf</span><strong style="font-family: monospace; color:#fff;">${entry.perfect}</strong></div>
-                            <div style="font-size: 0.75rem;"><span style="color:#ff3b30; display:block; font-size:0.6rem; text-transform:uppercase;">Great</span><strong style="font-family: monospace; color:#fff;">${entry.great}</strong></div>
-                            <div style="font-size: 0.75rem;"><span style="color:#ffa000; display:block; font-size:0.6rem; text-transform:uppercase;">Good</span><strong style="font-family: monospace; color:#fff;">${entry.good}</strong></div>
-                            <div style="font-size: 0.75rem;"><span style="color:#555; display:block; font-size:0.6rem; text-transform:uppercase;">Miss</span><strong style="font-family: monospace; color:#fff;">${entry.miss}</strong></div>
+                            <div style="font-size: 0.75rem;"><span style="color:#aaa; display:block; font-size:0.6rem; text-transform:uppercase;">${escapeHTML(I18N.t('js.rhythm.stats.perfect_short'))}</span><strong style="font-family: monospace; color:#fff;">${entry.perfect}</strong></div>
+                            <div style="font-size: 0.75rem;"><span style="color:#ff3b30; display:block; font-size:0.6rem; text-transform:uppercase;">${escapeHTML(I18N.t('js.rhythm.judgement.great'))}</span><strong style="font-family: monospace; color:#fff;">${entry.great}</strong></div>
+                            <div style="font-size: 0.75rem;"><span style="color:#ffa000; display:block; font-size:0.6rem; text-transform:uppercase;">${escapeHTML(I18N.t('js.rhythm.judgement.good'))}</span><strong style="font-family: monospace; color:#fff;">${entry.good}</strong></div>
+                            <div style="font-size: 0.75rem;"><span style="color:#555; display:block; font-size:0.6rem; text-transform:uppercase;">${escapeHTML(I18N.t('js.rhythm.judgement.miss'))}</span><strong style="font-family: monospace; color:#fff;">${entry.miss}</strong></div>
                           </div>
     
                           <div style="display: flex; align-items: center; gap: 8px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px; margin-top: 4px; width: 100%;">
@@ -2203,7 +2183,7 @@
             } catch (err) {
               console.error("Failed to load song specific leaderboard:", err);
               container.innerHTML =
-                '<div class="text-center text-danger small py-2">Failed to load scores.</div>';
+                '<div class="text-center text-danger small py-2">' + escapeHTML(I18N.t('js.rhythm.song_leaderboard.load_failed')) + '</div>';
             }
           }
     
@@ -2217,7 +2197,7 @@
                       <div class="text-center mb-4">
                         <img src="/profile/picture/${userId}" class="rounded-circle shadow-lg mb-2" style="width: 80px; height: 80px; object-fit: cover; border: 2px solid var(--rg-primary);">
                         <h4 class="text-white fw-bold">${escapeHTML(name)}</h4>
-                        <p class="text-secondary small">Rhythm Game Played Tracks</p>
+                        <p class="text-secondary small">${escapeHTML(I18N.t('js.rhythm.player_stats.subtitle'))}</p>
                       </div>
                       <div id="rg-player-scores-list" class="d-flex flex-column gap-3">
                         <div class="text-center py-4"><div class="spinner-border text-danger"></div></div>
@@ -2231,7 +2211,7 @@
               const loadMoreBtn = document.getElementById("rg-btn-load-more-stats");
               if (loadMoreBtn)
                 loadMoreBtn.innerHTML =
-                  '<span class="spinner-border spinner-border-sm"></span> Loading...';
+                  '<span class="spinner-border spinner-border-sm"></span> ' + escapeHTML(I18N.t('js.common.loading'));
             }
     
             fetchData(
@@ -2250,14 +2230,6 @@
                   master: "#a78bfa",
                   demon: "#7f1d1d",
                 };
-                const diffLabels = {
-                  easy: "EZ",
-                  medium: "ND",
-                  hard: "HD",
-                  expert: "EX",
-                  master: "MS",
-                  demon: "DM",
-                };
     
                 const cardsHtml = scores
                   .map((s) => {
@@ -2269,14 +2241,14 @@
                       s.miss,
                     );
                     const diffColor = diffColors[s.difficulty] || "#aaa";
-                    const diffLabel = diffLabels[s.difficulty] || "UN";
-                    const lvlText = s.level ? `Lv.${s.level}` : "Lv.--";
+                    const diffLabel = diffAbbr(s.difficulty);
+                    const lvlText = I18N.t('js.rhythm.level_short', { level: s.level || '--' });
                     const coverSvg = getSvgPlaceholder(s.title);
                     const playedAt = s.played_at
                       ? new Date(
                           s.played_at.replace(" ", "T") + "Z",
-                        ).toLocaleDateString()
-                      : "Unknown";
+                        ).toLocaleDateString(I18N.locale)
+                      : I18N.t('js.common.unknown');
                     const totalHits =
                       parseInt(s.perfect || 0) +
                       parseInt(s.great || 0) +
@@ -2286,7 +2258,7 @@
                     const suspicious =
                       (jud.acc === "100.00" && totalHits > 50) ||
                       (s.max_combo > 500 && s.miss == 0)
-                        ? '<span class="badge bg-danger ms-2" style="font-size: 0.6rem;" title="Perfect Play / Bot Suspected"><i class="bi bi-exclamation-triangle-fill"></i> SUS</span>'
+                        ? '<span class="badge bg-danger ms-2" style="font-size: 0.6rem;" title="' + escapeHTML(I18N.t('js.rhythm.badge.bot_suspected')) + '"><i class="bi bi-exclamation-triangle-fill"></i> ' + escapeHTML(I18N.t('js.rhythm.badge.sus')) + '</span>'
                         : "";
     
                     return `
@@ -2302,8 +2274,8 @@
                               <div class="d-flex flex-column align-items-end" style="flex-shrink: 0;">
                                 <div class="d-flex align-items-center gap-1">
                                   ${suspicious}
-                                  <span class="badge d-flex align-items-center justify-content-center" style="font-family: monospace; font-size: 0.65rem; font-weight: 800; background-color: ${diffColor}; color: ${s.difficulty === "demon" ? "#fff" : "#000"}; padding: 2px 6px; border-radius: 4px;" title="${s.difficulty.toUpperCase()} level">${diffLabel} ${lvlText}</span>
-                                  <span class="badge d-flex align-items-center justify-content-center" style="font-family: monospace; font-size: 0.65rem; font-weight: 800; background-color: ${jud.color}; color: #000;" title="RANK">${jud.rank}</span>
+                                  <span class="badge d-flex align-items-center justify-content-center" style="font-family: monospace; font-size: 0.65rem; font-weight: 800; background-color: ${diffColor}; color: ${s.difficulty === "demon" ? "#fff" : "#000"}; padding: 2px 6px; border-radius: 4px;" title="${escapeHTML(I18N.t('js.rhythm.difficulty_level_title', { difficulty: diffName(s.difficulty) }))}">${diffLabel} ${lvlText}</span>
+                                  <span class="badge d-flex align-items-center justify-content-center" style="font-family: monospace; font-size: 0.65rem; font-weight: 800; background-color: ${jud.color}; color: #000;" title="${escapeHTML(I18N.t('js.rhythm.rank.title'))}">${jud.rank}</span>
                                 </div>
                                 <div class="text-secondary small mt-1" style="font-size: 0.75rem;">${playedAt}</div>
                               </div>
@@ -2311,17 +2283,17 @@
     
                             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px; margin-top: 4px; text-align: center;">
                               <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; background-color: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); padding: 4px 10px; border-radius: 6px; text-align: left;">
-                                <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">Score</span>
-                                <span style="font-size: 0.95rem; font-weight: 900; font-family: monospace; color: var(--rg-primary);">${parseInt(s.score).toLocaleString()}</span>
+                                <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">${escapeHTML(I18N.t('js.rhythm.stats.score'))}</span>
+                                <span style="font-size: 0.95rem; font-weight: 900; font-family: monospace; color: var(--rg-primary);">${(parseInt(s.score) || 0).toLocaleString(I18N.locale)}</span>
                               </div>
                               <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; background-color: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); padding: 4px 10px; border-radius: 6px; text-align: left;">
-                                <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">Combo</span>
+                                <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">${escapeHTML(I18N.t('js.rhythm.stats.combo'))}</span>
                                 <span style="font-size: 0.95rem; font-weight: 900; font-family: monospace; color: #fff;">${s.max_combo}x</span>
                               </div>
-                              <div style="font-size: 0.75rem;"><span style="color:#aaa; display:block; font-size:0.6rem; text-transform:uppercase;">Perf</span><strong style="font-family: monospace; color:#fff;">${s.perfect}</strong></div>
-                              <div style="font-size: 0.75rem;"><span style="color:#ff3b30; display:block; font-size:0.6rem; text-transform:uppercase;">Great</span><strong style="font-family: monospace; color:#fff;">${s.great}</strong></div>
-                              <div style="font-size: 0.75rem;"><span style="color:#ffa000; display:block; font-size:0.6rem; text-transform:uppercase;">Good</span><strong style="font-family: monospace; color:#fff;">${s.good}</strong></div>
-                              <div style="font-size: 0.75rem;"><span style="color:#555; display:block; font-size:0.6rem; text-transform:uppercase;">Miss</span><strong style="font-family: monospace; color:#fff;">${s.miss}</strong></div>
+                              <div style="font-size: 0.75rem;"><span style="color:#aaa; display:block; font-size:0.6rem; text-transform:uppercase;">${escapeHTML(I18N.t('js.rhythm.stats.perfect_short'))}</span><strong style="font-family: monospace; color:#fff;">${s.perfect}</strong></div>
+                              <div style="font-size: 0.75rem;"><span style="color:#ff3b30; display:block; font-size:0.6rem; text-transform:uppercase;">${escapeHTML(I18N.t('js.rhythm.judgement.great'))}</span><strong style="font-family: monospace; color:#fff;">${s.great}</strong></div>
+                              <div style="font-size: 0.75rem;"><span style="color:#ffa000; display:block; font-size:0.6rem; text-transform:uppercase;">${escapeHTML(I18N.t('js.rhythm.judgement.good'))}</span><strong style="font-family: monospace; color:#fff;">${s.good}</strong></div>
+                              <div style="font-size: 0.75rem;"><span style="color:#555; display:block; font-size:0.6rem; text-transform:uppercase;">${escapeHTML(I18N.t('js.rhythm.judgement.miss'))}</span><strong style="font-family: monospace; color:#fff;">${s.miss}</strong></div>
                             </div>
                           </div>
                         `;
@@ -2339,7 +2311,7 @@
                     "afterend",
                     `
                           <div class="text-center p-3" id="load-more-stats-container">
-                            <button class="btn btn-outline-light rounded-pill px-4 btn-sm fw-bold" id="rg-btn-load-more-stats">Load More History</button>
+                            <button class="btn btn-outline-light rounded-pill px-4 btn-sm fw-bold" id="rg-btn-load-more-stats">${escapeHTML(I18N.t('js.rhythm.player_stats.load_more'))}</button>
                           </div>
                         `,
                   );
@@ -2354,13 +2326,13 @@
                 } else if (page > 1) {
                   listContainer.insertAdjacentHTML(
                     "afterend",
-                    '<div class="text-center p-3 text-secondary small" id="load-more-stats-container">No more plays recorded.</div>',
+                    '<div class="text-center p-3 text-secondary small" id="load-more-stats-container">' + escapeHTML(I18N.t('js.rhythm.player_stats.no_more')) + '</div>',
                   );
                 }
               } else {
                 if (page === 1) {
                   listContainer.innerHTML =
-                    '<div class="text-center text-secondary py-5">No play history recorded yet for this user.</div>';
+                    '<div class="text-center text-secondary py-5">' + escapeHTML(I18N.t('js.rhythm.player_stats.empty')) + '</div>';
                 }
               }
             });
@@ -2405,10 +2377,10 @@
     
             if (this.isCalibrating) {
               area.style.display = "block";
-              btn.textContent = "Stop Test";
+              btn.textContent = I18N.t('js.rhythm.calibration.stop');
               btn.style.background = "#444";
               btn.style.color = "#fff";
-              fb.textContent = "Tap Screen / Keys to Calibrate";
+              fb.textContent = I18N.t('js.rhythm.calibration.tap_prompt');
               fb.style.color = "#fff";
     
               this.calCanvas = document.getElementById("rg-cal-canvas");
@@ -2442,7 +2414,7 @@
               this.runCalibrationLoop();
             } else {
               area.style.display = "none";
-              btn.textContent = "Start Test";
+              btn.textContent = I18N.t('js.rhythm.calibration.start');
               btn.style.background = "var(--rg-primary)";
               btn.style.color = "#fff";
     
@@ -2540,11 +2512,11 @@
     
               if (fb) {
                 if (Math.abs(diffMs) <= 45) {
-                  fb.textContent = `PERFECT (${diffMs >= 0 ? "+" : ""}${diffMs}ms)`;
+                  fb.textContent = I18N.t('js.rhythm.calibration.perfect', { offset: `${diffMs >= 0 ? "+" : ""}${diffMs}` });
                   fb.style.color = "#27c93f";
                 } else {
                   const isLate = diffMs > 0;
-                  fb.textContent = `${isLate ? "LATE" : "EARLY"} (${diffMs >= 0 ? "+" : ""}${diffMs}ms)`;
+                  fb.textContent = I18N.t(isLate ? 'js.rhythm.calibration.late' : 'js.rhythm.calibration.early', { offset: `${diffMs >= 0 ? "+" : ""}${diffMs}` });
                   fb.style.color = isLate ? "#ff5f56" : "#ffbd2e";
                 }
                 fb.style.transform = "translate(-50%, -50%) scale(1.1)";
@@ -2560,7 +2532,7 @@
               this.KEY_CODES[this.listeningLane] = e.code;
               let label = e.key.toUpperCase();
               if (e.code.startsWith("Key")) label = e.code.replace("Key", "");
-              else if (e.code === "Space") label = "SPC";
+              else if (e.code === "Space") label = I18N.t('js.rhythm.key.space');
               this.KEY_LABELS[this.listeningLane] = label;
     
               localStorage.setItem("rg_key_codes", JSON.stringify(this.KEY_CODES));
@@ -2623,37 +2595,31 @@
             if (levels) {
               const diffs = [
                 {
-                  short: "EZ",
                   key: "easy",
                   bg: "#6EE7B7",
                   text: "#064E3B",
                 },
                 {
-                  short: "NM",
                   key: "medium",
                   bg: "#60A5FA",
                   text: "#1E3A8A",
                 },
                 {
-                  short: "HD",
                   key: "hard",
                   bg: "#FBBF24",
                   text: "#78350F",
                 },
                 {
-                  short: "EX",
                   key: "expert",
                   bg: "#F43F5E",
                   text: "#FFFFFF",
                 },
                 {
-                  short: "MS",
                   key: "master",
                   bg: "#A78BFA",
                   text: "#FFFFFF",
                 },
                 {
-                  short: "DM",
                   key: "demon",
                   bg: "#4C1D95",
                   text: "#FFFFFF",
@@ -2663,7 +2629,7 @@
                 .map((d) => {
                   const lvl = levels[d.key];
                   if (!lvl) return "";
-                  return `<span class="badge d-flex align-items-center justify-content-center px-2 py-1 shadow-sm" style="font-family: 'Arial Black', sans-serif; font-size: 0.7rem; font-weight: 900; background-color: ${d.bg}; color: ${d.text}; border-radius: 6px; letter-spacing: 0.5px; width: 90%; text-align: center;" title="${d.key.toUpperCase()} Level">${d.short} ${lvl}</span>`;
+                  return `<span class="badge d-flex align-items-center justify-content-center px-2 py-1 shadow-sm" style="font-family: 'Arial Black', sans-serif; font-size: 0.7rem; font-weight: 900; background-color: ${d.bg}; color: ${d.text}; border-radius: 6px; letter-spacing: 0.5px; width: 90%; text-align: center;" title="${escapeHTML(I18N.t('js.rhythm.difficulty_level_title', { difficulty: diffName(d.key) }))}">${diffAbbr(d.key)} ${lvl}</span>`;
                 })
                 .filter((b) => b !== "")
                 .join("");
@@ -2671,10 +2637,10 @@
               if (badgesList !== "") {
                 badgesHTML = `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 8px; max-width: 175px;">${badgesList}</div>`;
               } else {
-                badgesHTML = `<div class="text-secondary small mt-2 fw-bold" style="font-size: 0.75rem;"><i class="bi bi-cpu-fill me-1"></i>Tap to compile notes</div>`;
+                badgesHTML = `<div class="text-secondary small mt-2 fw-bold" style="font-size: 0.75rem;"><i class="bi bi-cpu-fill me-1"></i>${escapeHTML(I18N.t('js.rhythm.song.tap_to_compile'))}</div>`;
               }
             } else {
-              badgesHTML = `<div class="text-secondary small mt-2 fw-bold" style="font-size: 0.75rem;"><i class="bi bi-cpu-fill me-1"></i>Tap to compile notes</div>`;
+              badgesHTML = `<div class="text-secondary small mt-2 fw-bold" style="font-size: 0.75rem;"><i class="bi bi-cpu-fill me-1"></i>${escapeHTML(I18N.t('js.rhythm.song.tap_to_compile'))}</div>`;
             }
     
             el.style.cssText =
@@ -2804,7 +2770,7 @@
             if (chunk.length === 0) {
               this.listSongsEl.insertAdjacentHTML(
                 "beforeend",
-                '<div style="text-align:center; padding: 24px; color: #aaa;">No songs found.</div>',
+                '<div style="text-align:center; padding: 24px; color: #aaa;">' + escapeHTML(I18N.t('js.rhythm.empty.songs')) + '</div>',
               );
               return;
             }
@@ -2818,7 +2784,7 @@
             const chunk = this.favFilteredSongs.slice(0, this.favRenderLimit);
             if (chunk.length === 0) {
               this.listFavsEl.innerHTML =
-                '<div style="text-align:center; padding: 24px; color: #aaa;">No favorite songs yet. Add some!</div>';
+                '<div style="text-align:center; padding: 24px; color: #aaa;">' + escapeHTML(I18N.t('js.rhythm.empty.favorites')) + '</div>';
               return;
             }
             chunk.forEach((song) =>
@@ -3043,20 +3009,20 @@
             document.getElementById("rg-loading-title").textContent = song.title;
             const loadingArtistEl = document.getElementById("rg-loading-artist");
             if (loadingArtistEl)
-              loadingArtistEl.textContent = song.artist || "Unknown Artist";
+              loadingArtistEl.textContent = song.artist || I18N.t('js.rhythm.unknown_artist');
             const progressText = document.getElementById("rg-loading-text");
-            progressText.textContent = `Preparing audio... 0%`;
+            progressText.textContent = I18N.t('js.rhythm.loading.preparing', { percent: 0 });
     
             try {
               let playableUrl = `/stream/${song.id}`;
               let isCachedLocally = false;
     
               if (this.rgSongCache[song.id]) {
-                progressText.textContent = `Loading from memory...`;
+                progressText.textContent = I18N.t('js.rhythm.loading.from_memory');
                 playableUrl = this.rgSongCache[song.id].blobUrl;
                 isCachedLocally = true;
               } else {
-                progressText.textContent = `Checking local storage...`;
+                progressText.textContent = I18N.t('js.rhythm.loading.checking_storage');
                 
                 // 1. Instantly attempt to extract from ultra-fast OPFS hardware cache
                 try {
@@ -3086,9 +3052,9 @@
               // 3. Fallback to Network Download ONLY if it was never cached
               if (!isCachedLocally) {
                 if (!navigator.onLine) {
-                  throw new Error("Song not available offline.");
+                  throw new Error(I18N.t('js.rhythm.loading.not_offline'));
                 }
-                progressText.textContent = `Connecting to stream...`;
+                progressText.textContent = I18N.t('js.rhythm.loading.connecting');
                 const response = await fetch(`/stream/${song.id}`);
                 const contentLength = response.headers.get("content-length");
     
@@ -3104,7 +3070,7 @@
                     chunks.push(value);
                     loaded += value.length;
                     const pct = Math.round((loaded / total) * 100);
-                    progressText.textContent = `Loading... ${pct}%`;
+                    progressText.textContent = I18N.t('js.rhythm.loading.progress', { percent: pct });
                   }
                   const blob = new Blob(chunks, {
                     type: response.headers.get("content-type") || "audio/mpeg",
@@ -3124,7 +3090,7 @@
               // just below is beat-synced. One-time per song; cached server-side.
               // Any failure falls through to the Phase 1 pseudo-random chart.
               if (!song.beatAware && typeof window.rhythmAnalyze === "function") {
-                progressText.textContent = `Analyzing beats...`;
+                progressText.textContent = I18N.t('js.rhythm.loading.analyzing');
                 try {
                   const grid = await window.rhythmAnalyze(`/stream/${song.id}`);
                   if (grid) {
@@ -3140,7 +3106,7 @@
                 }
               }
 
-              progressText.textContent = `Loading note chart...`;
+              progressText.textContent = I18N.t('js.rhythm.loading.chart');
               let dbChart = await fetchData(
                 `?action=get_rhythm_chart&song_id=${song.id}&difficulty=${diff}`,
                 {},
@@ -3180,7 +3146,7 @@
                   window.rhythmLevelsMap.levels[song.id] = {};
                 window.rhythmLevelsMap.levels[song.id][diff] = dbChart.level;
               } else {
-                throw new Error("Note chart generation failed on the server.");
+                throw new Error(I18N.t('js.rhythm.loading.chart_failed'));
               }
     
               if (this.audioPlayback) {
@@ -3212,7 +3178,7 @@
               console.error("Game prep failed:", err);
               showToast(
                 err.message ||
-                  "Failed to process audio engine. The track format may be unsupported.",
+                  I18N.t('js.rhythm.loading.engine_failed'),
                 "error",
               );
               this.switchScreen("hub");
@@ -3396,7 +3362,7 @@
             this.switchScreen("game");
             document.getElementById("rg-in-game-title").textContent = title;
             const pauseDiffEl = document.getElementById("rg-pause-diff-display");
-            if (pauseDiffEl) pauseDiffEl.textContent = diff;
+            if (pauseDiffEl) pauseDiffEl.textContent = diffName(diff);
     
             // Inject dynamic blurred cover background
             const gameScreen = document.getElementById("rg-screen-game");
@@ -3795,7 +3761,10 @@
     
             const ratingEl = document.getElementById("rg-in-game-rating");
             if (ratingEl) {
-              ratingEl.textContent = txt;
+              // `txt` is an internal judgement code (PERFECT, GREAT, …): translate for display only.
+              ratingEl.textContent = ["PERFECT", "GREAT", "GOOD", "BAD", "MISS"].includes(txt)
+                ? I18N.t("js.rhythm.judgement." + txt.toLowerCase())
+                : txt;
               ratingEl.style.color = col;
               ratingEl.style.transform = "scale(1.2)";
               setTimeout(() => {
@@ -3825,12 +3794,12 @@
                 window.adminAutoToken !== "super_admin_bypass"
               ) {
                 const pwd = prompt(
-                  "Automation detected! Enter Super Admin password to allow autoplay:",
+                  I18N.t('js.rhythm.anticheat.prompt'),
                 );
                 if (window.isValidDevToken(pwd)) {
                   localStorage.setItem("dev_mode_token", pwd);
                 } else {
-                  alert("Cheat blocked. Your session is terminated.");
+                  alert(I18N.t('js.rhythm.anticheat.blocked'));
                   this.endGame(true);
                   return;
                 }
@@ -3958,7 +3927,7 @@
             this.frames++;
             if (now - this.lastFpsTime >= 1000) {
               const fpsEl = document.getElementById("rg-in-game-fps");
-              if (fpsEl) fpsEl.textContent = this.frames + " FPS";
+              if (fpsEl) fpsEl.textContent = I18N.t('js.rhythm.game.fps', { fps: this.frames });
               this.frames = 0;
               this.lastFpsTime = now;
             }
@@ -4383,7 +4352,7 @@
             if (!navigator.onLine) {
               const container = document.getElementById("rg-list-artists");
               if (!append && container) {
-                container.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center text-center p-5 w-100"><i class="bi bi-wifi-off text-secondary mb-3" style="font-size: 4rem;"></i><h5 class="fw-bold text-white">You are offline</h5><p class="text-secondary mt-2 mb-4" style="max-width: 300px;">Play your cached songs in the Offline tab.</p><button class="btn btn-outline-light fw-bold px-4 py-2 rounded-pill" onclick="document.querySelector('.rg-nav-item[data-target=\\'offline\\']')?.click()"><i class="bi bi-cloud-check-fill text-success me-2"></i> Go to Offline Tab</button></div>`;
+                container.innerHTML = offlineBlockHTML();
               }
               this.allArtistsLoaded = true;
               this.isLoadingArtists = false;
@@ -4403,7 +4372,7 @@
               if (!Array.isArray(res) || res.length === 0) {
                 if (!append && container)
                   container.innerHTML =
-                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #888; width: 100%;">No artists found.</div>';
+                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #888; width: 100%;">' + escapeHTML(I18N.t('js.rhythm.empty.artists')) + '</div>';
                 this.allArtistsLoaded = true;
               } else {
                 if (!append && container) container.innerHTML = "";
@@ -4448,12 +4417,7 @@
               console.error(e);
               const container = document.getElementById("rg-list-artists");
               if (!append && container && !navigator.onLine) {
-                container.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center text-center p-5 w-100">
-                          <i class="bi bi-wifi-off text-secondary mb-3" style="font-size: 4rem;"></i>
-                          <h5 class="fw-bold text-white">You are offline</h5>
-                          <p class="text-secondary mt-2 mb-4" style="max-width: 300px;">Play your cached songs in the Offline tab.</p>
-                          <button class="btn btn-outline-light fw-bold px-4 py-2 rounded-pill" onclick="document.querySelector('.rg-nav-item[data-target=\\'offline\\']')?.click()"><i class="bi bi-cloud-check-fill text-success me-2"></i> Go to Offline Tab</button>
-                        </div>`;
+                container.innerHTML = offlineBlockHTML();
               }
             }
             this.isLoadingArtists = false;
@@ -4469,7 +4433,7 @@
             container.innerHTML = "";
             if (this.filteredArtists.length === 0) {
               container.innerHTML =
-                '<div style="text-align:center; padding: 24px; color: #888;">No artists found.</div>';
+                '<div style="text-align:center; padding: 24px; color: #888;">' + escapeHTML(I18N.t('js.rhythm.empty.artists')) + '</div>';
               return;
             }
             const chunk = this.filteredArtists.slice(0, this.artistRenderLimit);
@@ -4503,7 +4467,7 @@
                   rank: "F",
                   color: "#555",
                 };
-            const rankBadgeHTML = `<span class="badge d-flex align-items-center justify-content-center" style="font-family: 'Arial Black', sans-serif; font-size: 0.75rem; font-weight: 900; background-color: ${rank.color}; color: #000; height: 24px; width: 30px; border-radius: 4px; box-shadow: 0 2px 8px ${rank.color}40;" title="AVERAGE RANK">${rank.rank}</span>`;
+            const rankBadgeHTML = `<span class="badge d-flex align-items-center justify-content-center" style="font-family: 'Arial Black', sans-serif; font-size: 0.75rem; font-weight: 900; background-color: ${rank.color}; color: #000; height: 24px; width: 30px; border-radius: 4px; box-shadow: 0 2px 8px ${rank.color}40;" title="${escapeHTML(I18N.t('js.rhythm.rank.average'))}">${rank.rank}</span>`;
     
             // Default to latest song cover art, fallback to browser-generated SVG letter avatar if no songs exist
             const imgUrl =
@@ -4528,13 +4492,13 @@
                         </div>
     
                         <!-- Row 3: Score -->
-                        <div class="text-secondary small fw-bold score-val mb-1" style="font-size: 0.75rem; font-family: monospace;">Score: <b class="text-white">${(artist.score || 0).toLocaleString()}</b></div>
+                        <div class="text-secondary small fw-bold score-val mb-1" style="font-size: 0.75rem; font-family: monospace;">${I18N.t('js.rhythm.artist_card.score_html', { score: Number(artist.score) || 0 })}</div>
     
                         <!-- Row 4: Plays -->
-                        <div class="text-secondary small fw-bold plays-val mb-1" style="font-size: 0.75rem; font-family: monospace;">Plays: <b class="text-white">${artist.plays || 0}</b></div>
+                        <div class="text-secondary small fw-bold plays-val mb-1" style="font-size: 0.75rem; font-family: monospace;">${I18N.t('js.rhythm.artist_card.plays_html', { count: Number(artist.plays) || 0 })}</div>
     
                         <!-- Row 5: Tracks -->
-                        <div class="text-secondary fw-bold text-truncate rg-tracks-count" style="font-size: 0.85rem; color: #a1a1aa !important;"><i class="bi bi-music-note-beamed text-danger me-1"></i> ${artist.count} Tracks ${artist.followers > 0 ? ` • <i class="bi bi-people-fill text-info ms-1 me-1"></i> ${formatSongCount(artist.followers)}` : ""}</div>
+                        <div class="text-secondary fw-bold text-truncate rg-tracks-count" style="font-size: 0.85rem; color: #a1a1aa !important;"><i class="bi bi-music-note-beamed text-danger me-1"></i> ${escapeHTML(I18N.t('js.rhythm.tracks_count', { count: Number(artist.count) || 0 }))} ${artist.followers > 0 ? ` • <i class="bi bi-people-fill text-info ms-1 me-1"></i> ${formatSongCount(artist.followers)}` : ""}</div>
                       </div>
     
                       <div class="d-flex align-items-center justify-content-center ms-2 right-actions-col" style="flex-shrink: 0; align-self: stretch; min-height: 84px;">
@@ -4562,7 +4526,7 @@
             if (trackTab) trackTab.click();
     
             const searchInput = document.getElementById("rg-search-artist-songs");
-            if (searchInput) searchInput.placeholder = `Search in ${playlistName}...`;
+            if (searchInput) searchInput.placeholder = I18N.t('js.rhythm.playlist.search_placeholder', { playlist: playlistName });
     
             try {
               const res = await fetchData(
@@ -4577,7 +4541,7 @@
               );
     
               if (!Array.isArray(res) || res.length === 0) {
-                container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #888; width: 100%;">No tracks in this playlist.</div>`;
+                container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #888; width: 100%;">${escapeHTML(I18N.t('js.rhythm.playlist.empty'))}</div>`;
               } else {
                 container.innerHTML = `<div class="d-flex align-items-center justify-content-between mb-3 px-2 w-100"><h6 class="text-white fw-bold m-0 text-truncate pe-3" style="font-size: 1.1rem;"><i class="bi bi-music-note-list text-info me-2"></i>${escapeHTML(playlistName)}</h6></div>`;
     
@@ -4595,7 +4559,7 @@
               }
             } catch (e) {
               console.error(e);
-              container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #888; width: 100%;">Failed to load playlist.</div>`;
+              container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #888; width: 100%;">${escapeHTML(I18N.t('js.rhythm.playlist.load_failed'))}</div>`;
             }
           }
     
@@ -4620,7 +4584,7 @@
             const q = searchInput ? searchInput.value.trim() : "";
     
             if (searchInput && !append) {
-              searchInput.placeholder = "Search tracks...";
+              searchInput.placeholder = I18N.t('js.rhythm.search.tracks');
             }
     
             let url = `?action=get_songs&artist=${encodeURIComponent(artistName)}&page=${this.artistSongsPage}&sort=${sort}&rhythm_game=1`;
@@ -4639,7 +4603,7 @@
               if (!Array.isArray(res) || res.length === 0) {
                 if (!append && container)
                   container.innerHTML =
-                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #888; width: 100%;">No tracks found.</div>';
+                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #888; width: 100%;">' + escapeHTML(I18N.t('js.rhythm.empty.tracks')) + '</div>';
                 this.allArtistSongsLoaded = true;
               } else {
                 if (!append && container) container.innerHTML = "";
@@ -4690,7 +4654,7 @@
               if (!Array.isArray(res) || res.length === 0) {
                 if (!append && container)
                   container.innerHTML =
-                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">No favorite tracks found.</div>';
+                    '<div style="grid-column: 1 / -1; text-align:center; padding: 24px; color: #aaa; width: 100%;">' + escapeHTML(I18N.t('js.rhythm.empty.favorite_tracks')) + '</div>';
                 this.allArtistFavsLoaded = true;
               } else {
                 if (!append && container) container.innerHTML = "";
@@ -4798,14 +4762,14 @@
                         <h4 class="text-white fw-bold mb-1 text-truncate" style="font-size: 1.4rem; max-width: 100%;">${escapeHTML(artistName)}</h4>
                         <div class="d-flex flex-column align-items-start text-secondary small gap-1" style="font-weight: 500;">
                           <div class="d-flex align-items-center gap-3 flex-wrap">
-                            <span>Played: <b class="text-white">${artistScores.length}</b> times</span>
-                            <span>Score: <b class="text-white">${totalScore.toLocaleString()}</b></span>
+                            <span>${I18N.t('js.rhythm.artist.played_times_html', { count: artistScores.length })}</span>
+                            <span>${I18N.t('js.rhythm.artist_card.score_html', { score: Number(totalScore) || 0 })}</span>
                           </div>
-                          <button class="btn btn-outline-light btn-sm rounded-pill px-3 fw-bold border-secondary text-secondary mt-1" id="rg-btn-share-artist" style="font-size: 0.7rem; height: 24px; padding: 0 10px; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s;"><i class="bi bi-share-fill"></i> Share</button>
+                          <button class="btn btn-outline-light btn-sm rounded-pill px-3 fw-bold border-secondary text-secondary mt-1" id="rg-btn-share-artist" style="font-size: 0.7rem; height: 24px; padding: 0 10px; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s;"><i class="bi bi-share-fill"></i> ${escapeHTML(I18N.t('js.rhythm.share_button'))}</button>
                         </div>
                       </div>
                       <div class="d-flex flex-column align-items-end flex-shrink-0">
-                        <span class="badge d-flex align-items-center justify-content-center" style="font-family: 'Arial Black', sans-serif; font-size: 1.1rem; font-weight: 900; background-color: ${rankColor}; color: #000; height: 42px; min-width: 48px; border-radius: 8px; box-shadow: 0 4px 12px ${rankColor}40;" title="AVERAGE RANK">${displayRank}</span>
+                        <span class="badge d-flex align-items-center justify-content-center" style="font-family: 'Arial Black', sans-serif; font-size: 1.1rem; font-weight: 900; background-color: ${rankColor}; color: #000; height: 42px; min-width: 48px; border-radius: 8px; box-shadow: 0 4px 12px ${rankColor}40;" title="${escapeHTML(I18N.t('js.rhythm.rank.average'))}">${displayRank}</span>
                       </div>
                     `;
     
@@ -4819,8 +4783,8 @@
                       <div class="d-flex flex-column justify-content-center flex-grow-1" style="min-width: 0; text-align: left;">
                         <h4 class="text-white fw-bold mb-1 text-truncate" style="font-size: 1.4rem; max-width: 100%;">${escapeHTML(artistName)}</h4>
                         <div class="d-flex flex-column align-items-start text-secondary small gap-1" style="font-weight: 500;">
-                          <span class="badge bg-dark border border-secondary text-secondary">Guest Artist</span>
-                          <button class="btn btn-outline-light btn-sm rounded-pill px-3 fw-bold border-secondary text-secondary mt-1" id="rg-btn-share-artist" style="font-size: 0.7rem; height: 24px; padding: 0 10px; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s;"><i class="bi bi-share-fill"></i> Share</button>
+                          <span class="badge bg-dark border border-secondary text-secondary">${escapeHTML(I18N.t('js.rhythm.artist.guest'))}</span>
+                          <button class="btn btn-outline-light btn-sm rounded-pill px-3 fw-bold border-secondary text-secondary mt-1" id="rg-btn-share-artist" style="font-size: 0.7rem; height: 24px; padding: 0 10px; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s;"><i class="bi bi-share-fill"></i> ${escapeHTML(I18N.t('js.rhythm.share_button'))}</button>
                         </div>
                       </div>
                     `;
@@ -4834,9 +4798,9 @@
             // Render History list for this artist's personal plays
             const histContainer = document.getElementById("rg-list-artist-history");
             if (!isUser) {
-              histContainer.innerHTML = `<div class="text-center p-5 text-secondary"><i class="bi bi-person-fill-x d-block fs-1 mb-2"></i>Only registered artist user accounts have an active play history.</div>`;
+              histContainer.innerHTML = `<div class="text-center p-5 text-secondary"><i class="bi bi-person-fill-x d-block fs-1 mb-2"></i>${escapeHTML(I18N.t('js.rhythm.artist.history_registered_only'))}</div>`;
             } else if (artistScores.length === 0) {
-              histContainer.innerHTML = `<div class="text-center p-5 text-secondary"><i class="bi bi-controller d-block fs-1 mb-2"></i>This user hasn't played any tracks yet.</div>`;
+              histContainer.innerHTML = `<div class="text-center p-5 text-secondary"><i class="bi bi-controller d-block fs-1 mb-2"></i>${escapeHTML(I18N.t('js.rhythm.artist.history_empty'))}</div>`;
             } else {
               const diffColors = {
                 easy: "#22d3ee",
@@ -4845,14 +4809,6 @@
                 expert: "#f43f5e",
                 master: "#a78bfa",
                 demon: "#7f1d1d",
-              };
-              const diffLabels = {
-                easy: "EZ",
-                medium: "ND",
-                hard: "HD",
-                expert: "EX",
-                master: "MS",
-                demon: "DM",
               };
     
               histContainer.innerHTML = artistScores
@@ -4865,14 +4821,14 @@
                     s.miss,
                   );
                   const diffColor = diffColors[s.difficulty] || "#aaa";
-                  const diffLabel = diffLabels[s.difficulty] || "UN";
-                  const lvlText = s.level ? `Lv.${s.level}` : "Lv.--";
+                  const diffLabel = diffAbbr(s.difficulty);
+                  const lvlText = I18N.t('js.rhythm.level_short', { level: s.level || '--' });
                   const coverSvg = getSvgPlaceholder(s.title);
                   const playedAt = s.played_at
                     ? new Date(
                         s.played_at.replace(" ", "T") + "Z",
-                      ).toLocaleDateString()
-                    : "Unknown";
+                      ).toLocaleDateString(I18N.locale)
+                    : I18N.t('js.common.unknown');
                   const totalHits =
                     parseInt(s.perfect || 0) +
                     parseInt(s.great || 0) +
@@ -4882,7 +4838,7 @@
                   const suspicious =
                     (jud.acc === "100.00" && totalHits > 50) ||
                     (s.max_combo > 500 && s.miss == 0)
-                      ? '<span class="badge bg-danger ms-2" style="font-size: 0.6rem;" title="Perfect Play / Bot Suspected"><i class="bi bi-exclamation-triangle-fill"></i> SUS</span>'
+                      ? '<span class="badge bg-danger ms-2" style="font-size: 0.6rem;" title="' + escapeHTML(I18N.t('js.rhythm.badge.bot_suspected')) + '"><i class="bi bi-exclamation-triangle-fill"></i> ' + escapeHTML(I18N.t('js.rhythm.badge.sus')) + '</span>'
                       : "";
     
                   return `
@@ -4904,11 +4860,11 @@
     
                           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px; margin-top: 4px; text-align: center;">
                             <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; background-color: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); padding: 4px 10px; border-radius: 6px; text-align: left;">
-                              <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">Score</span>
-                              <span style="font-size: 0.9rem; font-weight: 900; font-family: monospace; color: var(--rg-primary);">${parseInt(s.score).toLocaleString()}</span>
+                              <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">${escapeHTML(I18N.t('js.rhythm.stats.score'))}</span>
+                              <span style="font-size: 0.9rem; font-weight: 900; font-family: monospace; color: var(--rg-primary);">${(parseInt(s.score) || 0).toLocaleString(I18N.locale)}</span>
                             </div>
                             <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; background-color: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); padding: 4px 10px; border-radius: 6px; text-align: left;">
-                              <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">Combo</span>
+                              <span style="font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase;">${escapeHTML(I18N.t('js.rhythm.stats.combo'))}</span>
                               <span style="font-size: 0.9rem; font-weight: 900; font-family: monospace; color: #fff;">${s.max_combo}x</span>
                             </div>
                           </div>
@@ -4937,7 +4893,7 @@
                           <img src="/cover/${p.image_id || 0}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 8px rgba(0,0,0,0.4); flex-shrink: 0;">
                           <div class="text-truncate flex-grow-1" style="min-width: 0;">
                             <div class="text-white fw-bold text-truncate" style="font-size: 1rem;">${p.is_private == 1 ? '<i class="bi bi-lock-fill text-warning me-1"></i>' : ""}${escapeHTML(p.name)}</div>
-                            <div class="text-secondary small mt-1" style="font-size: 0.75rem;"><i class="bi bi-music-note-list text-danger"></i> ${p.song_count} Tracks</div>
+                            <div class="text-secondary small mt-1" style="font-size: 0.75rem;"><i class="bi bi-music-note-list text-danger"></i> ${escapeHTML(I18N.t('js.rhythm.tracks_count', { count: Number(p.song_count) || 0 }))}</div>
                           </div>
                           <i class="bi bi-chevron-right text-secondary fs-5" style="flex-shrink: 0;"></i>
                         </div>
@@ -4954,7 +4910,7 @@
                     });
                   });
               } else {
-                playContainer.innerHTML = `<div class="text-center p-5 text-secondary"><i class="bi bi-music-note-list d-block fs-1 mb-2"></i>No playlists found.</div>`;
+                playContainer.innerHTML = `<div class="text-center p-5 text-secondary"><i class="bi bi-music-note-list d-block fs-1 mb-2"></i>${escapeHTML(I18N.t('js.rhythm.artist.playlists_empty'))}</div>`;
               }
             }
     
@@ -4969,13 +4925,13 @@
             } else {
               const favsContainer = document.getElementById("rg-list-artist-favs");
               if (favsContainer) {
-                favsContainer.innerHTML = `<div class="text-center p-5 text-secondary"><i class="bi bi-heart-break-fill d-block fs-1 mb-2"></i>Only registered users can have favorites.</div>`;
+                favsContainer.innerHTML = `<div class="text-center p-5 text-secondary"><i class="bi bi-heart-break-fill d-block fs-1 mb-2"></i>${escapeHTML(I18N.t('js.rhythm.artist.favorites_registered_only'))}</div>`;
               }
               const folContainer = document.getElementById(
                 "rg-list-artist-following",
               );
               if (folContainer) {
-                folContainer.innerHTML = `<div class="text-center p-5 text-secondary"><i class="bi bi-person-fill-x d-block fs-1 mb-2"></i>Only registered users can follow others.</div>`;
+                folContainer.innerHTML = `<div class="text-center p-5 text-secondary"><i class="bi bi-person-fill-x d-block fs-1 mb-2"></i>${escapeHTML(I18N.t('js.rhythm.artist.following_registered_only'))}</div>`;
               }
             }
     
@@ -5027,7 +4983,7 @@
             const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     
             const modalTitle = modalEl.querySelector(".modal-title");
-            if (modalTitle) modalTitle.textContent = "Artists";
+            if (modalTitle) modalTitle.textContent = I18N.t('js.rhythm.artists_modal.title');
     
             body.innerHTML = `
                     <div class="list-group list-group-flush rounded">
@@ -5094,7 +5050,7 @@
                 "beforebegin",
                 `
                       <div id="${resultWarningId}" class="alert border-danger text-danger small mb-3 text-center rounded-3 w-100" style="background: rgba(255,59,48,0.1); line-height: 1.4; font-weight: bold; border-style: dashed;">
-                        <i class="bi bi-shield-slash-fill me-2"></i>Score Not Saved: Played while offline. This score will NOT be synced to the database.
+                        <i class="bi bi-shield-slash-fill me-2"></i>${escapeHTML(I18N.t('js.rhythm.result.offline_not_saved'))}
                       </div>
                     `,
               );
@@ -5102,7 +5058,7 @@
     
             const titleEl = document.querySelector("#rg-screen-result h2");
             if (titleEl) {
-              titleEl.textContent = failed ? "STAGE FAILED" : "STAGE CLEARED";
+              titleEl.textContent = I18N.t(failed ? 'js.rhythm.result.stage_failed' : 'js.rhythm.result.stage_cleared');
               titleEl.style.color = failed ? "#ff5f56" : "var(--rg-primary)";
             }
             const shareBtn = document.getElementById("rg-btn-result-share");
@@ -5184,7 +5140,7 @@
     
             const resTitle = document.querySelector("#rg-screen-result h2");
             if (this.isAutoplay && resTitle) {
-              resTitle.textContent = "AUTOPLAY (UNRANKED)";
+              resTitle.textContent = I18N.t('js.rhythm.result.autoplay_unranked');
               resTitle.style.color = "#00bcd4";
             }
     

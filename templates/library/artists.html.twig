@@ -1,27 +1,27 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_mosaic.html.twig' as tiles %}
 
-{% block title %}Artists · PHP Music{% endblock %}
+{% block title %}{{ 'library.artists.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Artists</h1>
+    <h1>{{ 'library.artists.title'|trans }}</h1>
     <p class="section-sub">
-        {{ artists|length }} artist{{ artists|length == 1 ? '' : 's' }}
-        {% if newVideos is not empty %}· <a href="{{ path('app_videos', {new: 1}) }}" title="See the new videos"><span class="badge-new">▶ {{ newVideos|length }} with new YouTube videos</span></a>{% endif %}
+        {{ 'common.count.artists'|trans({count: artists|length}) }}
+        {% if newVideos is not empty %}· <a href="{{ path('app_videos', {new: 1}) }}" title="{{ 'library.artists.see_new_videos'|trans }}"><span class="badge-new">▶ {{ 'library.artists.with_new_videos'|trans({count: newVideos|length}) }}</span></a>{% endif %}
     </p>
 
     {% if artists is empty %}
-        <p class="muted">No artists yet — run a scan first.</p>
+        <p class="muted">{{ 'library.artists.empty'|trans }}</p>
     {% else %}
         <div class="card-grid">
             {% for a in artists %}
                 <a class="card" href="{{ path('app_artist', {name: a.artist}) }}">
                     <div class="card-art">
                         {{ tiles.mosaic(covers[a.artist] ?? [], a.artist|slice(0, 1)|upper) }}
-                        {% if newVideos[a.artist] is defined %}<span class="badge-new card-badge" title="New YouTube videos">▶ {{ newVideos[a.artist] }} new</span>{% endif %}
+                        {% if newVideos[a.artist] is defined %}<span class="badge-new card-badge" title="{{ 'library.artists.new_videos_title'|trans }}">▶ {{ 'library.artist.new_videos_badge'|trans({count: newVideos[a.artist]}) }}</span>{% endif %}
                     </div>
                     <div class="card-title">{{ a.artist }}</div>
-                    <div class="card-sub">{{ a.cnt }} track{{ a.cnt == 1 ? '' : 's' }}</div>
+                    <div class="card-sub">{{ 'common.track_count'|trans({count: a.cnt}) }}</div>
                 </a>
             {% endfor %}
         </div>

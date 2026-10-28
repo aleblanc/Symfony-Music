@@ -1,26 +1,26 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_disco.html.twig' as disco %}
 
-{% block title %}Favorite discography · PHP Music{% endblock %}
+{% block title %}{{ 'favorite.albums.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Favorite discography</h1>
+    <h1>{{ 'favorite.albums.title'|trans }}</h1>
     <p class="section-sub">
-        {{ cards|length }} album{{ cards|length == 1 ? '' : 's' }} to listen to
-        {%- set owned = cards|filter(c => c.owned)|length %}{% if owned %} · {{ owned }} already in the library{% endif %}.
-        Heart an album in the <em>Discography</em> of an artist page to add it here.
+        {{ 'favorite.albums.count'|trans({count: cards|length}) }}
+        {%- set owned = cards|filter(c => c.owned)|length %}{% if owned %} · {{ 'favorite.albums.owned'|trans({count: owned}) }}{% endif %}.
+        {{ 'favorite.albums.hint_html'|trans|raw }}
     </p>
     {% if cards|length > 1 %}
         <p class="disco-sort">
-            Sort:
-            {% if sort == 'popularity' %}<strong>most listened</strong>{% else %}<a class="link" href="{{ path('app_album_favorites') }}">most listened</a>{% endif %}
+            {{ 'favorite.albums.sort'|trans }}
+            {% if sort == 'popularity' %}<strong>{{ 'favorite.albums.sort_popularity'|trans }}</strong>{% else %}<a class="link" href="{{ path('app_album_favorites') }}">{{ 'favorite.albums.sort_popularity'|trans }}</a>{% endif %}
             ·
-            {% if sort == 'added' %}<strong>latest hearted</strong>{% else %}<a class="link" href="{{ path('app_album_favorites', {sort: 'added'}) }}">latest hearted</a>{% endif %}
-            <span class="muted">— bars: listeners on ListenBrainz (people who played it), listens on hover</span>
+            {% if sort == 'added' %}<strong>{{ 'favorite.albums.sort_added'|trans }}</strong>{% else %}<a class="link" href="{{ path('app_album_favorites', {sort: 'added'}) }}">{{ 'favorite.albums.sort_added'|trans }}</a>{% endif %}
+            <span class="muted">{{ 'favorite.albums.sort_hint'|trans }}</span>
         </p>
     {% endif %}
     {% if cards is empty %}
-        <p class="muted">No album yet.</p>
+        <p class="muted">{{ 'favorite.albums.empty'|trans }}</p>
     {% else %}
         <div class="card-grid">
             {% for d in cards %}

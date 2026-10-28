@@ -1,21 +1,21 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_mosaic.html.twig' as tiles %}
 
-{% block title %}Genres · PHP Music{% endblock %}
+{% block title %}{{ 'library.genres.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Genres</h1>
-    <p class="section-sub">{{ genres|length }} genre{{ genres|length == 1 ? '' : 's' }}</p>
+    <h1>{{ 'library.genres.title'|trans }}</h1>
+    <p class="section-sub">{{ 'common.count.genres'|trans({count: genres|length}) }}</p>
 
     {% if genres is empty %}
-        <p class="muted">No genres yet — run a scan first.</p>
+        <p class="muted">{{ 'library.genres.empty'|trans }}</p>
     {% else %}
         <div class="card-grid">
             {% for g in genres %}
                 <a class="card" href="{{ path('app_genre', {name: g.genre}) }}">
                     {{ tiles.mosaic(covers[g.genre] ?? [], g.genre|slice(0, 1)|upper) }}
                     <div class="card-title">{{ g.genre }}</div>
-                    <div class="card-sub">{{ g.cnt }} track{{ g.cnt == 1 ? '' : 's' }}</div>
+                    <div class="card-sub">{{ 'common.track_count'|trans({count: g.cnt}) }}</div>
                 </a>
             {% endfor %}
         </div>

@@ -4,17 +4,17 @@
 
 {% block body %}
     <h1>{{ playlist.name }}</h1>
-    <p class="section-sub">by {{ playlist.owner.artist }} · {{ playlist.items|length }} track{{ playlist.items|length == 1 ? '' : 's' }}
+    <p class="section-sub">{{ 'playlist.card.by_owner_tracks'|trans({owner: playlist.owner.artist, count: playlist.items|length}) }}
         {% if playlist.description %}· {{ playlist.description }}{% endif %}</p>
 
     <form method="post" action="{{ path('app_playlist_copy') }}" style="margin-bottom:20px;">
         <input type="hidden" name="_token" value="{{ csrf_token('playlist_copy') }}">
         <input type="hidden" name="public_id" value="{{ playlist.publicId }}">
-        <button class="btn" type="submit">Copy to my playlists</button>
+        <button class="btn" type="submit">{{ 'playlist.shared.copy_to_mine'|trans }}</button>
     </form>
 
     {% if playlist.items is empty %}
-        <p class="muted">This playlist is empty.</p>
+        <p class="muted">{{ 'playlist.common.empty'|trans }}</p>
     {% else %}
         <div class="track-list">
             {% for item in playlist.items %}
@@ -31,7 +31,7 @@
                      data-track-cover="{{ path('app_cover', {id: song.id}) }}">
                     <div class="track-lead">
                         <span class="track-idx">{{ loop.index }}</span>
-                        <button class="track-play" data-play title="Play" aria-label="Play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+                        <button class="track-play" data-play title="{{ 'common.play'|trans }}" aria-label="{{ 'common.play'|trans }}"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
                     </div>
                     <img class="track-art" src="{{ path('app_cover', {id: song.id}) }}" alt="" loading="lazy">
                     <div class="track-main">

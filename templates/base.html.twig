@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app.request.locale }}">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,29 +17,30 @@
             <aside class="sidebar">
                 <div class="brand"><a href="{{ path('app_home') }}"><span class="brand-mark">♪</span> PHP&nbsp;Music</a></div>
                 <nav>
-                    <a href="{{ path('app_home') }}" class="{{ route == 'app_home' ? 'active' }}">{{ icons.icon('home') }}<span>Home</span></a>
-                    <a href="{{ path('app_library') }}" class="{{ route == 'app_library' ? 'active' }}">{{ icons.icon('library') }}<span>Library</span></a>
-                    <a href="{{ path('app_artists') }}" class="{{ route starts with 'app_artist' ? 'active' }}">{{ icons.icon('artist') }}<span>Artists</span></a>
-                    <a href="{{ path('app_videos') }}" class="{{ route == 'app_videos' ? 'active' }}">{{ icons.icon('video') }}<span>New videos</span></a>
-                    <a href="{{ path('app_posts') }}" class="{{ route == 'app_posts' ? 'active' }}">{{ icons.icon('photo') }}<span>New posts</span></a>
-                    <a href="{{ path('app_genres') }}" class="{{ route starts with 'app_genre' ? 'active' }}">{{ icons.icon('genre') }}<span>Genres</span></a>
-                    <a href="{{ path('app_years') }}" class="{{ route starts with 'app_year' ? 'active' }}">{{ icons.icon('year') }}<span>Years</span></a>
-                    <a href="{{ path('app_discover') }}" class="{{ route starts with 'app_discover' or route == 'app_mix_show' ? 'active' }}">{{ icons.icon('discover') }}<span>Discover</span></a>
-                    <a href="{{ path('app_folder', {name: 'discover'}) }}" class="{{ route == 'app_folder' and app.request.attributes.get('name') == 'discover' ? 'active' }}">{{ icons.icon('folder') }}<span>Discover folder</span></a>
-                    <a href="{{ path('app_folder', {name: 'unclassified'}) }}" class="{{ route == 'app_folder' and app.request.attributes.get('name') == 'unclassified' ? 'active' }}">{{ icons.icon('folder') }}<span>Unclassified folder</span></a>
+                    <a href="{{ path('app_home') }}" class="{{ route == 'app_home' ? 'active' }}">{{ icons.icon('home') }}<span>{{ 'nav.home'|trans }}</span></a>
+                    <a href="{{ path('app_library') }}" class="{{ route == 'app_library' ? 'active' }}">{{ icons.icon('library') }}<span>{{ 'nav.library'|trans }}</span></a>
+                    <a href="{{ path('app_artists') }}" class="{{ route starts with 'app_artist' ? 'active' }}">{{ icons.icon('artist') }}<span>{{ 'nav.artists'|trans }}</span></a>
+                    <a href="{{ path('app_videos') }}" class="{{ route == 'app_videos' ? 'active' }}">{{ icons.icon('video') }}<span>{{ 'nav.new_videos'|trans }}</span></a>
+                    <a href="{{ path('app_posts') }}" class="{{ route == 'app_posts' ? 'active' }}">{{ icons.icon('photo') }}<span>{{ 'nav.new_posts'|trans }}</span></a>
+                    <a href="{{ path('app_concerts') }}" class="{{ route == 'app_concerts' ? 'active' }}">{{ icons.icon('ticket') }}<span>{{ 'nav.concerts'|trans }}</span></a>
+                    <a href="{{ path('app_genres') }}" class="{{ route starts with 'app_genre' ? 'active' }}">{{ icons.icon('genre') }}<span>{{ 'nav.genres'|trans }}</span></a>
+                    <a href="{{ path('app_years') }}" class="{{ route starts with 'app_year' ? 'active' }}">{{ icons.icon('year') }}<span>{{ 'nav.years'|trans }}</span></a>
+                    <a href="{{ path('app_discover') }}" class="{{ route starts with 'app_discover' or route == 'app_mix_show' ? 'active' }}">{{ icons.icon('discover') }}<span>{{ 'nav.discover'|trans }}</span></a>
+                    <a href="{{ path('app_folder', {name: 'discover'}) }}" class="{{ route == 'app_folder' and app.request.attributes.get('name') == 'discover' ? 'active' }}">{{ icons.icon('folder') }}<span>{{ 'nav.discover_folder'|trans }}</span></a>
+                    <a href="{{ path('app_folder', {name: 'unclassified'}) }}" class="{{ route == 'app_folder' and app.request.attributes.get('name') == 'unclassified' ? 'active' }}">{{ icons.icon('folder') }}<span>{{ 'nav.unclassified_folder'|trans }}</span></a>
                     {% if app.user %}
-                        <div class="nav-label">Your music</div>
-                        <a href="{{ path('app_favorites') }}" class="{{ route == 'app_favorites' ? 'active' }}">{{ icons.icon('heart') }}<span>Favorites</span></a>
-                        <a href="{{ path('app_album_favorites') }}" class="{{ route == 'app_album_favorites' ? 'active' }}">{{ icons.icon('heart') }}<span>Favorite discography</span></a>
-                        <a href="{{ path('app_ratings') }}" class="{{ route == 'app_ratings' ? 'active' }}">{{ icons.icon('star') }}<span>Ratings</span></a>
-                        <a href="{{ path('app_listen_later') }}" class="{{ route starts with 'app_listen_later' ? 'active' }}">{{ icons.icon('clock') }}<span>Listen Later</span></a>
-                        <a href="{{ path('app_offline') }}" class="{{ route starts with 'app_offline' ? 'active' }}">{{ icons.icon('cloud') }}<span>Offline</span></a>
-                        <a href="{{ path('app_playlists') }}" class="{{ route starts with 'app_playlist' ? 'active' }}">{{ icons.icon('playlist') }}<span>Playlists</span></a>
+                        <div class="nav-label">{{ 'nav.your_music'|trans }}</div>
+                        <a href="{{ path('app_favorites') }}" class="{{ route == 'app_favorites' ? 'active' }}">{{ icons.icon('heart') }}<span>{{ 'nav.favorites'|trans }}</span></a>
+                        <a href="{{ path('app_album_favorites') }}" class="{{ route == 'app_album_favorites' ? 'active' }}">{{ icons.icon('heart') }}<span>{{ 'nav.favorite_discography'|trans }}</span></a>
+                        <a href="{{ path('app_ratings') }}" class="{{ route == 'app_ratings' ? 'active' }}">{{ icons.icon('star') }}<span>{{ 'nav.ratings'|trans }}</span></a>
+                        <a href="{{ path('app_listen_later') }}" class="{{ route starts with 'app_listen_later' ? 'active' }}">{{ icons.icon('clock') }}<span>{{ 'nav.listen_later'|trans }}</span></a>
+                        <a href="{{ path('app_offline') }}" class="{{ route starts with 'app_offline' ? 'active' }}">{{ icons.icon('cloud') }}<span>{{ 'nav.offline'|trans }}</span></a>
+                        <a href="{{ path('app_playlists') }}" class="{{ route starts with 'app_playlist' ? 'active' }}">{{ icons.icon('playlist') }}<span>{{ 'nav.playlists'|trans }}</span></a>
                         {# The rhythm game is a standalone full-screen app: open it in its own
                            tab (target=_blank, which nav.js ignores) so the main tab keeps its
                            shell and the music playing. #}
-                        <a href="{{ path('app_rhythm') }}" target="_blank" rel="noopener" title="Open the Rhythm game in a new tab">{{ icons.icon('game') }}<span>Rhythm ↗</span></a>
-                        <a href="{{ path('app_upload') }}" class="{{ route starts with 'app_upload' ? 'active' }}">{{ icons.icon('upload') }}<span>Upload</span></a>
+                        <a href="{{ path('app_rhythm') }}" target="_blank" rel="noopener" title="{{ 'nav.rhythm_title'|trans }}">{{ icons.icon('game') }}<span>{{ 'nav.rhythm'|trans }}</span></a>
+                        <a href="{{ path('app_upload') }}" class="{{ route starts with 'app_upload' ? 'active' }}">{{ icons.icon('upload') }}<span>{{ 'nav.upload'|trans }}</span></a>
                     {% endif %}
                 </nav>
                 <div class="sidebar-footer">
@@ -48,11 +49,19 @@
                             <span class="avatar">{{ (app.user.artist ?? '?')|slice(0, 1)|upper }}</span>
                             <span class="me-name">{{ app.user.artist }}</span>
                         </div>
-                        <a href="{{ path('app_logout') }}" class="btn-link">{{ icons.icon('logout') }}<span>Log out</span></a>
+                        <a href="{{ path('app_logout') }}" class="btn-link">{{ icons.icon('logout') }}<span>{{ 'nav.log_out'|trans }}</span></a>
                     {% else %}
-                        <a href="{{ path('app_login') }}" class="btn-link">Log in</a>
-                        <a href="{{ path('app_register') }}" class="btn-link">Sign up</a>
+                        <a href="{{ path('app_login') }}" class="btn-link">{{ 'nav.log_in'|trans }}</a>
+                        <a href="{{ path('app_register') }}" class="btn-link">{{ 'nav.sign_up'|trans }}</a>
                     {% endif %}
+                    {# Full reload (data-no-nav): the sidebar, the player and the
+                       i18n-config of the scripts must all switch language. #}
+                    <form class="lang-switch" method="post" data-no-nav aria-label="{{ 'nav.language'|trans }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('locale_switch') }}">
+                        {% for l in app.enabled_locales %}
+                            <button type="submit" formaction="{{ path('app_locale_switch', {locale: l}) }}" lang="{{ l }}"{% if l == app.request.locale %} aria-current="true"{% endif %}>{{ l|upper }}</button>
+                        {% endfor %}
+                    </form>
                 </div>
             </aside>
 
@@ -64,20 +73,20 @@
                         {{ icons.icon('search') }}
                         <input type="search" id="global-search" name="q"
                                value="{{ route == 'app_library' ? app.request.query.get('q') }}"
-                               placeholder="Search songs, artists, albums, genres…" aria-label="Search the library" autocomplete="off">
+                               placeholder="{{ 'search.placeholder'|trans }}" aria-label="{{ 'search.aria_label'|trans }}" autocomplete="off">
                         <kbd>/</kbd>
                     </form>
                     {% if is_granted('ROLE_ADMIN') %}
-                        <nav class="topbar-admin" aria-label="Admin">
-                            <a href="{{ path('app_import_queue') }}" class="{{ route starts with 'app_import' ? 'active' }}" title="Files app:import was not sure about">Import queue</a>
-                            <a href="{{ path('app_quality_stats') }}" class="{{ route == 'app_quality_stats' ? 'active' }}" title="Tracks by quality and bitrate">Audio quality</a>
-                            <a href="{{ path('app_duplicates') }}" class="{{ route == 'app_duplicates' ? 'active' }}" title="Tracks the library holds twice">Duplicates</a>
+                        <nav class="topbar-admin" aria-label="{{ 'admin_nav.aria_label'|trans }}">
+                            <a href="{{ path('app_import_queue') }}" class="{{ route starts with 'app_import' ? 'active' }}" title="{{ 'admin_nav.import_queue_title'|trans }}">{{ 'admin_nav.import_queue'|trans }}</a>
+                            <a href="{{ path('app_quality_stats') }}" class="{{ route == 'app_quality_stats' ? 'active' }}" title="{{ 'admin_nav.audio_quality_title'|trans }}">{{ 'admin_nav.audio_quality'|trans }}</a>
+                            <a href="{{ path('app_duplicates') }}" class="{{ route == 'app_duplicates' ? 'active' }}" title="{{ 'admin_nav.duplicates_title'|trans }}">{{ 'admin_nav.duplicates'|trans }}</a>
                         </nav>
                     {% endif %}
                 </div>
                 {% for label, messages in app.flashes %}
                     {% for message in messages %}
-                        <div class="flash flash-{{ label }}">{{ message }}</div>
+                        <div class="flash flash-{{ label }}">{{ message|trans }}</div>
                     {% endfor %}
                 {% endfor %}
                 {% block body %}{% endblock %}
@@ -89,23 +98,23 @@
             <div class="player-meta">
                 <img id="player-cover" alt="" width="48" height="48">
                 <div>
-                    <a id="player-title" class="player-title" href="#" title="Track details"></a>
+                    <a id="player-title" class="player-title" href="#" title="{{ 'player.track_details'|trans }}"></a>
                     <div class="player-artist">
-                        <a id="player-artist" href="#" title="Artist"></a><span id="player-album-sep" hidden> · </span><a id="player-album" href="#" title="Album" hidden></a>
+                        <a id="player-artist" href="#" title="{{ 'player.artist'|trans }}"></a><span id="player-album-sep" hidden> · </span><a id="player-album" href="#" title="{{ 'player.album'|trans }}" hidden></a>
                     </div>
                     {# Rating of the playing track, filled by player.js #}
-                    {% if app.user %}<span id="player-rate" class="rate player-rate" role="radiogroup" aria-label="Rating" hidden></span>{% endif %}
+                    {% if app.user %}<span id="player-rate" class="rate player-rate" role="radiogroup" aria-label="{{ 'common.rating'|trans }}" hidden></span>{% endif %}
                 </div>
             </div>
             <div class="player-controls">
                 <div class="buttons">
-                    <button id="player-prev" title="Previous" aria-label="Previous">⏮</button>
-                    <button id="player-toggle" title="Play/Pause" aria-label="Play/Pause">▶</button>
-                    <button id="player-next" title="Next" aria-label="Next">⏭</button>
-                    <button id="player-lyrics" class="player-lyrics-btn" title="Lyrics (L)" aria-label="Lyrics" aria-expanded="false" aria-controls="lyrics-panel">
+                    <button id="player-prev" title="{{ 'common.previous'|trans }}" aria-label="{{ 'common.previous'|trans }}">⏮</button>
+                    <button id="player-toggle" title="{{ 'player.play_pause'|trans }}" aria-label="{{ 'player.play_pause'|trans }}">▶</button>
+                    <button id="player-next" title="{{ 'common.next'|trans }}" aria-label="{{ 'common.next'|trans }}">⏭</button>
+                    <button id="player-lyrics" class="player-lyrics-btn" title="{{ 'player.lyrics_title'|trans }}" aria-label="{{ 'player.lyrics'|trans }}" aria-expanded="false" aria-controls="lyrics-panel">
                         <svg viewBox="0 0 24 24"><path d="M3 5h12v2H3zm0 4h12v2H3zm0 4h8v2H3zm15-8v9.18A3 3 0 1020 17V7h3V5z"/></svg>
                     </button>
-                    <button id="player-queue" class="player-queue-btn" title="Play queue (Q)" aria-label="Play queue" aria-expanded="false" aria-controls="queue-panel">
+                    <button id="player-queue" class="player-queue-btn" title="{{ 'player.queue_title'|trans }}" aria-label="{{ 'player.queue'|trans }}" aria-expanded="false" aria-controls="queue-panel">
                         <svg viewBox="0 0 24 24"><path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v8l6-4z"/></svg>
                     </button>
                 </div>
@@ -116,49 +125,51 @@
                 </div>
             </div>
             <div class="player-volume">
-                <button id="player-pip" class="pip-btn" title="Mini player (pop out)" aria-label="Mini player" hidden>
+                <button id="player-pip" class="pip-btn" title="{{ 'player.pip_title'|trans }}" aria-label="{{ 'player.pip'|trans }}" hidden>
                     <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm4 12V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"/></svg>
                 </button>
-                <button id="player-rg" class="rg-btn" type="button" aria-label="Volume normalization (ReplayGain)">RG</button>
-                <input type="range" id="player-volume" min="0" max="100" value="100" title="Volume">
+                <button id="player-rg" class="rg-btn" type="button" aria-label="{{ 'player.replaygain'|trans }}">RG</button>
+                <input type="range" id="player-volume" min="0" max="100" value="100" title="{{ 'player.volume'|trans }}">
             </div>
             <audio id="audio" preload="metadata"></audio>
         </footer>
 
         {# The play queue (what plays now and next), filled by player.js #}
-        <aside id="queue-panel" class="lyrics-panel queue-panel" aria-label="Play queue" hidden>
+        <aside id="queue-panel" class="lyrics-panel queue-panel" aria-label="{{ 'player.queue'|trans }}" hidden>
             <div class="lyrics-panel-head">
-                <h2>Play queue <span id="queue-count" class="muted"></span></h2>
+                <h2>{{ 'player.queue'|trans }} <span id="queue-count" class="muted"></span></h2>
                 <div class="queue-head-actions">
-                    <button id="queue-clear" type="button" class="queue-clear" title="Remove every track after the current one">Clear upcoming</button>
-                    <button id="queue-close" type="button" title="Close (Esc)" aria-label="Close the queue">✕</button>
+                    <button id="queue-clear" type="button" class="queue-clear" title="{{ 'queue.clear_title'|trans }}">{{ 'queue.clear'|trans }}</button>
+                    <button id="queue-close" type="button" title="{{ 'common.close_esc'|trans }}" aria-label="{{ 'queue.close'|trans }}">✕</button>
                 </div>
             </div>
             <ol id="queue-body" class="lyrics-panel-body queue-list"></ol>
         </aside>
 
         {# Lyrics of the playing track (synced LRC scrolls with the song), filled by player.js #}
-        <aside id="lyrics-panel" class="lyrics-panel" aria-label="Lyrics" hidden>
+        <aside id="lyrics-panel" class="lyrics-panel" aria-label="{{ 'player.lyrics'|trans }}" hidden>
             <div class="lyrics-panel-head">
-                <h2>Lyrics</h2>
-                <button id="lyrics-close" type="button" title="Close (Esc)" aria-label="Close lyrics">✕</button>
+                <h2>{{ 'player.lyrics'|trans }}</h2>
+                <button id="lyrics-close" type="button" title="{{ 'common.close_esc'|trans }}" aria-label="{{ 'lyrics.close'|trans }}">✕</button>
             </div>
             <div id="lyrics-body" class="lyrics-panel-body"></div>
         </aside>
 
         {# YouTube lightbox, opened by public/video-lightbox.js #}
-        <dialog id="video-lightbox" class="video-lightbox" aria-label="Video">
+        <dialog id="video-lightbox" class="video-lightbox" aria-label="{{ 'video.lightbox_label'|trans }}">
             <div class="video-lightbox-head">
                 <span class="video-lightbox-title"></span>
-                <button type="button" class="video-lightbox-close" title="Close (Esc)" aria-label="Close video">✕</button>
+                <button type="button" class="video-lightbox-close" title="{{ 'common.close_esc'|trans }}" aria-label="{{ 'video.close'|trans }}">✕</button>
             </div>
             <div class="video-lightbox-frame">
-                <iframe src="about:blank" title="YouTube video" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                <iframe src="about:blank" title="{{ 'video.iframe_title'|trans }}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
             </div>
         </dialog>
 
         {# Shared per-track context menu, populated + positioned by player.js #}
         <div id="track-menu" class="context-menu" role="menu"></div>
+
+        <script type="application/json" id="i18n-config">{{ {locale: app.request.locale, messages: js_translations()}|json_encode|raw }}</script>
 
         {% block player_config %}
             <script type="application/json" id="player-config">
@@ -203,6 +214,7 @@
 
         {# Plain static scripts served from public/ — player first (registers
            window.appPageInit), then nav (partial navigation). #}
+        <script src="/i18n.js" defer></script>
         <script src="/player.js" defer></script>
         <script src="/nav.js" defer></script>
         <script src="/video-lightbox.js" defer></script>

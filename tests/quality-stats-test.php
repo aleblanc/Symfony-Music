@@ -50,14 +50,14 @@ $formats = array_column($stats['formats'], null, 'key');
 check('formats: lossy first, biggest first', array_keys($formats) === ['mp3', 'mp4', 'flac', 'mp4-lossless'], json_encode(array_keys($formats)));
 check('labels', $formats['mp4']['label'] === 'M4A (AAC)' && $formats['mp4-lossless']['label'] === 'M4A (ALAC)', $formats['mp4']['label'] . ' / ' . $formats['mp4-lossless']['label']);
 
-$mp3 = array_column($formats['mp3']['buckets'], 'count', 'label');
+$mp3 = array_column($formats['mp3']['buckets'], 'count', 'key');
 check('MP3 ranges worst → best, 128 and 131 together', $mp3 === ['Unknown bitrate' => 1, '< 64 kb/s' => 1, '128–159 kb/s' => 7, '≥ 320 kb/s' => 10], json_encode($mp3, JSON_UNESCAPED_UNICODE));
 $range = $formats['mp3']['buckets'][2];
 check('range bounds for the track list', $range['min'] === 128 && $range['max'] === 159 && $range['quality'] === 'low', json_encode($range));
 check('very low range', $formats['mp3']['buckets'][1]['quality'] === 'very_low', json_encode($formats['mp3']['buckets'][1]));
 check('share inside the format', $formats['mp3']['buckets'][3]['pct'] === 52.6, (string) $formats['mp3']['buckets'][3]['pct']);
 
-$flac = array_column($formats['flac']['buckets'], 'count', 'label');
+$flac = array_column($formats['flac']['buckets'], 'count', 'key');
 check('FLAC by resolution, hi-res last', $flac === ['16 bit / 44.1 kHz' => 6, '24 bit / 96 kHz (hi-res)' => 2], json_encode($flac, JSON_UNESCAPED_UNICODE));
 
 echo $failures === 0 ? "\nAll quality stats tests passed.\n" : "\n{$failures} failure(s).\n";

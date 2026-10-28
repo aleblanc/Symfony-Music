@@ -4,7 +4,7 @@
  # Symfony routes, `song` is a Music entity (fields auto-escaped by Twig).
  #}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app.request.locale }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -293,12 +293,12 @@
     <div class="bg-blur"></div>
     <a href="{{ path('app_home') }}" target="_blank" class="brand">PHP MUSIC</a>
     <div class="content">
-      <img src="{{ path('app_cover', {id: song.id}) }}" class="cover-art" alt="Cover Art">
+      <img src="{{ path('app_cover', {id: song.id}) }}" class="cover-art" alt="{{ 'embed.cover_alt'|trans }}">
       <div class="info-pane">
         <div class="title">{{ song.displayTitle }}</div>
         <div class="artist">{{ song.artist }}</div>
         <div class="controls">
-          <button class="play-btn" id="playBtn" aria-label="Play/Pause">
+          <button class="play-btn" id="playBtn" aria-label="{{ 'embed.play_pause_aria'|trans }}">
             <svg class="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             <svg class="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
             <svg class="spinner" viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle></svg>

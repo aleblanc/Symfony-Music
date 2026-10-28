@@ -8,6 +8,7 @@ use App\Repository\MusicRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use App\Exception\UserFacingException;
 
 /**
  * Indexes an on-disk music library into the database.
@@ -52,11 +53,11 @@ class MusicScanner
         $log = $progress ?? static function (): void {};
 
         if (!is_dir($this->musicDir)) {
-            throw new \RuntimeException(\sprintf('Music directory "%s" does not exist.', $this->musicDir));
+            throw new UserFacingException(\sprintf('Music directory "%s" does not exist.', $this->musicDir), 'error.scan.music_dir_missing', ['dir' => $this->musicDir]);
         }
 
         if (!class_exists(\getID3::class)) {
-            throw new \RuntimeException('getID3 library is not available (check lib/getid3 autoload).');
+            throw new UserFacingException('getID3 library is not available (check lib/getid3 autoload).', 'error.scan.getid3_missing');
         }
 
         // Keep only the library user's id: the periodic em->clear() below

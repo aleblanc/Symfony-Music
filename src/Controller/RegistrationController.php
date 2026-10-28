@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Symfony\Component\Translation\TranslatableMessage;
 
 class RegistrationController extends AbstractController
 {
@@ -35,17 +36,17 @@ class RegistrationController extends AbstractController
             $password = (string) $request->request->get('password', '');
 
             if (!$this->isCsrfTokenValid('register', (string) $request->request->get('_token'))) {
-                $error = 'Invalid CSRF token, please retry.';
+                $error = new TranslatableMessage('error.csrf_invalid_retry');
             } elseif ($email === '' || $artist === '' || $password === '') {
-                $error = 'All fields are required.';
+                $error = new TranslatableMessage('validator.registration.all_required');
             } elseif (!filter_var($email, \FILTER_VALIDATE_EMAIL)) {
-                $error = 'Please enter a valid email address.';
+                $error = new TranslatableMessage('validator.email.invalid');
             } elseif (\strlen($password) < 6) {
-                $error = 'Password must be at least 6 characters.';
+                $error = new TranslatableMessage('validator.password.too_short', ['min' => 6]);
             } elseif ($users->findOneBy(['email' => $email]) !== null) {
-                $error = 'An account with this email already exists.';
+                $error = new TranslatableMessage('validator.email.taken');
             } elseif ($users->findOneBy(['artist' => $artist]) !== null) {
-                $error = 'This artist name is already taken.';
+                $error = new TranslatableMessage('validator.artist.taken');
             } else {
                 $user = new User();
                 $user->setEmail($email);

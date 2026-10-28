@@ -13,10 +13,16 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/profile')]
 class ProfileController extends AbstractController
 {
+    public function __construct(
+        private readonly TranslatorInterface $translator,
+    ) {}
+
     #[Route('', name: 'app_profile_show', methods: ['GET'])]
     #[IsGranted('ROLE_USER')]
     public function show(#[CurrentUser] User $user): Response
@@ -47,14 +53,14 @@ class ProfileController extends AbstractController
             $newBio = trim($request->request->getString('bio'));
 
             if (empty($newName)) {
-                $this->addFlash('error', 'Name cannot be empty.');
+                $this->addFlash('error', new TranslatableMessage('flash.profile.name_empty'));
                 return $this->redirectToRoute('app_profile_edit');
             }
 
             // Check if artist name is already taken
             $existingUser = $userRepo->findOneBy(['artist' => $newName]);
             if ($existingUser && $existingUser->getId() !== $user->getId()) {
-                $this->addFlash('error', 'Display name already taken.');
+                $this->addFlash('error', new TranslatableMessage('flash.profile.name_taken'));
                 return $this->redirectToRoute('app_profile_edit');
             }
 
@@ -62,7 +68,7 @@ class ProfileController extends AbstractController
             $user->setBio($newBio);
             $em->flush();
 
-            $this->addFlash('success', 'Profile updated successfully.');
+            $this->addFlash('success', new TranslatableMessage('flash.profile.updated'));
             return $this->redirectToRoute('app_profile_show');
         }
 
@@ -86,7 +92,7 @@ class ProfileController extends AbstractController
             $newPassword = $request->request->getString('new_password');
 
             if (\strlen($newPassword) < 6) {
-                $this->addFlash('error', 'Password must be at least 6 characters.');
+                $this->addFlash('error', new TranslatableMessage('validator.password.too_short', ['min' => 6]));
                 return $this->redirectToRoute('app_profile_change_password');
             }
 
@@ -94,7 +100,7 @@ class ProfileController extends AbstractController
             $user->setPasswordHash($hashedPassword);
             $em->flush();
 
-            $this->addFlash('success', 'Password changed successfully.');
+            $this->addFlash('success', new TranslatableMessage('flash.profile.password_changed'));
             return $this->redirectToRoute('app_profile_show');
         }
 
@@ -113,29 +119,29 @@ class ProfileController extends AbstractController
 
         $file = $request->files->get('profile_picture');
         if (!$file) {
-            return $this->json(['status' => 'error', 'message' => 'No file uploaded.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.upload.no_file')], Response::HTTP_BAD_REQUEST);
         }
 
         $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
         if (!\in_array($file->getMimeType(), $allowedTypes)) {
-            return $this->json(['status' => 'error', 'message' => 'Invalid file type. Only JPG, PNG, GIF allowed.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.profile.picture_invalid_type')], Response::HTTP_BAD_REQUEST);
         }
 
         $imageData = file_get_contents($file->getPathname());
         if ($imageData === false) {
-            return $this->json(['status' => 'error', 'message' => 'Failed to read uploaded file.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.upload.read_failed')], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
         $webpData = $this->processImageToWebp($imageData, 200, 80);
 
         if (!$webpData) {
-            return $this->json(['status' => 'error', 'message' => 'Failed to process image.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.upload.process_failed')], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         $user->setProfilePicture($webpData);
         $user->setProfilePictureType('image/webp');
         $em->flush();
 
-        return $this->json(['status' => 'success', 'message' => 'Profile picture updated.']);
+        return $this->json(['status' => 'success', 'message' => $this->translator->trans('flash.profile.picture_updated')]);
     }
 
     #[Route('/background', name: 'app_profile_upload_background', methods: ['POST'])]
@@ -150,29 +156,29 @@ class ProfileController extends AbstractController
 
         $file = $request->files->get('profile_background');
         if (!$file) {
-            return $this->json(['status' => 'error', 'message' => 'No file uploaded.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.upload.no_file')], Response::HTTP_BAD_REQUEST);
         }
 
         $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         if (!\in_array($file->getMimeType(), $allowedTypes)) {
-            return $this->json(['status' => 'error', 'message' => 'Invalid file type.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.profile.background_invalid_type')], Response::HTTP_BAD_REQUEST);
         }
 
         $imageData = file_get_contents($file->getPathname());
         if ($imageData === false) {
-            return $this->json(['status' => 'error', 'message' => 'Failed to read uploaded file.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.upload.read_failed')], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
         $webpData = $this->processImageToWebp($imageData, 1200, 400, true);
 
         if (!$webpData) {
-            return $this->json(['status' => 'error', 'message' => 'Failed to process image.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.upload.process_failed')], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         $user->setProfileBackground($webpData);
         $user->setProfileBackgroundType('image/webp');
         $em->flush();
 
-        return $this->json(['status' => 'success', 'message' => 'Background updated.']);
+        return $this->json(['status' => 'success', 'message' => $this->translator->trans('flash.profile.background_updated')]);
     }
 
     #[Route('/picture/{id}', name: 'app_profile_get_picture', methods: ['GET'])]
@@ -300,7 +306,7 @@ class ProfileController extends AbstractController
             return $this->json([
                 'status' => 'success',
                 'backup_key' => $backupKey,
-                'message' => 'Account soft-deleted. Save your backup key to restore it later.',
+                'message' => $this->translator->trans('flash.profile.account_soft_deleted'),
             ]);
         } else {
             // Hard delete: delete all data
@@ -320,7 +326,7 @@ class ProfileController extends AbstractController
             $em->flush();
             $this->container->get('security.token_storage')->setToken(null);
 
-            return $this->json(['status' => 'success', 'message' => 'Account deleted.']);
+            return $this->json(['status' => 'success', 'message' => $this->translator->trans('flash.profile.account_deleted')]);
         }
     }
 
@@ -336,7 +342,7 @@ class ProfileController extends AbstractController
 
         $keyParts = explode('-', $backupKey);
         if (\count($keyParts) !== 2) {
-            return $this->json(['status' => 'error', 'message' => 'Invalid key format.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.profile.backup_key_format')], Response::HTTP_BAD_REQUEST);
         }
 
         $userId = (int) $keyParts[0];
@@ -344,11 +350,11 @@ class ProfileController extends AbstractController
 
         $user = $userRepo->find($userId);
         if (!$user || !$user->getBackupKey()) {
-            return $this->json(['status' => 'error', 'message' => 'Invalid or expired backup key.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.profile.backup_key_expired')], Response::HTTP_BAD_REQUEST);
         }
 
         if (!password_verify($restoreStr, $user->getBackupKey())) {
-            return $this->json(['status' => 'error', 'message' => 'Invalid backup key.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.profile.backup_key_invalid')], Response::HTTP_BAD_REQUEST);
         }
 
         $newEmail = $data['new_email'] ?? '';
@@ -356,7 +362,7 @@ class ProfileController extends AbstractController
         $newPassword = $data['new_password'] ?? '';
 
         if (!filter_var($newEmail, \FILTER_VALIDATE_EMAIL) || empty($newArtist) || \strlen($newPassword) < 6) {
-            return $this->json(['status' => 'error', 'message' => 'Invalid input data.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.profile.restore_invalid_input')], Response::HTTP_BAD_REQUEST);
         }
 
         // Check uniqueness
@@ -364,7 +370,7 @@ class ProfileController extends AbstractController
         $existingArtist = $userRepo->findOneBy(['artist' => $newArtist]);
 
         if (($existingEmail && $existingEmail->getId() !== $userId) || ($existingArtist && $existingArtist->getId() !== $userId)) {
-            return $this->json(['status' => 'error', 'message' => 'Email or Artist already taken.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['status' => 'error', 'message' => $this->translator->trans('error.profile.restore_taken')], Response::HTTP_BAD_REQUEST);
         }
 
         // Restore account
@@ -389,7 +395,7 @@ class ProfileController extends AbstractController
 
         $em->flush();
 
-        return $this->json(['status' => 'success', 'message' => 'Account restored successfully.']);
+        return $this->json(['status' => 'success', 'message' => $this->translator->trans('flash.profile.account_restored')]);
     }
 
     /**

@@ -1,21 +1,21 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_mosaic.html.twig' as tiles %}
 
-{% block title %}Years · PHP Music{% endblock %}
+{% block title %}{{ 'library.years.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Years</h1>
-    <p class="section-sub">{{ years|length }} year{{ years|length == 1 ? '' : 's' }}</p>
+    <h1>{{ 'library.years.title'|trans }}</h1>
+    <p class="section-sub">{{ 'common.count.years'|trans({count: years|length}) }}</p>
 
     {% if years is empty %}
-        <p class="muted">No years yet — run a scan first.</p>
+        <p class="muted">{{ 'library.years.empty'|trans }}</p>
     {% else %}
         <div class="card-grid">
             {% for y in years %}
                 <a class="card" href="{{ path('app_year', {year: y.year}) }}">
                     {{ tiles.mosaic(covers[y.year ~ ''] ?? [], y.year, 32) }}
                     <div class="card-title">{{ y.year }}</div>
-                    <div class="card-sub">{{ y.cnt }} track{{ y.cnt == 1 ? '' : 's' }}</div>
+                    <div class="card-sub">{{ 'common.track_count'|trans({count: y.cnt}) }}</div>
                 </a>
             {% endfor %}
         </div>

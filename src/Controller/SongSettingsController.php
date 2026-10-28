@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Per-user, per-track audio preferences (volume + 5-band equalizer). Ported
@@ -27,6 +28,7 @@ class SongSettingsController extends AbstractController
         private readonly UserSongSettingRepository $settings,
         private readonly MusicRepository $music,
         private readonly EntityManagerInterface $em,
+        private readonly TranslatorInterface $translator,
     ) {}
 
     #[Route('/song/{id}/settings', name: 'app_song_settings_get', methods: ['GET'], requirements: ['id' => '\d+'])]
@@ -34,7 +36,7 @@ class SongSettingsController extends AbstractController
     {
         $song = $this->music->find($id);
         if ($song === null) {
-            return new JsonResponse(['error' => 'Track not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => $this->translator->trans('error.track_not_found')], Response::HTTP_NOT_FOUND);
         }
 
         $setting = $this->settings->findOneForUser($user, $song);
@@ -51,16 +53,16 @@ class SongSettingsController extends AbstractController
     {
         $song = $this->music->find($id);
         if ($song === null) {
-            return new JsonResponse(['error' => 'Track not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => $this->translator->trans('error.track_not_found')], Response::HTTP_NOT_FOUND);
         }
 
         if (!$this->isCsrfTokenValid('song_settings_' . $song->getId(), $this->extractToken($request))) {
-            return new JsonResponse(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+            return new JsonResponse(['error' => $this->translator->trans('error.csrf_invalid')], Response::HTTP_FORBIDDEN);
         }
 
         $data = json_decode($request->getContent(), true);
         if (!\is_array($data)) {
-            return new JsonResponse(['error' => 'Invalid JSON body'], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(['error' => $this->translator->trans('error.invalid_json')], Response::HTTP_BAD_REQUEST);
         }
 
         $volume = (float) ($data['volume'] ?? 1.0);
@@ -87,11 +89,11 @@ class SongSettingsController extends AbstractController
     {
         $song = $this->music->find($id);
         if ($song === null) {
-            return new JsonResponse(['error' => 'Track not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => $this->translator->trans('error.track_not_found')], Response::HTTP_NOT_FOUND);
         }
 
         if (!$this->isCsrfTokenValid('song_settings_' . $song->getId(), $this->extractToken($request))) {
-            return new JsonResponse(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+            return new JsonResponse(['error' => $this->translator->trans('error.csrf_invalid')], Response::HTTP_FORBIDDEN);
         }
 
         $setting = $this->settings->findOneForUser($user, $song);

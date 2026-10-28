@@ -5,10 +5,10 @@
 {% macro stars(song, extraClass = '') %}
     {% set value = song.rating ?? 0 %}
     <span class="rate {{ extraClass }}{{ value ? ' rated' }}" data-rate-url="{{ path('app_rating_set', {id: song.id}) }}" data-stars="{{ value }}"
-          role="radiogroup" aria-label="Rating">
+          role="radiogroup" aria-label="{{ 'common.rating'|trans }}">
         {%- for n in 1..5 -%}
             <button type="button" class="{{ n <= value ? 'on' }}" data-rate="{{ n }}" role="radio" aria-checked="{{ n == value ? 'true' : 'false' }}"
-                    title="{{ n }} star{{ n > 1 ? 's' }}{{ n == value ? ' (click again to remove)' }}">★</button>
+                    title="{{ (n == value ? 'rating.stars_current' : 'rating.stars')|trans({n: n}) }}">★</button>
         {%- endfor -%}
     </span>
 {% endmacro %}

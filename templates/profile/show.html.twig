@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Profile - {{ user.artist }}{% endblock %}
+{% block title %}{{ 'profile.show.title'|trans({name: user.artist}) }}{% endblock %}
 
 {% block body %}
     <div class="profile-view">
@@ -15,40 +15,40 @@
                     <h1>{{ user.artist }}</h1>
                     <p class="profile-email">{{ user.email }}</p>
                     {% if user.verified == 'yes' %}
-                        <span class="badge badge-verified">Verified ✓</span>
+                        <span class="badge badge-verified">{{ 'profile.show.verified'|trans }}</span>
                     {% elseif user.verified == 'pending' %}
-                        <span class="badge badge-pending">Pending Verification</span>
+                        <span class="badge badge-pending">{{ 'profile.show.pending_verification'|trans }}</span>
                     {% endif %}
                 </div>
             </div>
 
             {% if user.bio %}
                 <div class="profile-bio">
-                    <h3>Bio</h3>
+                    <h3>{{ 'profile.show.bio'|trans }}</h3>
                     <p>{{ user.bio }}</p>
                 </div>
             {% endif %}
 
             <div class="profile-actions">
-                <a href="{{ path('app_profile_edit') }}" class="btn btn-primary">Edit Profile</a>
-                <a href="{{ path('app_profile_change_password') }}" class="btn btn-secondary">Change Password</a>
-                <button class="btn btn-danger" id="btn-delete-account">Delete Account</button>
+                <a href="{{ path('app_profile_edit') }}" class="btn btn-primary">{{ 'profile.show.edit'|trans }}</a>
+                <a href="{{ path('app_profile_change_password') }}" class="btn btn-secondary">{{ 'profile.show.change_password'|trans }}</a>
+                <button class="btn btn-danger" id="btn-delete-account">{{ 'profile.show.delete_account'|trans }}</button>
             </div>
 
             <div class="profile-stats">
-                <h3>Stats</h3>
+                <h3>{{ 'profile.show.stats'|trans }}</h3>
                 <div class="stats-grid">
                     <div class="stat-item">
                         <span class="stat-value">0</span>
-                        <span class="stat-label">Uploads</span>
+                        <span class="stat-label">{{ 'profile.show.stat_uploads'|trans }}</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-value">0</span>
-                        <span class="stat-label">Favorites</span>
+                        <span class="stat-label">{{ 'profile.show.stat_favorites'|trans }}</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-value">0</span>
-                        <span class="stat-label">Playlists</span>
+                        <span class="stat-label">{{ 'profile.show.stat_playlists'|trans }}</span>
                     </div>
                 </div>
             </div>
@@ -58,21 +58,21 @@
     <!-- Delete Account Modal -->
     <div class="modal" id="delete-modal" style="display: none;">
         <div class="modal-content">
-            <h2>Delete Account</h2>
-            <p>This action cannot be undone. Choose an option:</p>
+            <h2>{{ 'profile.show.delete_account'|trans }}</h2>
+            <p>{{ 'profile.show.delete_warning'|trans }}</p>
             <div class="modal-actions">
                 <label class="radio-option">
                     <input type="radio" name="delete_mode" value="keep_data" checked>
-                    <span>Keep my data (soft delete)</span>
+                    <span>{{ 'profile.show.delete_keep_data'|trans }}</span>
                 </label>
                 <label class="radio-option">
                     <input type="radio" name="delete_mode" value="all">
-                    <span>Delete everything permanently</span>
+                    <span>{{ 'profile.show.delete_all'|trans }}</span>
                 </label>
             </div>
             <div class="modal-buttons">
-                <button class="btn btn-secondary" id="btn-cancel-delete">Cancel</button>
-                <button class="btn btn-danger" id="btn-confirm-delete">Confirm Delete</button>
+                <button class="btn btn-secondary" id="btn-cancel-delete">{{ 'common.cancel'|trans }}</button>
+                <button class="btn btn-danger" id="btn-confirm-delete">{{ 'profile.show.confirm_delete'|trans }}</button>
             </div>
         </div>
     </div>
@@ -338,15 +338,15 @@
 
                 if (data.status === 'success') {
                     if (mode === 'keep_data') {
-                        alert('Account deleted. Backup key: ' + data.backup_key);
+                        alert({{ 'profile.alert.account_deleted_backup'|trans({key: '%key%'})|json_encode|raw }}.replace('%key%', () => data.backup_key));
                     }
                     window.location.href = '{{ path('app_home') }}';
                 } else {
-                    alert('Error: ' + data.message);
+                    alert({{ 'profile.alert.error'|trans({message: '%message%'})|json_encode|raw }}.replace('%message%', () => data.message));
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('An error occurred.');
+                alert({{ 'profile.alert.error_generic'|trans|json_encode|raw }});
             }
         });
     </script>

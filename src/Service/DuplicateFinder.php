@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Enum\AudioQuality;
 use App\Repository\MusicRepository;
 use Doctrine\DBAL\Connection;
+use App\Exception\UserFacingException;
 
 /**
  * Tracks the library holds twice: the same file name with another extension
@@ -129,7 +130,7 @@ final class DuplicateFinder
         }
         $drop = array_values(array_unique(array_diff($drop, [$keep])));
         if ($group === null || $drop === [] || array_diff($drop, array_keys($group)) !== []) {
-            throw new \RuntimeException('These tracks are not duplicates of each other (any more): reload the page.');
+            throw new UserFacingException('These tracks are not duplicates of each other (any more): reload the page.', 'error.duplicates.not_duplicates');
         }
 
         $moved = [];

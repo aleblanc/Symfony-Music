@@ -1,27 +1,27 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Mixes · PHP Music{% endblock %}
+{% block title %}{{ 'discovery.mixes.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Mixes</h1>
+    <h1>{{ 'discovery.mixes.title'|trans }}</h1>
     <form class="toolbar" method="get" action="{{ path('app_discover_mixes') }}">
-        <input class="field search" type="search" name="q" value="{{ query }}" placeholder="Search mixes…">
-        <button class="btn" type="submit">Search</button>
-        {% if query %}<a class="btn btn-ghost" href="{{ path('app_discover_mixes') }}">Clear</a>{% endif %}
+        <input class="field search" type="search" name="q" value="{{ query }}" placeholder="{{ 'discovery.mixes.search_placeholder'|trans }}">
+        <button class="btn" type="submit">{{ 'common.search'|trans }}</button>
+        {% if query %}<a class="btn btn-ghost" href="{{ path('app_discover_mixes') }}">{{ 'common.clear'|trans }}</a>{% endif %}
     </form>
 
-    <p class="section-sub">{{ total }} mix{{ total == 1 ? '' : 'es' }}{{ query ? ' for “' ~ query ~ '”' }}</p>
+    <p class="section-sub">{{ query ? 'discovery.mixes.count_for'|trans({count: total, query: query}) : 'common.count.mixes'|trans({count: total}) }}</p>
 
-    <nav class="sort-bar" aria-label="Sort">
-        <span class="muted">Sort by:</span>
-        <a href="{{ path('app_discover_mixes', {q: query, sort: 'newest'}) }}" class="{{ sort == 'newest' ? 'active' }}">Newest</a>
-        <a href="{{ path('app_discover_mixes', {q: query, sort: 'oldest'}) }}" class="{{ sort == 'oldest' ? 'active' }}">Oldest</a>
-        <a href="{{ path('app_discover_mixes', {q: query, sort: 'name_asc'}) }}" class="{{ sort == 'name_asc' ? 'active' }}">Name ↑</a>
-        <a href="{{ path('app_discover_mixes', {q: query, sort: 'name_desc'}) }}" class="{{ sort == 'name_desc' ? 'active' }}">Name ↓</a>
+    <nav class="sort-bar" aria-label="{{ 'common.sort'|trans }}">
+        <span class="muted">{{ 'common.sort_by'|trans }}</span>
+        <a href="{{ path('app_discover_mixes', {q: query, sort: 'newest'}) }}" class="{{ sort == 'newest' ? 'active' }}">{{ 'discovery.mixes.sort_newest'|trans }}</a>
+        <a href="{{ path('app_discover_mixes', {q: query, sort: 'oldest'}) }}" class="{{ sort == 'oldest' ? 'active' }}">{{ 'discovery.mixes.sort_oldest'|trans }}</a>
+        <a href="{{ path('app_discover_mixes', {q: query, sort: 'name_asc'}) }}" class="{{ sort == 'name_asc' ? 'active' }}">{{ 'discovery.mixes.sort_name'|trans }} ↑</a>
+        <a href="{{ path('app_discover_mixes', {q: query, sort: 'name_desc'}) }}" class="{{ sort == 'name_desc' ? 'active' }}">{{ 'discovery.mixes.sort_name'|trans }} ↓</a>
     </nav>
 
     {% if mixes is empty %}
-        <p class="muted">No mixes yet — scan some music into the library first.</p>
+        <p class="muted">{{ 'discovery.mixes.empty'|trans }}</p>
     {% else %}
         <div class="card-grid">
             {% for mix in mixes %}
@@ -31,7 +31,7 @@
                              style="aspect-ratio:1;border-radius:8px;object-fit:cover;">
                     {% endif %}
                     <div class="card-title">{{ mix.name }}</div>
-                    <div class="card-sub">{{ songCounts[mix.id] }} track{{ songCounts[mix.id] == 1 ? '' : 's' }}</div>
+                    <div class="card-sub">{{ 'common.track_count'|trans({count: songCounts[mix.id]}) }}</div>
                 </a>
             {% endfor %}
         </div>
@@ -39,9 +39,9 @@
 
     {% if pages > 1 %}
         <div class="pagination">
-            {% if page > 1 %}<a href="{{ path('app_discover_mixes', {q: query, sort: sort, page: page - 1}) }}">← Prev</a>{% endif %}
+            {% if page > 1 %}<a href="{{ path('app_discover_mixes', {q: query, sort: sort, page: page - 1}) }}">{{ 'common.pagination.prev'|trans }}</a>{% endif %}
             <span class="current">{{ page }} / {{ pages }}</span>
-            {% if page < pages %}<a href="{{ path('app_discover_mixes', {q: query, sort: sort, page: page + 1}) }}">Next →</a>{% endif %}
+            {% if page < pages %}<a href="{{ path('app_discover_mixes', {q: query, sort: sort, page: page + 1}) }}">{{ 'common.pagination.next'|trans }}</a>{% endif %}
         </div>
     {% endif %}
 {% endblock %}

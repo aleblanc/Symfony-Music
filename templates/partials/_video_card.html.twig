@@ -6,10 +6,10 @@
             <a href="{{ url }}" target="_blank" rel="noopener" tabindex="-1">
                 <img src="https://i.ytimg.com/vi/{{ v.id|url_encode }}/mqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">
             </a>
-            {% if isNew %}<span class="badge-new">New</span>{% endif %}
-            <button type="button" class="video-play" data-video-play="{{ v.id }}" data-video-title="{{ v.title }}" title="Play here" aria-label="Play {{ v.title }}">▶</button>
+            {% if isNew %}<span class="badge-new">{{ 'video.new_badge'|trans }}</span>{% endif %}
+            <button type="button" class="video-play" data-video-play="{{ v.id }}" data-video-title="{{ v.title }}" title="{{ 'video.play_here'|trans }}" aria-label="{{ 'video.play_aria'|trans({title: v.title}) }}">▶</button>
         </div>
         <a class="video-title" href="{{ url }}" target="_blank" rel="noopener">{{ v.title }}</a>
-        <span class="muted video-date">{% if artist %}<a class="link" href="{{ path('app_artist', {name: artist}) }}">{{ artist }}</a> · {% endif %}{{ v.published|date('d/m/Y') }}</span>
+        <span class="muted video-date">{% if artist %}<a class="link" href="{{ path('app_artist', {name: artist}) }}">{{ artist }}</a> · {% endif %}{{ v.published|format_date('short') }}</span>
     </div>
 {% endmacro %}

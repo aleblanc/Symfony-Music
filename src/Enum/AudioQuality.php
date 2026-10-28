@@ -2,6 +2,8 @@
 
 namespace App\Enum;
 
+use App\Translation\LabelMessage;
+
 /**
  * Simple, human-readable quality tier of a track.
  *
@@ -62,7 +64,16 @@ enum AudioQuality: string
         };
     }
 
-    public function label(): string
+    /**
+     * Translatable label (Twig: `{{ q.label|trans }}`); casts to the English
+     * text for console output.
+     */
+    public function label(): LabelMessage
+    {
+        return new LabelMessage('ui.quality.' . $this->value, $this->englishLabel());
+    }
+
+    public function englishLabel(): string
     {
         return match ($this) {
             self::VeryLow => 'Very low',

@@ -10,6 +10,7 @@ use App\Repository\MixRepository;
 use App\Repository\MusicRepository;
 use App\Repository\PlayCountRepository;
 use App\Repository\UserRepository;
+use Symfony\Component\Translation\TranslatableMessage;
 
 /**
  * All the "discovery" computation logic: trending tracks, the guest-facing
@@ -50,7 +51,9 @@ class RecommendationService
      * "From Your Artists" shelf, which depends on the follow system of
      * Feature 6) from the legacy `get_explore` action.
      *
-     * @return array<int, array{title: string, type: string, items: array<int, mixed>}>
+     * `key` is the stable technical id of the shelf; `title` is printed with |trans.
+     *
+     * @return array<int, array{key: string, title: TranslatableMessage, type: string, items: array<int, mixed>}>
      */
     public function explore(?User $viewer): array
     {
@@ -59,23 +62,23 @@ class RecommendationService
 
         $discoverSongs = $this->music->randomVisible($viewer, 15, $historyIds);
         if ($discoverSongs !== []) {
-            $shelves[] = ['title' => 'Discover Songs', 'type' => 'songs', 'items' => $discoverSongs];
+            $shelves[] = ['key' => 'discover_songs', 'title' => new TranslatableMessage('ui.discover.shelf.discover_songs'), 'type' => 'songs', 'items' => $discoverSongs];
         }
 
         $discoverAlbums = $this->music->randomAlbums($viewer, 10, $historyIds);
         if ($discoverAlbums !== []) {
-            $shelves[] = ['title' => 'Discover Albums', 'type' => 'albums', 'items' => $discoverAlbums];
+            $shelves[] = ['key' => 'discover_albums', 'title' => new TranslatableMessage('ui.discover.shelf.discover_albums'), 'type' => 'albums', 'items' => $discoverAlbums];
         }
 
         $discoverArtists = $this->resolveArtistShelf($viewer, 10, $historyIds);
         if ($discoverArtists !== []) {
-            $shelves[] = ['title' => 'Discover Artists', 'type' => 'artists', 'items' => $discoverArtists];
+            $shelves[] = ['key' => 'discover_artists', 'title' => new TranslatableMessage('ui.discover.shelf.discover_artists'), 'type' => 'artists', 'items' => $discoverArtists];
         }
 
         if ($viewer !== null) {
             $frequentlyPlayed = $this->playCounts->topSongs($viewer, 15);
             if ($frequentlyPlayed !== []) {
-                $shelves[] = ['title' => 'Frequently Played', 'type' => 'songs', 'items' => $frequentlyPlayed];
+                $shelves[] = ['key' => 'frequently_played', 'title' => new TranslatableMessage('ui.discover.shelf.frequently_played'), 'type' => 'songs', 'items' => $frequentlyPlayed];
             }
         }
 
@@ -88,7 +91,9 @@ class RecommendationService
      * legacy `sys_get_temp_dir()` micro-cache) from the legacy
      * `get_recommendations` action.
      *
-     * @return array<int, array{title: string, type: string, items: array<int, mixed>}>
+     * `key` is the stable technical id of the shelf; `title` is printed with |trans.
+     *
+     * @return array<int, array{key: string, title: TranslatableMessage, type: string, items: array<int, mixed>}>
      */
     public function recommendations(User $user): array
     {
@@ -97,14 +102,14 @@ class RecommendationService
 
         $recent = $this->history->recentSongs($user, 10);
         if ($recent !== []) {
-            $shelves[] = ['title' => 'Recently Played', 'type' => 'songs', 'items' => $recent];
+            $shelves[] = ['key' => 'recently_played', 'title' => new TranslatableMessage('ui.discover.shelf.recently_played'), 'type' => 'songs', 'items' => $recent];
         }
 
         $topArtist = $this->playCounts->topArtist($user);
         if ($topArtist !== null) {
             $moreFromArtist = $this->music->randomAlbums($user, 10, $historyIds, $topArtist);
             if ($moreFromArtist !== []) {
-                $shelves[] = ['title' => 'More from ' . $topArtist, 'type' => 'albums', 'items' => $moreFromArtist];
+                $shelves[] = ['key' => 'more_from_artist', 'title' => new TranslatableMessage('ui.discover.shelf.more_from_artist', ['artist' => $topArtist]), 'type' => 'albums', 'items' => $moreFromArtist];
             }
         }
 
@@ -118,33 +123,33 @@ class RecommendationService
             shuffle($genreSongs);
             $genreSongs = $this->music->hydrateByIds(\array_slice($genreSongs, 0, 15));
             if ($genreSongs !== []) {
-                $shelves[] = ['title' => 'Your Genre Mix', 'type' => 'songs', 'items' => $genreSongs];
+                $shelves[] = ['key' => 'genre_mix', 'title' => new TranslatableMessage('ui.discover.shelf.genre_mix'), 'type' => 'songs', 'items' => $genreSongs];
             }
         }
 
         $recentFavorites = $this->favorites->recentFavorites($user, 10);
         if ($recentFavorites !== []) {
-            $shelves[] = ['title' => 'Your Favorites', 'type' => 'songs', 'items' => $recentFavorites];
+            $shelves[] = ['key' => 'your_favorites', 'title' => new TranslatableMessage('ui.discover.shelf.your_favorites'), 'type' => 'songs', 'items' => $recentFavorites];
         }
 
         $discoverSongs = $this->music->randomVisible($user, 15, $historyIds);
         if ($discoverSongs !== []) {
-            $shelves[] = ['title' => 'Discover New Songs', 'type' => 'songs', 'items' => $discoverSongs];
+            $shelves[] = ['key' => 'discover_new_songs', 'title' => new TranslatableMessage('ui.discover.shelf.discover_new_songs'), 'type' => 'songs', 'items' => $discoverSongs];
         }
 
         $discoverAlbums = $this->music->randomAlbums($user, 10, $historyIds);
         if ($discoverAlbums !== []) {
-            $shelves[] = ['title' => 'Discover New Albums', 'type' => 'albums', 'items' => $discoverAlbums];
+            $shelves[] = ['key' => 'discover_new_albums', 'title' => new TranslatableMessage('ui.discover.shelf.discover_new_albums'), 'type' => 'albums', 'items' => $discoverAlbums];
         }
 
         $discoverArtists = $this->resolveArtistShelf($user, 10, $historyIds);
         if ($discoverArtists !== []) {
-            $shelves[] = ['title' => 'Discover Artists', 'type' => 'artists', 'items' => $discoverArtists];
+            $shelves[] = ['key' => 'discover_artists', 'title' => new TranslatableMessage('ui.discover.shelf.discover_artists'), 'type' => 'artists', 'items' => $discoverArtists];
         }
 
         $frequentlyPlayed = $this->playCounts->topSongs($user, 15);
         if ($frequentlyPlayed !== []) {
-            $shelves[] = ['title' => 'Frequently Played', 'type' => 'songs', 'items' => $frequentlyPlayed];
+            $shelves[] = ['key' => 'frequently_played', 'title' => new TranslatableMessage('ui.discover.shelf.frequently_played'), 'type' => 'songs', 'items' => $frequentlyPlayed];
         }
 
         return $shelves;

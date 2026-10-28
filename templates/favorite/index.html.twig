@@ -1,10 +1,10 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_tracks.html.twig' as tracks %}
 
-{% block title %}Favorites · PHP Music{% endblock %}
+{% block title %}{{ 'favorite.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Favorites</h1>
-    <p class="section-sub">{{ songs|length }} track{{ songs|length == 1 ? '' : 's' }}</p>
+    <h1>{{ 'favorite.title'|trans }}</h1>
+    <p class="section-sub">{{ 'common.track_count'|trans({count: songs|length}) }}</p>
     {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
 {% endblock %}

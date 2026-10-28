@@ -16,6 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * "Listen later" bookmarks, ported from the legacy `toggle_listen_later`,
@@ -35,6 +37,7 @@ class ListenLaterController extends AbstractController
         private readonly FavoriteRepository $favorites,
         private readonly OfflineSongRepository $offline,
         private readonly EntityManagerInterface $em,
+        private readonly TranslatorInterface $translator,
     ) {}
 
     #[Route('/listen-later', name: 'app_listen_later')]
@@ -54,12 +57,12 @@ class ListenLaterController extends AbstractController
     public function toggle(int $id, Request $request, #[CurrentUser] User $user): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, $this->extractToken($request))) {
-            return new JsonResponse(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+            return new JsonResponse(['error' => $this->translator->trans('error.csrf_invalid')], Response::HTTP_FORBIDDEN);
         }
 
         $song = $this->music->find($id);
         if ($song === null) {
-            return new JsonResponse(['error' => 'Track not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => $this->translator->trans('error.track_not_found')], Response::HTTP_NOT_FOUND);
         }
 
         $existing = $this->listenLater->findOneForUser($user, $song);
@@ -84,12 +87,12 @@ class ListenLaterController extends AbstractController
     public function updateOrder(Request $request, #[CurrentUser] User $user): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, $this->extractToken($request))) {
-            return new JsonResponse(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+            return new JsonResponse(['error' => $this->translator->trans('error.csrf_invalid')], Response::HTTP_FORBIDDEN);
         }
 
         $data = json_decode($request->getContent(), true);
         if (!\is_array($data) || !isset($data['ids']) || !\is_array($data['ids'])) {
-            return new JsonResponse(['error' => 'Invalid JSON body'], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(['error' => $this->translator->trans('error.invalid_json')], Response::HTTP_BAD_REQUEST);
         }
 
         $ids = array_map('intval', $data['ids']);
@@ -103,7 +106,7 @@ class ListenLaterController extends AbstractController
     {
         if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, $this->extractToken($request))) {
             if ($this->wantsJson($request)) {
-                return new JsonResponse(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+                return new JsonResponse(['error' => $this->translator->trans('error.csrf_invalid')], Response::HTTP_FORBIDDEN);
             }
             throw $this->createAccessDeniedException('Invalid CSRF token.');
         }
@@ -111,10 +114,10 @@ class ListenLaterController extends AbstractController
         $this->listenLater->clearForUser($user);
 
         if ($this->wantsJson($request)) {
-            return new JsonResponse(['status' => 'success', 'message' => 'All Listen Later tracks removed.']);
+            return new JsonResponse(['status' => 'success', 'message' => $this->translator->trans('flash.listen_later.cleared')]);
         }
 
-        $this->addFlash('success', 'All Listen Later tracks removed.');
+        $this->addFlash('success', new TranslatableMessage('flash.listen_later.cleared'));
 
         return $this->redirectToRoute('app_listen_later');
     }

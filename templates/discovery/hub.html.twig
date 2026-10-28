@@ -2,25 +2,24 @@
 {% import 'partials/_tracks.html.twig' as tracks %}
 {% import 'discovery/_shelf.html.twig' as shelfMacros %}
 
-{% block title %}Discover · PHP Music{% endblock %}
+{% block title %}{{ 'discovery.hub.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Discover</h1>
+    <h1>{{ 'discovery.hub.title'|trans }}</h1>
 
     {% if not app.user %}
-        <p class="muted"><a href="{{ path('app_login') }}">Log in</a> to get recommendations based on your
-            own listening history.</p>
+        <p class="muted">{{ 'discovery.hub.login_hint_html'|trans({login_url: path('app_login')|e})|raw }}</p>
     {% endif %}
 
     {% if trending is not empty %}
         <section class="shelf">
-            <h2>Trending <a class="btn-link" href="{{ path('app_discover_trending') }}">See all →</a></h2>
+            <h2>{{ 'discovery.hub.trending'|trans }} <a class="btn-link" href="{{ path('app_discover_trending') }}">{{ 'common.see_all_arrow'|trans }}</a></h2>
             {{ tracks.track_list(trending, favoriteIds, listenLaterIds, offlineIds) }}
         </section>
     {% endif %}
 
     {% if app.user %}
-        <p><a class="btn" href="{{ path('app_discover_recommendations') }}">See your personal recommendations →</a></p>
+        <p><a class="btn" href="{{ path('app_discover_recommendations') }}">{{ 'discovery.hub.personal_reco'|trans }} →</a></p>
     {% endif %}
 
     {% for shelf in shelves %}
@@ -29,7 +28,7 @@
 
     {% if mixes is not empty %}
         <section class="shelf">
-            <h2>Mixes <a class="btn-link" href="{{ path('app_discover_mixes') }}">See all →</a></h2>
+            <h2>{{ 'discovery.hub.mixes'|trans }} <a class="btn-link" href="{{ path('app_discover_mixes') }}">{{ 'common.see_all_arrow'|trans }}</a></h2>
             <div class="card-grid">
                 {% for mix in mixes %}
                     <a class="card" href="{{ path('app_mix_show', {publicId: mix.publicId}) }}">
@@ -45,6 +44,6 @@
     {% endif %}
 
     {% if trending is empty and shelves is empty and mixes is empty %}
-        <p class="muted">Nothing to discover yet — scan some music into the library first.</p>
+        <p class="muted">{{ 'discovery.hub.empty'|trans }}</p>
     {% endif %}
 {% endblock %}

@@ -716,6 +716,20 @@ html.nav-loading { cursor: progress; }
 .post-thumb { aspect-ratio: 1 / 1; }
 .post-kind { position: absolute; top: 8px; right: 8px; padding: 2px 8px; border-radius: 999px; background: rgba(0, 0, 0, .65); color: #fff; font-size: 11px; font-weight: 700; }
 .post-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.concert-list { list-style: none; margin: 0 0 18px; padding: 0; }
+.concert { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.concert-date { flex: none; width: 52px; text-align: center; border-radius: 10px; background: var(--bg-elev-2); padding: 6px 0; line-height: 1.1; }
+.concert-day { display: block; font-size: 20px; font-weight: 700; }
+.concert-month { display: block; font-size: 11px; text-transform: uppercase; color: var(--text-dim); }
+.concert-main { flex: 1; min-width: 0; }
+.concert-title { font-weight: 600; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.concert-place { font-size: 13px; margin-top: 2px; }
+.concert-tickets { flex: none; }
+.concert-cancelled .concert-title > a, .concert-cancelled .concert-place { text-decoration: line-through; opacity: .6; }
+.concert-filter { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; }
+.concert-filter select { background: var(--bg-elev-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
+.concert-month-heading { font-size: 16px; margin: 22px 0 4px; color: var(--text-dim); }
+@media (max-width: 600px) { .concert-tickets { display: none; } }
 @media (max-width: 640px) {
     .artist-hero { grid-template-columns: 1fr; gap: 16px; }
     .artist-photo { max-width: 260px; }
@@ -833,3 +847,12 @@ html.nav-loading { cursor: progress; }
 .rating-tab-stars .off { color: var(--text-faint); }
 .rating-tabs a.active .rating-tab-stars .off { color: rgba(255,255,255,.35); }
 .rating-tabs a.active .rating-tab-stars { color: #fff; }
+
+/* Language switcher (sidebar footer) */
+.lang-switch { display: flex; gap: 4px; padding: 8px 10px 0; }
+.lang-switch button {
+    font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .04em; cursor: pointer;
+    padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-dim);
+}
+.lang-switch button:hover { color: var(--text); background: var(--bg-elev-2); }
+.lang-switch button[aria-current="true"] { color: var(--text); border-color: var(--accent); }

@@ -25,6 +25,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[IsGranted('ROLE_USER')]
 class PlaylistController extends AbstractController
@@ -38,6 +40,7 @@ class PlaylistController extends AbstractController
         private readonly MixRepository $mixes,
         private readonly UserRepository $users,
         private readonly EntityManagerInterface $em,
+        private readonly TranslatorInterface $translator,
     ) {}
 
     #[Route('/playlists', name: 'app_playlists')]
@@ -62,7 +65,7 @@ class PlaylistController extends AbstractController
         $this->assertCsrf($request, 'playlist_new');
         $name = trim((string) $request->request->get('name', ''));
         if ($name === '') {
-            $this->addFlash('error', 'Playlist name is required.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.name_required'));
 
             return $this->redirectToRoute('app_playlists');
         }
@@ -91,12 +94,12 @@ class PlaylistController extends AbstractController
         // discover a public_id otherwise — this gives `isPrivate` an actual
         // purpose for copying. See PLAN_MIGRATION Feature 9.
         if ($source === null || $source->isPrivate()) {
-            $this->addFlash('error', 'Playlist not found.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.not_found'));
 
             return $this->redirectToRoute('app_playlists');
         }
         if ($source->getOwner() === $user) {
-            $this->addFlash('error', 'Cannot copy your own playlist.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.cannot_copy_own'));
 
             return $this->redirectToRoute('app_playlist_show', ['id' => $source->getId()]);
         }
@@ -114,7 +117,7 @@ class PlaylistController extends AbstractController
         }
 
         $this->playlists->save($copy);
-        $this->addFlash('success', 'Playlist copied successfully.');
+        $this->addFlash('success', new TranslatableMessage('flash.playlist.copied'));
 
         return $this->redirectToRoute('app_playlist_show', ['id' => $copy->getId()]);
     }
@@ -126,7 +129,7 @@ class PlaylistController extends AbstractController
 
         $file = $request->files->get('import_file');
         if ($file === null) {
-            $this->addFlash('error', 'Please choose a JSON file to import.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.import_no_file'));
 
             return $this->redirectToRoute('app_playlists');
         }
@@ -134,7 +137,7 @@ class PlaylistController extends AbstractController
         $content = (string) file_get_contents($file->getPathname());
         $data = json_decode($content, true);
         if (!\is_array($data) || !isset($data['name'], $data['songs']) || !\is_array($data['songs'])) {
-            $this->addFlash('error', 'Invalid or malformed JSON file.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.import_invalid_json'));
 
             return $this->redirectToRoute('app_playlists');
         }
@@ -162,7 +165,7 @@ class PlaylistController extends AbstractController
         }
 
         $this->playlists->save($playlist);
-        $this->addFlash('success', \sprintf("Playlist '%s' imported with %d song(s).", $playlist->getName(), $songCount));
+        $this->addFlash('success', new TranslatableMessage('flash.playlist.imported', ['name' => $playlist->getName(), 'count' => $songCount]));
 
         return $this->redirectToRoute('app_playlist_show', ['id' => $playlist->getId()]);
     }
@@ -207,7 +210,7 @@ class PlaylistController extends AbstractController
 
         $invite = $this->invites->findValidByToken($token);
         if ($invite === null) {
-            $this->addFlash('error', 'Invalid or expired invite link.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.invite_invalid'));
 
             return $this->redirectToRoute('app_playlists');
         }
@@ -217,12 +220,12 @@ class PlaylistController extends AbstractController
             throw $this->createNotFoundException();
         }
         if (!$playlist->isCollaborative()) {
-            $this->addFlash('error', 'This playlist is not open for collaboration.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.not_collaborative'));
 
             return $this->redirectToRoute('app_playlists');
         }
         if ($playlist->getOwner() === $user) {
-            $this->addFlash('error', 'You are already the owner.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.already_owner'));
 
             return $this->redirectToRoute('app_playlist_show', ['id' => $playlist->getId()]);
         }
@@ -235,7 +238,7 @@ class PlaylistController extends AbstractController
             $this->em->flush();
         }
 
-        $this->addFlash('success', 'Joined playlist successfully!');
+        $this->addFlash('success', new TranslatableMessage('flash.playlist.joined'));
 
         return $this->redirectToRoute('app_playlist_show', ['id' => $playlist->getId()]);
     }
@@ -264,7 +267,7 @@ class PlaylistController extends AbstractController
 
         $name = trim((string) $request->request->get('name', ''));
         if ($name === '') {
-            $this->addFlash('error', 'Playlist name cannot be empty.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.name_empty'));
 
             return $this->redirectToRoute('app_playlist_show', ['id' => $playlist->getId()]);
         }
@@ -281,7 +284,7 @@ class PlaylistController extends AbstractController
         }
         $this->em->flush();
 
-        $this->addFlash('success', 'Playlist updated.');
+        $this->addFlash('success', new TranslatableMessage('flash.playlist.updated'));
 
         return $this->redirectToRoute('app_playlist_show', ['id' => $playlist->getId()]);
     }
@@ -299,7 +302,7 @@ class PlaylistController extends AbstractController
         }
         $this->em->flush();
 
-        $this->addFlash('success', $newValue ? 'Playlist is now collaborative.' : 'Playlist is now private. Collaborators removed.');
+        $this->addFlash('success', new TranslatableMessage($newValue ? 'flash.playlist.now_collaborative' : 'flash.playlist.now_private'));
 
         return $this->redirectToRoute('app_playlist_show', ['id' => $playlist->getId()]);
     }
@@ -323,7 +326,7 @@ class PlaylistController extends AbstractController
         $song = $this->music->find($songId);
         if ($song === null) {
             if ($this->wantsJson($request)) {
-                return new JsonResponse(['error' => 'Track not found'], Response::HTTP_NOT_FOUND);
+                return new JsonResponse(['error' => $this->translator->trans('error.track_not_found')], Response::HTTP_NOT_FOUND);
             }
             throw $this->createNotFoundException('Track not found.');
         }
@@ -334,7 +337,7 @@ class PlaylistController extends AbstractController
             return new JsonResponse(['added' => $added]);
         }
 
-        $this->addFlash('success', $added ? 'Track added to playlist.' : 'Track already in playlist.');
+        $this->addFlash('success', new TranslatableMessage($added ? 'flash.playlist.track_added' : 'flash.playlist.track_already_in'));
 
         return $this->redirectToRoute('app_playlist_show', ['id' => $playlist->getId()]);
     }
@@ -357,13 +360,13 @@ class PlaylistController extends AbstractController
         $songId = (int) $request->request->get('songId', 0);
         $song = $songId > 0 ? $this->music->find($songId) : null;
         if ($song === null) {
-            $this->addFlash('error', 'Track not found.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.track_not_found'));
 
             return $this->redirectToRoute('app_playlist_show', ['id' => $playlist->getId()]);
         }
 
         $added = $this->doAddSong($playlist, $song, $user);
-        $this->addFlash('success', $added ? 'Track added to playlist.' : 'Track already in playlist.');
+        $this->addFlash('success', new TranslatableMessage($added ? 'flash.playlist.track_added' : 'flash.playlist.track_already_in'));
 
         return $this->redirectToRoute('app_playlist_show', ['id' => $playlist->getId()]);
     }
@@ -391,7 +394,7 @@ class PlaylistController extends AbstractController
         };
         $back = $this->backTo($request);
         if ($songs === []) {
-            $this->addFlash('error', 'No track to add.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.no_track_to_add'));
 
             return $back;
         }
@@ -407,7 +410,7 @@ class PlaylistController extends AbstractController
         } else {
             $playlist = ctype_digit($target) ? $this->playlists->find((int) $target) : null;
             if ($playlist === null) {
-                $this->addFlash('error', 'Playlist not found.');
+                $this->addFlash('error', new TranslatableMessage('flash.playlist.not_found'));
 
                 return $back;
             }
@@ -436,7 +439,7 @@ class PlaylistController extends AbstractController
         $this->em->flush();
 
         $skipped = \count($songs) - $added;
-        $this->addFlash('success', \sprintf('%d track%s added to "%s"%s.', $added, $added === 1 ? '' : 's', $playlist->getName(), $skipped > 0 ? \sprintf(' (%d already there)', $skipped) : ''));
+        $this->addFlash('success', new TranslatableMessage('flash.playlist.bulk_added', ['added' => $added, 'playlist' => $playlist->getName(), 'skipped' => $skipped]));
 
         return $back;
     }
@@ -520,7 +523,7 @@ class PlaylistController extends AbstractController
         $mixPublicId = trim((string) $request->request->get('mix_id', ''));
         $mix = $mixPublicId !== '' ? $this->mixes->findOneByPublicId($mixPublicId) : null;
         if ($mix === null) {
-            $this->addFlash('error', 'Mix not found.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.mix_not_found'));
 
             return $this->redirectToRoute('app_playlist_show', ['id' => $playlist->getId()]);
         }
@@ -552,7 +555,7 @@ class PlaylistController extends AbstractController
         }
         $this->em->flush();
 
-        $this->addFlash('success', \sprintf('Added %d song(s) from the mix.', $added));
+        $this->addFlash('success', new TranslatableMessage('flash.playlist.mix_added', ['count' => $added]));
 
         return $this->redirectToRoute('app_playlist_show', ['id' => $playlist->getId()]);
     }
@@ -603,16 +606,16 @@ class PlaylistController extends AbstractController
 
         $target = trim((string) $request->request->get('target', ''));
         if ($target === '') {
-            $this->addFlash('error', 'Enter an email address or display name.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.collab_identifier_required'));
 
             return $this->redirectToRoute('app_playlist_collaborators', ['id' => $playlist->getId()]);
         }
 
         $targetUser = $this->users->findOneByEmailOrArtistName($target);
         if ($targetUser === null) {
-            $this->addFlash('error', 'User not found.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.user_not_found'));
         } elseif ($targetUser === $user) {
-            $this->addFlash('error', 'You already own this playlist.');
+            $this->addFlash('error', new TranslatableMessage('flash.playlist.already_own'));
         } else {
             if (!$this->collaborators->isCollaborator($playlist, $targetUser)) {
                 $collaborator = new PlaylistCollaborator();
@@ -621,7 +624,7 @@ class PlaylistController extends AbstractController
                 $this->em->persist($collaborator);
                 $this->em->flush();
             }
-            $this->addFlash('success', 'Collaborator added successfully.');
+            $this->addFlash('success', new TranslatableMessage('flash.playlist.collaborator_added'));
         }
 
         return $this->redirectToRoute('app_playlist_collaborators', ['id' => $playlist->getId()]);
@@ -634,7 +637,7 @@ class PlaylistController extends AbstractController
         $this->assertCsrf($request, 'playlist_collaborators_' . $playlist->getId());
 
         $this->collaborators->removeByPlaylistAndUserId($playlist, $userId);
-        $this->addFlash('success', 'Collaborator removed.');
+        $this->addFlash('success', new TranslatableMessage('flash.playlist.collaborator_removed'));
 
         return $this->redirectToRoute('app_playlist_collaborators', ['id' => $playlist->getId()]);
     }
@@ -661,7 +664,7 @@ class PlaylistController extends AbstractController
         $this->em->flush();
 
         $url = $this->generateUrl('app_playlist_join_info', ['token' => $invite->getToken()], UrlGeneratorInterface::ABSOLUTE_URL);
-        $this->addFlash('success', 'Invite link created: ' . $url);
+        $this->addFlash('success', new TranslatableMessage('flash.playlist.invite_created', ['url' => $url]));
 
         return $this->redirectToRoute('app_playlist_collaborators', ['id' => $playlist->getId()]);
     }
@@ -672,7 +675,7 @@ class PlaylistController extends AbstractController
         $this->assertCsrf($request, 'playlist_leave_' . $playlist->getId());
         $this->collaborators->removeByPlaylistAndUserId($playlist, (int) $user->getId());
 
-        $this->addFlash('success', 'You have left the collaboration.');
+        $this->addFlash('success', new TranslatableMessage('flash.playlist.left'));
 
         return $this->redirectToRoute('app_playlists_collab');
     }

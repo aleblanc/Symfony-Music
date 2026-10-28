@@ -3,18 +3,18 @@
 {% import 'partials/_play_all.html.twig' as playAll %}
 {% import 'partials/_disco.html.twig' as disco %}
 
-{% set label = name == 'discover' ? 'Discover folder' : 'Unclassified folder' %}
+{% set label = (name == 'discover' ? 'library.folder.discover_label' : 'library.folder.unclassified_label')|trans %}
 {% block title %}{{ label }} · PHP Music{% endblock %}
 
 {% block body %}
     <h1>{{ label }}</h1>
     <p class="section-sub">
-        {{ count }} track{{ count == 1 ? '' : 's' }} in <code>MUSIC_DIR/{{ folder }}</code>
-        {% if name == 'discover' %}— albums to discover, e.g. from your Favorite discography.
-        {% else %}— files <code>app:import</code> could not identify, kept as they are.{% endif %}
+        {{ 'library.folder.count_in_html'|trans({count: count, folder: folder|e})|raw }}
+        {% if name == 'discover' %}{{ 'library.folder.discover_desc'|trans }}
+        {% else %}{{ 'library.folder.unclassified_desc_html'|trans|raw }}{% endif %}
     </p>
     {% if count == 0 %}
-        <p class="muted">Empty for now: files put in this folder show up here after <code>php bin/console app:scan</code>.</p>
+        <p class="muted">{{ 'library.folder.empty_html'|trans|raw }}</p>
     {% else %}
         {# The playlist form takes the folder's name; the folder itself is under MUSIC_DIR. #}
         {{ playAll.bar('folder', name, '#page-tracks', label) }}
@@ -22,10 +22,10 @@
             {% for dir, songs in groups %}
                 <section class="folder-group">
                     <div class="folder-head">
-                        <h2 class="folder-path">{{ dir == '.' ? '(folder root)' : dir }} <span class="muted">· {{ songs|length }}</span>
+                        <h2 class="folder-path">{{ dir == '.' ? 'library.folder.root'|trans : dir }} <span class="muted">· {{ songs|length }}</span>
                             {%- if tracklists[dir] is defined %}{{ disco.tracklist(tracklists[dir], 'folder-' ~ loop.index, true) }}{% endif %}</h2>
-                        <button class="btn btn-sm" type="button" data-play-all="#folder-group-{{ loop.index }}">▶ Play all</button>
-                        <button class="btn btn-sm btn-ghost" type="button" data-queue-all="#folder-group-{{ loop.index }}" title="Add this folder's tracks to the play queue">+ Queue</button>
+                        <button class="btn btn-sm" type="button" data-play-all="#folder-group-{{ loop.index }}">{{ 'common.play_all'|trans }}</button>
+                        <button class="btn btn-sm btn-ghost" type="button" data-queue-all="#folder-group-{{ loop.index }}" title="{{ 'library.folder.queue_title'|trans }}">+ {{ 'library.folder.queue'|trans }}</button>
                     </div>
                     <div id="folder-group-{{ loop.index }}">
                         {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}

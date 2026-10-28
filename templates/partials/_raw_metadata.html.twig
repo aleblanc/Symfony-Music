@@ -2,12 +2,12 @@
    Expects `rawMetadata`: array<section, list<[key, value]>> or null. #}
 <section class="panel raw-metadata">
     <div class="panel-head">
-        <h2>Raw file metadata</h2>
-        <span class="muted">Everything getID3 reads from the file · cover art omitted</span>
+        <h2>{{ 'raw_metadata.title'|trans }}</h2>
+        <span class="muted">{{ 'raw_metadata.subtitle'|trans }}</span>
     </div>
 
     {% if rawMetadata is null %}
-        <p class="muted">The file is not readable on disk (or getID3 is unavailable).</p>
+        <p class="muted">{{ 'raw_metadata.unreadable'|trans }}</p>
     {% else %}
         {% set open_sections = ['audio', 'comments', 'rating-related'] %}
         {% for name, rows in rawMetadata %}
@@ -18,7 +18,7 @@
                 </summary>
                 {% if rows is empty %}
                     <p class="muted meta-empty">
-                        {{ name == 'rating-related' ? 'No rating field (POPM, WM/SharedUserRating…) embedded in this file.' : 'Empty.' }}
+                        {{ (name == 'rating-related' ? 'raw_metadata.no_rating_field' : 'raw_metadata.empty')|trans }}
                     </p>
                 {% else %}
                     <dl class="meta-table">
@@ -32,7 +32,7 @@
         {% endfor %}
 
         <details class="meta-section">
-            <summary><span class="meta-section-name">Plain text</span><span class="muted">to copy &amp; paste</span></summary>
+            <summary><span class="meta-section-name">{{ 'raw_metadata.plain_text'|trans }}</span><span class="muted">{{ 'raw_metadata.plain_text_hint'|trans }}</span></summary>
             <textarea class="meta-plain" readonly rows="16" onclick="this.select();">
                 {%- for name, rows in rawMetadata -%}
                     ===== {{ name|upper }} ====={{ "\n" }}

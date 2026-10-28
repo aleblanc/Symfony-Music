@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Records "this counts as a listen" events. In the legacy app the client
@@ -28,6 +29,7 @@ class PlaybackController extends AbstractController
         private readonly PlaylistRepository $playlists,
         private readonly EntityManagerInterface $em,
         private readonly PlayRecorder $recorder,
+        private readonly TranslatorInterface $translator,
     ) {}
 
     #[Route('/play/{id}', name: 'app_play_record', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -35,7 +37,7 @@ class PlaybackController extends AbstractController
     {
         $song = $this->music->find($id);
         if ($song === null) {
-            return new JsonResponse(['error' => 'Track not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => $this->translator->trans('error.track_not_found')], Response::HTTP_NOT_FOUND);
         }
 
         // Guests can play but their listens are not tracked (legacy behaviour).

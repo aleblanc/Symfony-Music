@@ -2,25 +2,24 @@
 {% import 'partials/_tracks.html.twig' as tracks %}
 {% import 'partials/_icons.html.twig' as icons %}
 
-{% block title %}Home · PHP Music{% endblock %}
+{% block title %}{{ 'library.home.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
     <header class="home-hero">
         <div>
-            <span class="eyebrow">{{ 'now'|date('l j F') }}</span>
-            <h1>Welcome{{ app.user ? ', ' ~ app.user.artist }}</h1>
-            <p class="muted">{{ total|number_format(0, '.', ' ') }} tracks in the library.</p>
+            <span class="eyebrow">{{ 'now'|format_date(pattern: 'EEEE d MMMM') }}</span>
+            <h1>{{ app.user ? 'library.home.welcome_user'|trans({name: app.user.artist}) : 'library.home.welcome'|trans }}</h1>
+            <p class="muted">{{ 'library.home.total_tracks'|trans({count: total}) }}</p>
             {% if not app.user %}
-                <p class="muted">Browse and play everything as a guest, or
-                    <a class="link" href="{{ path('app_login') }}">log in</a> to keep favorites, playlists and history.</p>
+                <p class="muted">{{ 'library.home.guest_hint_html'|trans({login_url: path('app_login')|e})|raw }}</p>
             {% endif %}
         </div>
         <div class="home-shortcuts">
-            <a class="shortcut" href="{{ path('app_library') }}">{{ icons.icon('library') }}<span>Library</span></a>
-            <a class="shortcut" href="{{ path('app_discover') }}">{{ icons.icon('discover') }}<span>Discover</span></a>
+            <a class="shortcut" href="{{ path('app_library') }}">{{ icons.icon('library') }}<span>{{ 'nav.library'|trans }}</span></a>
+            <a class="shortcut" href="{{ path('app_discover') }}">{{ icons.icon('discover') }}<span>{{ 'nav.discover'|trans }}</span></a>
             {% if app.user %}
-                <a class="shortcut" href="{{ path('app_favorites') }}">{{ icons.icon('heart') }}<span>Favorites</span></a>
-                <a class="shortcut" href="{{ path('app_playlists') }}">{{ icons.icon('playlist') }}<span>Playlists</span></a>
+                <a class="shortcut" href="{{ path('app_favorites') }}">{{ icons.icon('heart') }}<span>{{ 'nav.favorites'|trans }}</span></a>
+                <a class="shortcut" href="{{ path('app_playlists') }}">{{ icons.icon('playlist') }}<span>{{ 'nav.playlists'|trans }}</span></a>
             {% endif %}
         </div>
     </header>
@@ -28,8 +27,8 @@
     {% if recentlyAdded is not empty %}
         <section class="shelf">
             <div class="shelf-head">
-                <h2>{{ icons.icon('sparkle') }} Recently added</h2>
-                <a class="link" href="{{ path('app_library') }}">Browse library →</a>
+                <h2>{{ icons.icon('sparkle') }} {{ 'library.home.recently_added'|trans }}</h2>
+                <a class="link" href="{{ path('app_library') }}">{{ 'library.home.browse_library'|trans }} →</a>
             </div>
             <div class="card-grid card-grid--scroll">
                 {% for song in recentlyAdded %}
@@ -47,8 +46,8 @@
                             <a href="{{ path('app_song', {id: song.id}) }}" tabindex="-1">
                                 <img src="{{ path('app_cover', {id: song.id}) }}" alt="" loading="lazy">
                             </a>
-                            <button class="card-play" data-play title="Play" aria-label="Play {{ song.displayTitle }}">{{ icons.icon('play') }}</button>
-                            {% if loop.index <= 3 %}<span class="card-flag">New</span>{% endif %}
+                            <button class="card-play" data-play title="{{ 'common.play'|trans }}" aria-label="{{ 'library.home.play_aria'|trans({title: song.displayTitle}) }}">{{ icons.icon('play') }}</button>
+                            {% if loop.index <= 3 %}<span class="card-flag">{{ 'library.home.new_flag'|trans }}</span>{% endif %}
                         </div>
                         <a class="card-title" href="{{ path('app_song', {id: song.id}) }}">{{ song.displayTitle }}</a>
                         <div class="card-sub">
@@ -62,24 +61,22 @@
 
     {% if recent is not empty %}
         <section class="shelf">
-            <div class="shelf-head"><h2>{{ icons.icon('clock') }} Recently played</h2></div>
+            <div class="shelf-head"><h2>{{ icons.icon('clock') }} {{ 'library.home.recently_played'|trans }}</h2></div>
             {{ tracks.track_list(recent, favoriteIds, listenLaterIds, offlineIds) }}
         </section>
     {% endif %}
 
     {% if topSongs is not empty %}
         <section class="shelf">
-            <div class="shelf-head"><h2>{{ icons.icon('heart') }} Your top tracks</h2></div>
+            <div class="shelf-head"><h2>{{ icons.icon('heart') }} {{ 'library.home.top_tracks'|trans }}</h2></div>
             {{ tracks.track_list(topSongs, favoriteIds, listenLaterIds, offlineIds) }}
         </section>
     {% endif %}
 
     {% if total == 0 %}
         <section class="panel">
-            <h2>Get started</h2>
-            <p class="muted">Point <code>MUSIC_DIR</code> at your library and run
-                <code>php bin/console app:scan</code>, then browse the
-                <a class="link" href="{{ path('app_library') }}">Library</a>.</p>
+            <h2>{{ 'library.home.get_started'|trans }}</h2>
+            <p class="muted">{{ 'library.home.get_started_text_html'|trans({library_url: path('app_library')|e})|raw }}</p>
         </section>
     {% endif %}
 {% endblock %}

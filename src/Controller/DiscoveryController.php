@@ -21,6 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
 
 /**
  * "Discovery" surface: mixes, trending, recommendations, artist
@@ -59,8 +60,8 @@ class DiscoveryController extends AbstractController
         $toDiscover = $discography->albumsToDiscover($user, $albumFavorites->releaseGroupIdsForUser($user));
         if ($toDiscover !== []) {
             // Right after the random "Discover…" shelves, before "Frequently Played".
-            $at = \count(array_filter($shelves, static fn(array $s): bool => str_starts_with($s['title'], 'Discover')));
-            array_splice($shelves, $at, 0, [['title' => 'Albums to discover from your artists', 'type' => 'discography', 'items' => $toDiscover, 'more' => $this->generateUrl('app_discover_albums')]]);
+            $at = \count(array_filter($shelves, static fn(array $s): bool => str_starts_with($s['key'], 'discover_')));
+            array_splice($shelves, $at, 0, [['key' => 'albums_from_your_artists', 'title' => new TranslatableMessage('ui.discover.shelf.albums_from_your_artists'), 'type' => 'discography', 'items' => $toDiscover, 'more' => $this->generateUrl('app_discover_albums')]]);
         }
 
         return $this->render('discovery/hub.html.twig', [

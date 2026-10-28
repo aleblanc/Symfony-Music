@@ -1,11 +1,11 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Edit metadata · {{ song.displayTitle }}{% endblock %}
+{% block title %}{{ 'metadata.edit.title'|trans({title: song.displayTitle}) }}{% endblock %}
 
 {% block body %}
-    <h1>Edit metadata</h1>
+    <h1>{{ 'metadata.edit.heading'|trans }}</h1>
     <p class="section-sub">
-        <a href="{{ path('app_song', {id: song.id}) }}">← Back to track</a>
+        <a href="{{ path('app_song', {id: song.id}) }}">{{ 'metadata.edit.back'|trans }}</a>
     </p>
 
     <div style="display:flex;gap:24px;align-items:flex-start;">
@@ -15,47 +15,47 @@
             <input type="hidden" name="_token" value="{{ csrf_token('metadata_edit_' ~ song.id) }}">
 
             <div class="field">
-                <label for="title">Title</label>
+                <label for="title">{{ 'metadata.edit.title_label'|trans }}</label>
                 <input type="text" id="title" name="title" value="{{ song.title }}" maxlength="512">
             </div>
 
             <div class="field">
-                <label for="artist">Artist</label>
+                <label for="artist">{{ 'metadata.edit.artist_label'|trans }}</label>
                 <input type="text" id="artist" name="artist" value="{{ song.artist }}" maxlength="512">
             </div>
 
             <div class="field">
-                <label for="album">Album</label>
+                <label for="album">{{ 'metadata.edit.album_label'|trans }}</label>
                 <input type="text" id="album" name="album" value="{{ song.album }}" maxlength="512">
             </div>
 
             <div class="field">
-                <label for="genre">Genre</label>
+                <label for="genre">{{ 'metadata.edit.genre_label'|trans }}</label>
                 <input type="text" id="genre" name="genre" value="{{ song.genre }}" maxlength="255">
             </div>
 
             <div class="field">
-                <label for="lyrics">Lyrics</label>
+                <label for="lyrics">{{ 'metadata.edit.lyrics_label'|trans }}</label>
                 <textarea id="lyrics" name="lyrics" rows="8">{{ song.lyrics }}</textarea>
             </div>
 
             <div class="field">
-                <label for="spotify">Spotify link</label>
+                <label for="spotify">{{ 'metadata.edit.spotify_label'|trans }}</label>
                 <input type="text" id="spotify" name="spotify" value="{{ song.spotifyUrl }}"
                        placeholder="https://open.spotify.com/track/…" inputmode="url" autocomplete="off">
-                <small class="muted">Filled by <code>app:spotify:match</code>; paste a link to fix a wrong or missing match, empty it to remove.</small>
+                <small class="muted">{{ 'metadata.edit.spotify_help_html'|trans|raw }}</small>
             </div>
 
             <div class="field">
-                <label for="cover_image">Cover image (optional)</label>
+                <label for="cover_image">{{ 'metadata.edit.cover_label'|trans }}</label>
                 <input type="file" id="cover_image" name="cover_image" accept="image/jpeg,image/png,image/webp,image/gif">
             </div>
 
             <div class="field field-check">
-                <label><input type="checkbox" name="is_private" value="1" {{ song.isPrivate ? 'checked' }}> Private (only visible to me)</label>
+                <label><input type="checkbox" name="is_private" value="1" {{ song.isPrivate ? 'checked' }}> {{ 'metadata.edit.private'|trans }}</label>
             </div>
 
-            <button class="btn" type="submit">Save changes</button>
+            <button class="btn" type="submit">{{ 'metadata.edit.save_changes'|trans }}</button>
         </form>
     </div>
 
@@ -65,13 +65,13 @@
 
     <section class="panel danger-zone">
         <div class="panel-head">
-            <h2>Danger zone</h2>
-            <span class="muted">Deletes the database entry and the file on disk</span>
+            <h2>{{ 'metadata.edit.danger_zone'|trans }}</h2>
+            <span class="muted">{{ 'metadata.edit.danger_help'|trans }}</span>
         </div>
         <form method="post" action="{{ path('app_metadata_delete', {id: song.id}) }}"
-              onsubmit="return confirm('Delete this song permanently? This cannot be undone.');">
+              onsubmit="return confirm('{{ 'metadata.edit.confirm_delete'|trans|e('js') }}');">
             <input type="hidden" name="_token" value="{{ csrf_token('metadata_delete_' ~ song.id) }}">
-            <button class="btn btn-danger" type="submit">Delete song</button>
+            <button class="btn btn-danger" type="submit">{{ 'metadata.edit.delete_song'|trans }}</button>
         </form>
     </section>
 {% endblock %}

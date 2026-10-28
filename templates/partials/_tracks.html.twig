@@ -17,7 +17,7 @@
          data-track-cover="{{ path('app_cover', {id: song.id}) }}">
         <div class="track-lead">
             <span class="track-idx">{{ i }}</span>
-            <button class="track-play" data-play title="Play" aria-label="Play">
+            <button class="track-play" data-play title="{{ 'common.play'|trans }}" aria-label="{{ 'common.play'|trans }}">
                 <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             </button>
         </div>
@@ -29,7 +29,7 @@
                 {% if q %}
                     {% set fmt = {mp3: 'MP3', mp4: 'AAC', aac: 'AAC', m4a: 'AAC', alac: 'ALAC', flac: 'FLAC', vorbis: 'OGG', ogg: 'OGG', opus: 'OPUS', wav: 'WAV', aiff: 'AIFF'}[song.audioFormat] ?? song.audioFormat|upper %}
                     {% set kbps = song.bitrate ? (song.bitrate / 1000)|round : null %}
-                    <span class="q-tag quality-{{ q.value }}" title="{{ q.label }}{{ kbps ? ' · ' ~ fmt ~ ' ' ~ kbps ~ ' kb/s' }}">{{ fmt }}{% if kbps and q.value != 'lossless' %} {{ kbps }}{% endif %}</span>
+                    <span class="q-tag quality-{{ q.value }}" title="{{ kbps ? 'tracks.quality_title'|trans({label: q.label|trans, format: fmt, kbps: kbps}) : q.label|trans }}">{{ fmt }}{% if kbps and q.value != 'lossless' %} {{ kbps }}{% endif %}</span>
                 {% endif %}
                 {% if song.artist %}<a href="{{ path('app_artist', {name: song.artist}) }}">{{ song.artist }}</a>{% endif %}
             </div>
@@ -44,11 +44,11 @@
                 {{ rate.stars(song, 'track-rate') }}
                 <button class="icon-btn track-fav {{ isFav ? 'fav-on' }}" data-fav-toggle
                         data-fav-url="{{ path('app_favorite_toggle', {id: song.id}) }}"
-                        title="Favorite" aria-label="Favorite">
+                        title="{{ 'tracks.favorite'|trans }}" aria-label="{{ 'tracks.favorite'|trans }}">
                     <svg viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.33-8.24C.9 10.06 1.4 6.5 4.2 5.2 6.2 4.3 8.6 5 12 8.5 15.4 5 17.8 4.3 19.8 5.2c2.8 1.3 3.3 4.86 1.53 7.56C18.7 16.65 12 21 12 21z"/></svg>
                 </button>
             {% endif %}
-            <button class="icon-btn track-kebab" data-menu title="More" aria-label="More options"
+            <button class="icon-btn track-kebab" data-menu title="{{ 'common.more'|trans }}" aria-label="{{ 'tracks.more_options'|trans }}"
                     data-id="{{ song.id }}"
                     data-title="{{ song.displayTitle }}"
                     data-artist="{{ song.artist }}"
@@ -69,7 +69,7 @@
 {% macro track_list(songs, favoriteIds, listenLaterIds = [], offlineIds = []) %}
     {% import _self as self %}
     {% if songs is empty %}
-        <p class="muted">No tracks here yet.</p>
+        <p class="muted">{{ 'tracks.empty'|trans }}</p>
     {% else %}
         <div class="track-list">
             {% for song in songs %}

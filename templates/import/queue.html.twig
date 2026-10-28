@@ -1,45 +1,44 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Import queue · PHP Music{% endblock %}
+{% block title %}{{ 'import.queue.heading'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
 <div class="import-queue" data-import-queue>
-    <h1>Import queue</h1>
+    <h1>{{ 'import.queue.heading'|trans }}</h1>
     <p class="section-sub">
-        Files <code>app:import</code> was not sure about. Listen, then pick the right match:
-        it is tagged and filed into the library.
+        {{ 'import.queue.intro_html'|trans|raw }}
         <span class="import-counts">
-            <span class="pill-count">{{ counts.pending }} waiting</span>
-            {% if counts.failed %}<span class="pill-count pill-warn">{{ counts.failed }} failed (retried by the next app:import)</span>{% endif %}
-            {% if counts.unmatched %}<span class="pill-count muted">{{ counts.unmatched }} not identified</span>{% endif %}
-            {% if counts.skipped %}<span class="pill-count muted">{{ counts.skipped }} skipped</span>{% endif %}
-            <span class="pill-count muted">{{ counts.imported }} filed</span>
+            <span class="pill-count">{{ 'import.queue.count_waiting'|trans({count: counts.pending}) }}</span>
+            {% if counts.failed %}<span class="pill-count pill-warn">{{ 'import.queue.count_failed'|trans({count: counts.failed}) }}</span>{% endif %}
+            {% if counts.unmatched %}<span class="pill-count muted">{{ 'import.queue.count_unmatched'|trans({count: counts.unmatched}) }}</span>{% endif %}
+            {% if counts.skipped %}<span class="pill-count muted">{{ 'import.queue.count_skipped'|trans({count: counts.skipped}) }}</span>{% endif %}
+            <span class="pill-count muted">{{ 'import.queue.count_imported'|trans({count: counts.imported}) }}</span>
         </span>
     </p>
 
     {% if item is null %}
         <div class="import-empty">
-            <p><strong>Nothing waiting.</strong></p>
-            <p class="muted">Run <code>php bin/console app:import</code> to process the import folder.</p>
+            <p><strong>{{ 'import.queue.empty_title'|trans }}</strong></p>
+            <p class="muted">{{ 'import.queue.empty_help_html'|trans|raw }}</p>
         </div>
     {% else %}
         <section class="import-file">
             <div class="import-file-head">
                 <div>
                     <div class="import-file-name">{{ item.originalName }}</div>
-                    <div class="muted">{{ folder ?: '(import folder root)' }}</div>
+                    <div class="muted">{{ folder ?: 'import.queue.folder_root'|trans }}</div>
                 </div>
                 <div class="import-file-actions">
                     <form method="post" action="{{ path('app_import_skip', {id: item.id}) }}" data-import-skip>
                         <input type="hidden" name="_token" value="{{ csrf_token('import_' ~ item.id) }}">
-                        <button class="btn btn-sm btn-ghost" type="submit" title="Set aside (S)">Skip <kbd>S</kbd></button>
+                        <button class="btn btn-sm btn-ghost" type="submit" title="{{ 'import.queue.skip_title'|trans }}">{{ 'import.queue.skip'|trans }} <kbd>S</kbd></button>
                     </form>
                     <form method="post" action="{{ path('app_import_unclassified', {id: item.id}) }}" data-import-unclassified>
                         <input type="hidden" name="_token" value="{{ csrf_token('import_' ~ item.id) }}">
-                        <button class="btn btn-sm btn-ghost" type="submit" title="Keep it as is, in the library's _unclassified folder (U)">Unclassified <kbd>U</kbd></button>
+                        <button class="btn btn-sm btn-ghost" type="submit" title="{{ 'import.queue.unclassified_title'|trans }}">{{ 'import.queue.unclassified'|trans }} <kbd>U</kbd></button>
                     </form>
                     {% if next %}
-                        <a class="btn btn-sm btn-ghost" href="{{ path('app_import_queue', {id: next.id}) }}" data-import-next title="Next file (N)">Next <kbd>N</kbd></a>
+                        <a class="btn btn-sm btn-ghost" href="{{ path('app_import_queue', {id: next.id}) }}" data-import-next title="{{ 'import.queue.next_title'|trans }}">{{ 'common.next'|trans }} <kbd>N</kbd></a>
                     {% endif %}
                 </div>
             </div>
@@ -47,27 +46,27 @@
             {% if tags %}
                 <audio class="import-audio" controls preload="none" src="{{ path('app_import_audio', {id: item.id}) }}"></audio>
                 <dl class="import-tags">
-                    <div><dt>Title</dt><dd>{{ tags.title }}</dd></div>
-                    <div><dt>Artist</dt><dd>{{ tags.artist ?? '—' }}</dd></div>
-                    <div><dt>Album</dt><dd>{{ tags.album ?? '—' }}</dd></div>
-                    <div><dt>Length</dt><dd>{{ '%d:%02d'|format(tags.duration // 60, tags.duration % 60) }}</dd></div>
+                    <div><dt>{{ 'import.queue.tag_title'|trans }}</dt><dd>{{ tags.title }}</dd></div>
+                    <div><dt>{{ 'import.queue.tag_artist'|trans }}</dt><dd>{{ tags.artist ?? '—' }}</dd></div>
+                    <div><dt>{{ 'import.queue.tag_album'|trans }}</dt><dd>{{ tags.album ?? '—' }}</dd></div>
+                    <div><dt>{{ 'import.queue.tag_length'|trans }}</dt><dd>{{ '%d:%02d'|format(tags.duration // 60, tags.duration % 60) }}</dd></div>
                 </dl>
             {% else %}
-                <p class="flash flash-error">The file is no longer in the import folder.</p>
+                <p class="flash flash-error">{{ 'import.queue.file_missing'|trans }}</p>
             {% endif %}
 
             {% if item.error %}
-                <p class="flash flash-error">Last attempt failed: {{ item.error }}</p>
+                <p class="flash flash-error">{{ 'import.queue.last_failed'|trans({error: item.error}) }}</p>
             {% endif %}
         </section>
 
-        <h2 class="import-subtitle">Candidates</h2>
+        <h2 class="import-subtitle">{{ 'import.queue.candidates'|trans }}</h2>
         <div class="import-candidates">
             {% for candidate in candidates %}
                 {% set f = candidate.fields %}
                 <form class="import-candidate" method="post" action="{{ path('app_import_choose', {id: item.id, index: loop.index0}) }}" data-import-choice="{{ loop.index }}">
                     <input type="hidden" name="_token" value="{{ csrf_token('import_' ~ item.id) }}">
-                    <button type="submit" class="import-candidate-button" title="Choose this match ({{ loop.index }})">
+                    <button type="submit" class="import-candidate-button" title="{{ 'import.queue.choose_title'|trans({index: loop.index}) }}">
                         <span class="import-key">{{ loop.index }}</span>
                         {% if candidate.releaseId %}
                             <img class="import-cover" src="https://coverartarchive.org/release/{{ candidate.releaseId }}/front-250" alt="" loading="lazy" width="96" height="96" onerror="this.style.visibility='hidden'">
@@ -77,8 +76,8 @@
                         <span class="import-candidate-text">
                             <strong>{% if f.trackNumber is defined and f.trackNumber %}{{ '%02d'|format(f.trackNumber) }}. {% endif %}{{ f.title ?? '?' }}</strong>
                             <span>{{ f.artist ?? '?' }}</span>
-                            <span class="muted">{{ f.album ?? 'no album (single)' }}{% if f.year is defined and f.year %} · {{ f.year }}{% endif %}</span>
-                            <span class="import-dest muted" title="Destination in the library">→ {{ destinations[loop.index0] }}</span>
+                            <span class="muted">{{ f.album ?? 'import.queue.no_album'|trans }}{% if f.year is defined and f.year %} · {{ f.year }}{% endif %}</span>
+                            <span class="import-dest muted" title="{{ 'import.queue.destination_title'|trans }}">→ {{ destinations[loop.index0] }}</span>
                         </span>
                         <span class="import-score {{ candidate.score >= 0.85 ? 'score-high' : (candidate.score >= 0.65 ? 'score-mid' : 'score-low') }}">
                             {{ (candidate.score * 100)|round }}%
@@ -90,7 +89,7 @@
                     {% endif %}
                 </form>
             {% else %}
-                <p class="muted">No candidate stored for this file.</p>
+                <p class="muted">{{ 'import.queue.no_candidate'|trans }}</p>
             {% endfor %}
         </div>
     {% endif %}

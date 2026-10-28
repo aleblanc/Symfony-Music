@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[IsGranted('ROLE_USER')]
 class FavoriteController extends AbstractController
@@ -28,6 +29,7 @@ class FavoriteController extends AbstractController
         private readonly ListenLaterRepository $listenLater,
         private readonly OfflineSongRepository $offline,
         private readonly EntityManagerInterface $em,
+        private readonly TranslatorInterface $translator,
     ) {}
 
     #[Route('/favorites', name: 'app_favorites')]
@@ -47,12 +49,12 @@ class FavoriteController extends AbstractController
     public function toggle(int $id, Request $request, #[CurrentUser] User $user): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, $this->extractToken($request))) {
-            return new JsonResponse(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+            return new JsonResponse(['error' => $this->translator->trans('error.csrf_invalid')], Response::HTTP_FORBIDDEN);
         }
 
         $song = $this->music->find($id);
         if ($song === null) {
-            return new JsonResponse(['error' => 'Track not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => $this->translator->trans('error.track_not_found')], Response::HTTP_NOT_FOUND);
         }
 
         $existing = $this->favorites->findOneForUser($user, $song);

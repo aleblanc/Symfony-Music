@@ -8,6 +8,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use App\Exception\UserFacingException;
+use Symfony\Component\Translation\TranslatableMessage;
 
 /**
  * Tracks the library holds twice, to pick the one to keep: the others'
@@ -36,9 +38,9 @@ class DuplicatesController extends AbstractController
 
         try {
             $moved = $finder->merge($id, $drop);
-            $this->addFlash('success', \sprintf('%d duplicate%s removed%s.', \count($drop), \count($drop) === 1 ? '' : 's', $moved === [] ? '' : ', file' . (\count($moved) === 1 ? '' : 's') . ' moved to ' . implode(', ', $moved)));
+            $this->addFlash('success', new TranslatableMessage('flash.duplicates.removed', ['count' => \count($drop), 'moved' => \count($moved), 'dirs' => implode(', ', $moved)]));
         } catch (\RuntimeException $e) {
-            $this->addFlash('error', $e->getMessage());
+            $this->addFlash('error', UserFacingException::messageFor($e));
         }
 
         return $this->redirect($this->generateUrl('app_duplicates') . (\is_string($next = $request->request->get('next')) && preg_match('/^g\d+$/', $next) === 1 ? '#' . $next : ''));

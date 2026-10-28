@@ -1,16 +1,16 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_tracks.html.twig' as tracks %}
 
-{% block title %}Listen Later · PHP Music{% endblock %}
+{% block title %}{{ 'listen_later.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Listen Later</h1>
-    <p class="section-sub">{{ songs|length }} track{{ songs|length == 1 ? '' : 's' }}</p>
+    <h1>{{ 'listen_later.title'|trans }}</h1>
+    <p class="section-sub">{{ 'common.track_count'|trans({count: songs|length}) }}</p>
 
     {% if songs is not empty %}
         <form method="post" action="{{ path('app_listen_later_clear') }}" style="margin-bottom:16px;">
             <input type="hidden" name="_token" value="{{ csrf_token('listen_later') }}">
-            <button class="btn btn-ghost" type="submit">Clear all</button>
+            <button class="btn btn-ghost" type="submit">{{ 'common.clear_all'|trans }}</button>
         </form>
     {% endif %}
 

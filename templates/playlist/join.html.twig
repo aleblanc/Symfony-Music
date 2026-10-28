@@ -1,14 +1,14 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Join playlist · PHP Music{% endblock %}
+{% block title %}{{ 'playlist.join.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Join "{{ playlist.name }}"?</h1>
-    <p class="section-sub">Created by {{ playlist.owner.artist }}. Accepting will let you add and remove tracks on this playlist.</p>
+    <h1>{{ 'playlist.join.heading'|trans({name: playlist.name}) }}</h1>
+    <p class="section-sub">{{ 'playlist.join.help'|trans({owner: playlist.owner.artist}) }}</p>
 
     <form method="post" action="{{ path('app_playlist_join', {token: invite.token}) }}">
         <input type="hidden" name="_token" value="{{ csrf_token('playlist_join_' ~ invite.token) }}">
-        <button class="btn" type="submit">Accept &amp; join</button>
-        <a class="btn btn-ghost" href="{{ path('app_playlists') }}">Cancel</a>
+        <button class="btn" type="submit">{{ 'playlist.join.accept'|trans }}</button>
+        <a class="btn btn-ghost" href="{{ path('app_playlists') }}">{{ 'common.cancel'|trans }}</a>
     </form>
 {% endblock %}

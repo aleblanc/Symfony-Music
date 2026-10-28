@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
 
 /**
  * Review queue for metadata proposed by `app:enrich` below the auto-apply
@@ -57,9 +58,10 @@ class SuggestionController extends AbstractController
         $this->assertToken($request, 'suggestion_' . $suggestion->getId());
 
         if ($suggestion->isPending() && $applier->apply($suggestion)) {
-            $this->addFlash('success', \sprintf('Applied: %s.', $suggestion->getProposedValue('title')));
+            $this->addFlash('success', new TranslatableMessage('flash.suggestion.applied', ['title' => (string) $suggestion->getProposedValue('title')]));
         } else {
-            $this->addFlash('error', $suggestion->getError() ?? 'This suggestion can no longer be applied.');
+            // getError() is persisted text (stays as stored)
+            $this->addFlash('error', $suggestion->getError() ?? new TranslatableMessage('flash.suggestion.cannot_apply'));
         }
         $em->flush();
 
@@ -86,9 +88,9 @@ class SuggestionController extends AbstractController
 
         if ($applier->revert($suggestion)) {
             $em->flush();
-            $this->addFlash('success', 'Previous metadata restored.');
+            $this->addFlash('success', new TranslatableMessage('flash.suggestion.reverted'));
         } else {
-            $this->addFlash('error', 'Could not restore the previous metadata (file missing or not writable?).');
+            $this->addFlash('error', new TranslatableMessage('flash.suggestion.revert_failed'));
         }
 
         return $this->back($request);
@@ -105,7 +107,7 @@ class SuggestionController extends AbstractController
         }
         $em->flush();
 
-        $this->addFlash($failed === 0 ? 'success' : 'error', \sprintf('%d track(s) applied%s.', $applied, $failed > 0 ? ", {$failed} failed" : ''));
+        $this->addFlash($failed === 0 ? 'success' : 'error', new TranslatableMessage('flash.suggestion.release_applied', ['applied' => $applied, 'failed' => $failed]));
 
         return $this->back($request);
     }

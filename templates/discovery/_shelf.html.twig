@@ -7,7 +7,7 @@
 {% macro shelf(shelf, favoriteIds, listenLaterIds = [], offlineIds = []) %}
     {% import 'partials/_tracks.html.twig' as tracks %}
     <section class="shelf">
-        <h2>{{ shelf.title }}{% if shelf.more is defined %} <a class="btn-link" href="{{ shelf.more }}">See all →</a>{% endif %}</h2>
+        <h2>{{ shelf.title|trans }}{% if shelf.more is defined %} <a class="btn-link" href="{{ shelf.more }}">{{ 'common.see_all_arrow'|trans }}</a>{% endif %}</h2>
         {% if shelf.type == 'songs' %}
             {{ tracks.track_list(shelf.items, favoriteIds, listenLaterIds, offlineIds) }}
         {% elseif shelf.type == 'albums' %}
@@ -17,13 +17,13 @@
                         <img src="{{ path('app_cover', {id: a.id}) }}" alt="" loading="lazy"
                              style="aspect-ratio:1;border-radius:8px;object-fit:cover;">
                         <div class="card-title">{{ a.album }}</div>
-                        <div class="card-sub">{{ a.artist }} · {{ a.songCount }} track{{ a.songCount == 1 ? '' : 's' }}</div>
+                        <div class="card-sub">{{ a.artist }} · {{ 'common.track_count'|trans({count: a.songCount}) }}</div>
                     </a>
                 {% endfor %}
             </div>
         {% elseif shelf.type == 'discography' %}
             {% import 'partials/_disco.html.twig' as disco %}
-            <p class="muted shelf-sub">Not in the library yet, from the artists you have at least 11 tracks of — most listened (ListenBrainz) first.</p>
+            <p class="muted shelf-sub">{{ 'discovery.shelf.discography_sub'|trans }}</p>
             <div class="card-grid disco-discover">
                 {% for d in shelf.items %}
                     {{ disco.card(d, 'discover-' ~ loop.index, true) }}
@@ -37,7 +37,7 @@
                             {{ a.name|slice(0, 1)|upper }}
                         </div>
                         <div class="card-title">{{ a.name }}</div>
-                        {% if a.isUser %}<div class="card-sub">Registered artist</div>{% endif %}
+                        {% if a.isUser %}<div class="card-sub">{{ 'discovery.shelf.registered_artist'|trans }}</div>{% endif %}
                     </a>
                 {% endfor %}
             </div>

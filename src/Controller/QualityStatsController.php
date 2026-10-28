@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
 
 /**
  * Audio quality of the whole library: tracks per quality tier, per format and
@@ -37,6 +38,7 @@ class QualityStatsController extends AbstractController
         $limit = self::LIST_LIMIT;
         if ($format !== null) {
             $tracks = $music->lossyTracksByBitrate($format, $min, $max, self::LIST_LIMIT);
+            // Language-neutral (format name + kb/s range); printed with |trans like the default title.
             $listTitle = QualityStats::formatLabel($format) . match (true) {
                 $min !== null && $max !== null => \sprintf(', %d–%d kb/s', $min, $max),
                 $min !== null => \sprintf(', ≥ %d kb/s', $min),
@@ -46,7 +48,7 @@ class QualityStatsController extends AbstractController
         } else {
             $limit = self::LOW_LIST_LIMIT;
             $tracks = $music->lossyTracksByBitrate(null, null, self::LOW_MAX_KBPS, $limit, self::LOW_MAX_KBPS_EFFICIENT);
-            $listTitle = \sprintf('Tracks worth replacing (MP3 ≤ %d kb/s, AAC / Vorbis / Opus ≤ %d kb/s)', self::LOW_MAX_KBPS, self::LOW_MAX_KBPS_EFFICIENT);
+            $listTitle = new TranslatableMessage('ui.quality.list_title.worth_replacing', ['mp3' => self::LOW_MAX_KBPS, 'efficient' => self::LOW_MAX_KBPS_EFFICIENT]);
         }
 
         return $this->render('quality/index.html.twig', [

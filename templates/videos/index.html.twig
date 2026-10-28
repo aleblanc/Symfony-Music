@@ -1,22 +1,22 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_video_card.html.twig' as video %}
 
-{% block title %}New videos · PHP Music{% endblock %}
+{% block title %}{{ 'videos.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>New YouTube videos</h1>
+    <h1>{{ 'videos.heading'|trans }}</h1>
     <p class="section-sub">
         {% if onlyNew %}
-            {{ total }} new video{{ total == 1 ? '' : 's' }} since your last visit of each artist page ·
-            <a class="link" href="{{ path('app_videos') }}">show all latest videos</a>
+            {{ 'videos.new_since_visit'|trans({count: total}) }} ·
+            <a class="link" href="{{ path('app_videos') }}">{{ 'videos.show_all'|trans }}</a>
         {% else %}
-            Latest videos of your artists, newest first{% if total > limit %} (the {{ limit }} most recent){% endif %}
-            {% if newCount %}· <a href="{{ path('app_videos', {new: 1}) }}"><span class="badge-new">{{ newCount }} new</span></a>{% endif %}
+            {{ 'videos.latest'|trans }}{% if total > limit %} {{ 'videos.latest_limit'|trans({limit: limit}) }}{% endif %}
+            {% if newCount %}· <a href="{{ path('app_videos', {new: 1}) }}"><span class="badge-new">{{ 'videos.new_badge'|trans({count: newCount}) }}</span></a>{% endif %}
         {% endif %}
     </p>
 
     {% if items is empty %}
-        <p class="muted">No video{{ onlyNew ? ' new since your last visits' : ' yet: run php bin/console app:artist:videos' }}.</p>
+        <p class="muted">{{ (onlyNew ? 'videos.empty_new' : 'videos.empty')|trans }}</p>
     {% else %}
         <div class="video-grid">
             {% for v in items %}

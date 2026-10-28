@@ -1,27 +1,26 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Metadata suggestions · PHP Music{% endblock %}
+{% block title %}{{ 'suggestion.index.heading'|trans }} · PHP Music{% endblock %}
 
 {% macro value(v) %}{{ v is same as(null) or v == '' ? '—' : v }}{% endmacro %}
 
 {% block body %}
     {% import _self as m %}
-    <h1>Metadata suggestions</h1>
+    <h1>{{ 'suggestion.index.heading'|trans }}</h1>
     <p class="section-sub">
-        Proposed by <code>bin/console app:enrich</code> from MusicBrainz / AcoustID.
-        Confident matches are applied automatically; the others wait here.
+        {{ 'suggestion.index.intro_html'|trans|raw }}
     </p>
 
-    <nav class="sort-bar" aria-label="Status">
+    <nav class="sort-bar" aria-label="{{ 'suggestion.index.status_nav_aria'|trans }}">
         {% for s in statuses %}
             <a href="{{ path('app_suggestions', {status: s.value}) }}" class="{{ s == status ? 'active' }}">
-                {{ s.value|capitalize }} <span class="muted">{{ counts[s.value] ?? 0 }}</span>
+                {{ ('suggestion.status.' ~ s.value)|trans }} <span class="muted">{{ counts[s.value] ?? 0 }}</span>
             </a>
         {% endfor %}
     </nav>
 
     {% if groups is empty %}
-        <p class="muted">Nothing here.</p>
+        <p class="muted">{{ 'suggestion.index.empty'|trans }}</p>
     {% endif %}
 
     {% for key, items in groups %}
@@ -42,14 +41,14 @@
                 {% if status.value == 'pending' and first.releaseId and items|length > 1 %}
                     <form method="post" action="{{ path('app_suggestion_accept_release', {releaseId: first.releaseId, status: status.value}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('suggestion_release_' ~ first.releaseId) }}">
-                        <button class="btn btn-sm" type="submit">Accept album ({{ items|length }})</button>
+                        <button class="btn btn-sm" type="submit">{{ 'suggestion.index.accept_album'|trans({count: items|length}) }}</button>
                     </form>
                 {% endif %}
             </header>
 
             <table class="suggestion-table">
                 <thead>
-                    <tr><th>File</th><th>Current</th><th>Proposed</th><th>Score</th><th></th></tr>
+                    <tr><th>{{ 'suggestion.index.col_file'|trans }}</th><th>{{ 'suggestion.index.col_current'|trans }}</th><th>{{ 'suggestion.index.col_proposed'|trans }}</th><th>{{ 'suggestion.index.col_score'|trans }}</th><th></th></tr>
                 </thead>
                 <tbody>
                 {% for s in items %}
@@ -70,7 +69,7 @@
                                 {{ m.value(s.proposedValue('artist')) }} · {{ m.value(s.proposedValue('album')) }}
                                 {% if s.proposedValue('year') %} ({{ s.proposedValue('year') }}){% endif %}
                                 {% if s.proposedValue('genre') %} · {{ s.proposedValue('genre') }}{% endif %}
-                                {% if s.hasCover %} · +cover{% endif %}
+                                {% if s.hasCover %} · {{ 'suggestion.index.plus_cover'|trans }}{% endif %}
                             </div>
                             {% if s.error %}<div class="flash-error suggestion-error">{{ s.error }}</div>{% endif %}
                         </td>
@@ -82,16 +81,16 @@
                             {% if s.pending %}
                                 <form method="post" action="{{ path('app_suggestion_accept', {id: s.id, status: status.value}) }}">
                                     <input type="hidden" name="_token" value="{{ csrf_token('suggestion_' ~ s.id) }}">
-                                    <button class="btn btn-sm" type="submit">Accept</button>
+                                    <button class="btn btn-sm" type="submit">{{ 'suggestion.index.accept'|trans }}</button>
                                 </form>
                                 <form method="post" action="{{ path('app_suggestion_reject', {id: s.id, status: status.value}) }}">
                                     <input type="hidden" name="_token" value="{{ csrf_token('suggestion_' ~ s.id) }}">
-                                    <button class="btn btn-sm btn-ghost" type="submit">Reject</button>
+                                    <button class="btn btn-sm btn-ghost" type="submit">{{ 'suggestion.index.reject'|trans }}</button>
                                 </form>
                             {% elseif s.status.value == 'applied' %}
                                 <form method="post" action="{{ path('app_suggestion_revert', {id: s.id, status: status.value}) }}">
                                     <input type="hidden" name="_token" value="{{ csrf_token('suggestion_' ~ s.id) }}">
-                                    <button class="btn btn-sm btn-danger" type="submit">Revert</button>
+                                    <button class="btn btn-sm btn-danger" type="submit">{{ 'suggestion.index.revert'|trans }}</button>
                                 </form>
                             {% endif %}
                         </td>

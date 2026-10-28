@@ -5,14 +5,15 @@ namespace App\Service;
 /**
  * Server-side rhythm-game anti-cheat. Direct port of the 3-layer validation
  * in the legacy `save_rhythm_score` handler. Pure logic: given a submitted
- * run it returns a ban reason string, or null when the run looks human.
+ * run it returns a ban reason code (translated by the caller with the key
+ * `ui.rhythm.cheat_reason.<code>`), or null when the run looks human.
  */
 final class RhythmAntiCheat
 {
     /**
      * @param list<float|int|string> $hitDeltas per-hit timing errors in ms
      *
-     * @return string|null ban reason, or null if the run is accepted
+     * @return 'inhuman_precision'|'macro_pattern'|'data_spoofing'|null ban reason code, or null if the run is accepted
      */
     public function inspect(array $hitDeltas, int $claimedScore, int $maxCombo): ?string
     {
@@ -30,7 +31,7 @@ final class RhythmAntiCheat
                 $sum += $d;
             }
             if (($suspiciousHits / $totalHits) > 0.8) {
-                return 'Inhuman Precision (80%+ hits under 5ms)';
+                return 'inhuman_precision'; // Inhuman Precision (80%+ hits under 5ms)
             }
 
             // Layer 2: macro / zero-variance detection (std dev < 1.5ms).
@@ -41,14 +42,14 @@ final class RhythmAntiCheat
             }
             $stdDev = sqrt($varianceSum / $totalHits);
             if ($stdDev < 1.5) {
-                return 'Macro Pattern Detected (StdDev < 1.5ms)';
+                return 'macro_pattern'; // Macro Pattern Detected (StdDev < 1.5ms)
             }
         }
 
         // Layer 3: mathematical bounds (score/combo spoofing).
         $theoreticalMax = $totalHits * 1000;
         if ($claimedScore > $theoreticalMax || $maxCombo > $totalHits) {
-            return 'Data Spoofing (Score or Combo out of mathematical bounds)';
+            return 'data_spoofing'; // Data Spoofing (Score or Combo out of mathematical bounds)
         }
 
         return null;

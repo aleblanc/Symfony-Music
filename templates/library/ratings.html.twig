@@ -2,33 +2,33 @@
 {% import 'partials/_tracks.html.twig' as tracks %}
 {% import 'partials/_play_all.html.twig' as playAll %}
 
-{% set label = stars ? stars ~ ' star' ~ (stars > 1 ? 's') : 'No stars' %}
-{% block title %}Ratings · {{ label }} · PHP Music{% endblock %}
+{% set label = stars ? 'library.ratings.stars'|trans({stars: stars}) : 'library.ratings.no_stars'|trans %}
+{% block title %}{{ 'library.ratings.title'|trans }} · {{ label }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Ratings</h1>
-    <nav class="rating-tabs" aria-label="Rating">
+    <h1>{{ 'library.ratings.title'|trans }}</h1>
+    <nav class="rating-tabs" aria-label="{{ 'library.ratings.tabs_aria'|trans }}">
         {% for n, count in counts %}
             <a href="{{ path('app_ratings', {stars: n}) }}" class="{{ n == stars ? 'active' }}"{% if n == stars %} aria-current="page"{% endif %}>
-                {% if n %}<span class="rating-tab-stars" aria-label="{{ n }} star{{ n > 1 ? 's' }}">{{ '★★★★★'|slice(0, n) }}<span class="off">{{ '★★★★★'|slice(0, 5 - n) }}</span></span>{% else %}No stars{% endif %}
+                {% if n %}<span class="rating-tab-stars" aria-label="{{ 'library.ratings.stars'|trans({stars: n}) }}">{{ '★★★★★'|slice(0, n) }}<span class="off">{{ '★★★★★'|slice(0, 5 - n) }}</span></span>{% else %}{{ 'library.ratings.no_stars'|trans }}{% endif %}
                 <span class="muted">{{ count }}</span>
             </a>
         {% endfor %}
     </nav>
-    <p class="section-sub">{{ label }} · {{ total }} track{{ total == 1 ? '' : 's' }}{% if pages > 1 %} · page {{ page }} / {{ pages }}{% endif %}</p>
+    <p class="section-sub">{{ label }} · {{ 'common.track_count'|trans({count: total}) }}{% if pages > 1 %} · {{ 'library.ratings.page_info'|trans({page: page, pages: pages}) }}{% endif %}</p>
 
     {% if songs is empty %}
-        <p class="muted">No track here yet.</p>
+        <p class="muted">{{ 'library.ratings.empty'|trans }}</p>
     {% else %}
-        {{ playAll.bar('rating', stars, '#page-tracks', 'Rated: ' ~ label) }}
+        {{ playAll.bar('rating', stars, '#page-tracks', 'library.ratings.playlist_name'|trans({label: label})) }}
         <div id="page-tracks">
             {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
         </div>
         {% if pages > 1 %}
             <div class="pagination">
-                {% if page > 1 %}<a href="{{ path('app_ratings', {stars: stars, page: page - 1}) }}">← Prev</a>{% endif %}
+                {% if page > 1 %}<a href="{{ path('app_ratings', {stars: stars, page: page - 1}) }}">{{ 'common.pagination.prev'|trans }}</a>{% endif %}
                 <span class="current">{{ page }} / {{ pages }}</span>
-                {% if page < pages %}<a href="{{ path('app_ratings', {stars: stars, page: page + 1}) }}">Next →</a>{% endif %}
+                {% if page < pages %}<a href="{{ path('app_ratings', {stars: stars, page: page + 1}) }}">{{ 'common.pagination.next'|trans }}</a>{% endif %}
             </div>
         {% endif %}
     {% endif %}

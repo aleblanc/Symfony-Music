@@ -5,22 +5,22 @@
  #}
 {% macro bar(kind, value, tracksSelector = '#page-tracks', label = null) %}
     <div class="play-all-bar">
-        <button class="btn" type="button" data-play-all="{{ tracksSelector }}">▶ Play all</button>
-        <button class="btn btn-ghost" type="button" data-queue-all="{{ tracksSelector }}" title="Add every track to the play queue">+ Add all to queue</button>
+        <button class="btn" type="button" data-play-all="{{ tracksSelector }}">{{ 'common.play_all'|trans }}</button>
+        <button class="btn btn-ghost" type="button" data-queue-all="{{ tracksSelector }}" title="{{ 'play_all.queue_all_title'|trans }}">+ {{ 'play_all.queue_all'|trans }}</button>
         {% if app.user %}
             <form class="play-all-playlist" method="post" action="{{ path('app_playlist_add_all') }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('playlist_add_all') }}">
                 <input type="hidden" name="kind" value="{{ kind }}">
                 <input type="hidden" name="value" value="{{ value }}">
                 <input type="hidden" name="name" value="{{ label ?? value }}">
-                <select name="playlist" aria-label="Playlist to add every track to" required>
-                    <option value="" disabled selected>Add all to playlist…</option>
+                <select name="playlist" aria-label="{{ 'play_all.playlist_aria'|trans }}" required>
+                    <option value="" disabled selected>{{ 'play_all.playlist_placeholder'|trans }}</option>
                     {% for p in editable_playlists() %}
                         <option value="{{ p.id }}">{{ p.name }}</option>
                     {% endfor %}
-                    <option value="new">+ New playlist “{{ label ?? value }}”</option>
+                    <option value="new">+ {{ 'play_all.new_playlist'|trans({name: label ?? value}) }}</option>
                 </select>
-                <button class="btn btn-ghost" type="submit">Add</button>
+                <button class="btn btn-ghost" type="submit">{{ 'common.add'|trans }}</button>
             </form>
         {% endif %}
     </div>

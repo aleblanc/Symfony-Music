@@ -1,16 +1,16 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_tracks.html.twig' as tracks %}
 
-{% block title %}Offline · PHP Music{% endblock %}
+{% block title %}{{ 'offline.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Offline</h1>
-    <p class="section-sub">{{ songs|length }} track{{ songs|length == 1 ? '' : 's' }} marked available offline</p>
+    <h1>{{ 'offline.title'|trans }}</h1>
+    <p class="section-sub">{{ 'offline.count'|trans({count: songs|length}) }}</p>
 
     {% if songs is not empty %}
         <form method="post" action="{{ path('app_offline_clear') }}" style="margin-bottom:16px;">
             <input type="hidden" name="_token" value="{{ csrf_token('offline') }}">
-            <button class="btn btn-ghost" type="submit">Clear all</button>
+            <button class="btn btn-ghost" type="submit">{{ 'common.clear_all'|trans }}</button>
         </form>
     {% endif %}
 

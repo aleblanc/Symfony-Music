@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
 
 /**
  * Song upload form. Ported from the legacy `upload_song` action: getID3
@@ -75,14 +76,14 @@ class UploadController extends AbstractController
         }
 
         if ($user->getVerified() !== 'yes') {
-            $this->addFlash('error', 'Your account is not verified for uploads.');
+            $this->addFlash('error', new TranslatableMessage('flash.upload.not_verified'));
 
             return $this->redirectToRoute('app_upload');
         }
 
         $remaining = $this->remainingQuota($user);
         if ($remaining <= 0) {
-            $this->addFlash('error', \sprintf('Daily upload limit of %d songs reached.', self::DAILY_UPLOAD_LIMIT));
+            $this->addFlash('error', new TranslatableMessage('flash.upload.daily_limit', ['limit' => self::DAILY_UPLOAD_LIMIT]));
 
             return $this->redirectToRoute('app_upload');
         }
@@ -90,26 +91,26 @@ class UploadController extends AbstractController
         /** @var UploadedFile|null $file */
         $file = $request->files->get('song');
         if ($file === null) {
-            $this->addFlash('error', 'No file uploaded.');
+            $this->addFlash('error', new TranslatableMessage('flash.upload.no_file'));
 
             return $this->redirectToRoute('app_upload');
         }
 
         if (!$file->isValid()) {
-            $this->addFlash('error', 'Upload error: ' . $file->getErrorMessage());
+            $this->addFlash('error', new TranslatableMessage('flash.upload.error', ['error' => $file->getErrorMessage()]));
 
             return $this->redirectToRoute('app_upload');
         }
 
         if ($file->getSize() !== false && $file->getSize() > $this->maxUploadBytes) {
-            $this->addFlash('error', \sprintf('File too large (max %d MB).', (int) ($this->maxUploadBytes / 1024 / 1024)));
+            $this->addFlash('error', new TranslatableMessage('flash.upload.too_large', ['max' => (int) ($this->maxUploadBytes / 1024 / 1024)]));
 
             return $this->redirectToRoute('app_upload');
         }
 
         $ext = strtolower($file->getClientOriginalExtension());
         if (!\in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
-            $this->addFlash('error', 'Invalid file format. Only MP3, FLAC, M4A, OGG, and WAV are allowed.');
+            $this->addFlash('error', new TranslatableMessage('flash.upload.invalid_format'));
 
             return $this->redirectToRoute('app_upload');
         }
@@ -121,13 +122,13 @@ class UploadController extends AbstractController
         // legacy code used via finfo_open()).
         $sniffedMime = $this->sniffMimeType($file->getPathname());
         if ($sniffedMime === null || !\in_array($sniffedMime, self::ALLOWED_MIME_TYPES[$ext], true)) {
-            $this->addFlash('error', 'Security error: file content does not match its extension.');
+            $this->addFlash('error', new TranslatableMessage('flash.upload.extension_mismatch'));
 
             return $this->redirectToRoute('app_upload');
         }
 
         if (!class_exists(\getID3::class)) {
-            $this->addFlash('error', 'getID3 library is missing.');
+            $this->addFlash('error', new TranslatableMessage('flash.upload.getid3_missing'));
 
             return $this->redirectToRoute('app_upload');
         }
@@ -139,7 +140,7 @@ class UploadController extends AbstractController
         // A second, content-based validation: getID3 must actually recognise
         // the file as audio, independent of extension/MIME sniffing above.
         if (!empty($info['error']) || empty($info['audio'])) {
-            $this->addFlash('error', 'Security error: file could not be parsed as audio.');
+            $this->addFlash('error', new TranslatableMessage('flash.upload.not_audio'));
 
             return $this->redirectToRoute('app_upload');
         }
@@ -169,7 +170,7 @@ class UploadController extends AbstractController
         $shard = substr(md5($artistPath), 0, 2);
         $uploadDir = $this->musicDir . '/uploads/' . $shard . '/' . $artistPath;
         if (!is_dir($uploadDir) && !mkdir($uploadDir, 0o755, true) && !is_dir($uploadDir)) {
-            $this->addFlash('error', 'Could not create upload directory.');
+            $this->addFlash('error', new TranslatableMessage('flash.upload.mkdir_failed'));
 
             return $this->redirectToRoute('app_upload');
         }
@@ -179,7 +180,7 @@ class UploadController extends AbstractController
         try {
             $movedFile = $file->move($uploadDir, $filename);
         } catch (\Throwable $e) {
-            $this->addFlash('error', 'Failed to move uploaded file.');
+            $this->addFlash('error', new TranslatableMessage('flash.upload.move_failed'));
 
             return $this->redirectToRoute('app_upload');
         }
@@ -216,7 +217,7 @@ class UploadController extends AbstractController
 
         $em->flush();
 
-        $this->addFlash('success', \sprintf('"%s" uploaded successfully.', $title));
+        $this->addFlash('success', new TranslatableMessage('flash.upload.success', ['title' => $title]));
 
         return $this->redirectToRoute('app_song', ['id' => $song->getId()]);
     }

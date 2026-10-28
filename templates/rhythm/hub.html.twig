@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app.request.locale }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Rhythm Game</title>
+    <title>{{ 'rhythm.hub.title'|trans }}</title>
     <link rel="icon" type="image/svg+xml" href="/icon.svg">
     <meta name="theme-color" content="#000000">
     {# Standalone full-screen page (no app shell) opened in its own tab. Owns
@@ -25,13 +25,13 @@
                             <div class="rg-tab-container">
                               <div id="rg-tab-songs" class="rg-tab-content">
                                 <div class="rg-search-bar" style="display: flex; gap: 8px;">
-                                  <input type="text" id="rg-search-songs" class="rg-search-input" placeholder="Search tracks..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                  <input type="text" id="rg-search-songs" class="rg-search-input" placeholder="{{ 'js.rhythm.search.tracks'|trans }}" style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
                                   <select id="rg-sort-songs" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
-                                    <option value="random">Random</option>
-                                    <option value="trending">Trending</option>
-                                    <option value="id_desc">Newest</option>
-                                    <option value="title_asc">Title (A-Z)</option>
-                                    <option value="artist_asc">Artist (A-Z)</option>
+                                    <option value="random">{{ 'rhythm.sort.random'|trans }}</option>
+                                    <option value="trending">{{ 'rhythm.sort.trending'|trans }}</option>
+                                    <option value="id_desc">{{ 'rhythm.sort.newest'|trans }}</option>
+                                    <option value="title_asc">{{ 'rhythm.sort.title_asc'|trans }}</option>
+                                    <option value="artist_asc">{{ 'rhythm.sort.artist_asc'|trans }}</option>
                                   </select>
                                 </div>
                                 <div class="rg-list-container" id="rg-list-songs">
@@ -42,14 +42,14 @@
                               </div>
                               <div id="rg-tab-favorites" class="rg-tab-content rg-hidden">
                                 <div class="rg-search-bar" style="display: flex; gap: 8px;">
-                                  <input type="text" id="rg-search-favs" class="rg-search-input" placeholder="Search favorites..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                  <input type="text" id="rg-search-favs" class="rg-search-input" placeholder="{{ 'rhythm.search.favorites'|trans }}" style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
                                   <select id="rg-sort-favs" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
-                                    <option value="manual_order">My Order</option>
-                                    <option value="random">Random</option>
-                                    <option value="trending">Trending</option>
-                                    <option value="id_desc">Newest</option>
-                                    <option value="title_asc">Title (A-Z)</option>
-                                    <option value="artist_asc">Artist (A-Z)</option>
+                                    <option value="manual_order">{{ 'rhythm.sort.my_order'|trans }}</option>
+                                    <option value="random">{{ 'rhythm.sort.random'|trans }}</option>
+                                    <option value="trending">{{ 'rhythm.sort.trending'|trans }}</option>
+                                    <option value="id_desc">{{ 'rhythm.sort.newest'|trans }}</option>
+                                    <option value="title_asc">{{ 'rhythm.sort.title_asc'|trans }}</option>
+                                    <option value="artist_asc">{{ 'rhythm.sort.artist_asc'|trans }}</option>
                                   </select>
                                 </div>
                                 <div class="rg-list-container" id="rg-list-favs"></div>
@@ -67,11 +67,11 @@
     
                                     <!-- Sub Navigation Tabs -->
                                     <ul class="nav nav-tabs border-secondary border-0 d-flex gap-2 w-100" id="rg-artist-detail-tabs" style="margin-bottom: 8px; flex-wrap: nowrap !important; overflow-x: auto !important; flex-shrink: 0 !important; scrollbar-width: none; max-width: 100%;">
-                                      <li class="nav-item"><button class="nav-link active" id="rg-art-tab-tracks" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">Tracks</button></li>
-                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-history" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">History</button></li>
-                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-playlists" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">Playlists</button></li>
-                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-favs" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">Favorites</button></li>
-                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-following" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">Following</button></li>
+                                      <li class="nav-item"><button class="nav-link active" id="rg-art-tab-tracks" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">{{ 'rhythm.artist.tab.tracks'|trans }}</button></li>
+                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-history" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">{{ 'rhythm.artist.tab.history'|trans }}</button></li>
+                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-playlists" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">{{ 'rhythm.artist.tab.playlists'|trans }}</button></li>
+                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-favs" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">{{ 'rhythm.artist.tab.favorites'|trans }}</button></li>
+                                      <li class="nav-item"><button class="nav-link" id="rg-art-tab-following" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px !important; white-space: nowrap;">{{ 'rhythm.artist.tab.following'|trans }}</button></li>
                                     </ul>
     
                                     <!-- History Pane -->
@@ -82,14 +82,14 @@
                                     <!-- Favorites Pane -->
                                     <div id="rg-art-pane-favs" class="d-none flex-column gap-2 w-100">
                                       <div class="rg-search-bar p-0 mb-2" style="display: flex; gap: 8px;">
-                                        <input type="text" id="rg-search-artist-favs" class="rg-search-input" placeholder="Search favorites..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                        <input type="text" id="rg-search-artist-favs" class="rg-search-input" placeholder="{{ 'rhythm.search.favorites'|trans }}" style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
                                         <select id="rg-sort-artist-favs" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
-                                          <option value="manual_order">My Order</option>
-                                          <option value="random">Random</option>
-                                          <option value="trending">Trending</option>
-                                          <option value="id_desc">Newest</option>
-                                          <option value="title_asc">Title (A-Z)</option>
-                                          <option value="artist_asc">Artist (A-Z)</option>
+                                          <option value="manual_order">{{ 'rhythm.sort.my_order'|trans }}</option>
+                                          <option value="random">{{ 'rhythm.sort.random'|trans }}</option>
+                                          <option value="trending">{{ 'rhythm.sort.trending'|trans }}</option>
+                                          <option value="id_desc">{{ 'rhythm.sort.newest'|trans }}</option>
+                                          <option value="title_asc">{{ 'rhythm.sort.title_asc'|trans }}</option>
+                                          <option value="artist_asc">{{ 'rhythm.sort.artist_asc'|trans }}</option>
                                         </select>
                                       </div>
                                       <div id="rg-list-artist-favs" class="d-flex flex-column gap-2"></div>
@@ -98,15 +98,15 @@
                                     <!-- Following Pane -->
                                     <div id="rg-art-pane-following" class="d-none flex-column gap-2 w-100">
                                       <div class="rg-search-bar p-0 mb-2" style="display: flex; gap: 8px;">
-                                        <input type="text" id="rg-search-artist-following" class="rg-search-input" placeholder="Search following..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                        <input type="text" id="rg-search-artist-following" class="rg-search-input" placeholder="{{ 'rhythm.search.following'|trans }}" style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
                                         <select id="rg-sort-artist-following" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
-                                          <option value="name_asc">Name (A-Z)</option>
-                                          <option value="name_desc">Name (Z-A)</option>
-                                          <option value="count_desc">Most Tracks</option>
-                                          <option value="followers_desc">Most Followers</option>
-                                          <option value="score_desc">Most Scores</option>
-                                          <option value="rank_desc">Most Ranks</option>
-                                          <option value="random">Random</option>
+                                          <option value="name_asc">{{ 'rhythm.sort.name_asc'|trans }}</option>
+                                          <option value="name_desc">{{ 'rhythm.sort.name_desc'|trans }}</option>
+                                          <option value="count_desc">{{ 'rhythm.sort.most_tracks'|trans }}</option>
+                                          <option value="followers_desc">{{ 'rhythm.sort.most_followers'|trans }}</option>
+                                          <option value="score_desc">{{ 'rhythm.sort.most_scores'|trans }}</option>
+                                          <option value="rank_desc">{{ 'rhythm.sort.most_ranks'|trans }}</option>
+                                          <option value="random">{{ 'rhythm.sort.random'|trans }}</option>
                                         </select>
                                       </div>
                                       <div id="rg-list-artist-following" class="d-flex flex-column gap-2"></div>
@@ -123,13 +123,13 @@
                                     <!-- Tracks Pane -->
                                     <div id="rg-art-pane-tracks" class="d-flex flex-column gap-2 w-100">
                                       <div class="rg-search-bar p-0 mb-2" style="display: flex; gap: 8px;">
-                                        <input type="text" id="rg-search-artist-songs" class="rg-search-input" placeholder="Search tracks..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                        <input type="text" id="rg-search-artist-songs" class="rg-search-input" placeholder="{{ 'js.rhythm.search.tracks'|trans }}" style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
                                         <select id="rg-sort-artist-songs" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
-                                          <option value="random">Random</option>
-                                          <option value="trending">Trending</option>
-                                          <option value="id_desc">Newest</option>
-                                          <option value="title_asc">Title (A-Z)</option>
-                                          <option value="album_asc">Album (A-Z)</option>
+                                          <option value="random">{{ 'rhythm.sort.random'|trans }}</option>
+                                          <option value="trending">{{ 'rhythm.sort.trending'|trans }}</option>
+                                          <option value="id_desc">{{ 'rhythm.sort.newest'|trans }}</option>
+                                          <option value="title_asc">{{ 'rhythm.sort.title_asc'|trans }}</option>
+                                          <option value="album_asc">{{ 'rhythm.sort.album_asc'|trans }}</option>
                                         </select>
                                       </div>
                                       <div id="rg-list-artist-songs" class="d-flex flex-column gap-2"></div>
@@ -140,15 +140,15 @@
                               <!-- Artists Tab List -->
                               <div id="rg-tab-artists" class="rg-tab-content rg-hidden">
                                 <div class="rg-search-bar" style="display: flex; gap: 8px;">
-                                  <input type="text" id="rg-search-artists" class="rg-search-input" placeholder="Search artists..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                  <input type="text" id="rg-search-artists" class="rg-search-input" placeholder="{{ 'rhythm.search.artists'|trans }}" style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
                                   <select id="rg-sort-artists" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
-                                    <option value="name_asc">Name (A-Z)</option>
-                                    <option value="name_desc">Name (Z-A)</option>
-                                    <option value="count_desc">Most Tracks</option>
-                                    <option value="followers_desc">Most Followers</option>
-                                    <option value="score_desc">Most Scores</option>
-                                    <option value="rank_desc">Most Ranks</option>
-                                    <option value="random">Random</option>
+                                    <option value="name_asc">{{ 'rhythm.sort.name_asc'|trans }}</option>
+                                    <option value="name_desc">{{ 'rhythm.sort.name_desc'|trans }}</option>
+                                    <option value="count_desc">{{ 'rhythm.sort.most_tracks'|trans }}</option>
+                                    <option value="followers_desc">{{ 'rhythm.sort.most_followers'|trans }}</option>
+                                    <option value="score_desc">{{ 'rhythm.sort.most_scores'|trans }}</option>
+                                    <option value="rank_desc">{{ 'rhythm.sort.most_ranks'|trans }}</option>
+                                    <option value="random">{{ 'rhythm.sort.random'|trans }}</option>
                                   </select>
                                 </div>
                                 <div class="rg-list-container" id="rg-list-artists"></div>
@@ -160,16 +160,16 @@
                                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid rgba(255,255,255,0.1);">
                                       <div style="display: flex; align-items: center; gap: 12px;">
                                         <i class="bi bi-sliders" style="font-size: 1.8rem; color: #fff;"></i>
-                                        <h2 style="color: #fff; font-weight: 800; text-transform: uppercase; font-size: 1.6rem; margin: 0; letter-spacing: 1px;">Settings</h2>
+                                        <h2 style="color: #fff; font-weight: 800; text-transform: uppercase; font-size: 1.6rem; margin: 0; letter-spacing: 1px;">{{ 'rhythm.settings.title'|trans }}</h2>
                                       </div>
-                                      <button class="btn btn-outline-light rounded-pill fw-bold d-flex align-items-center gap-2 share-view-btn" data-share-type="game" data-share-name="PHP Music Rhythm Game" data-image-url="?action=get_app_icon&size=512" style="font-size: 0.85rem;">
-                                        <i class="bi bi-share-fill"></i> Share
+                                      <button class="btn btn-outline-light rounded-pill fw-bold d-flex align-items-center gap-2 share-view-btn" data-share-type="game" data-share-name="{{ 'rhythm.share.name'|trans }}" data-image-url="?action=get_app_icon&size=512" style="font-size: 0.85rem;">
+                                        <i class="bi bi-share-fill"></i> {{ 'common.share'|trans }}
                                       </button>
                                     </div>
     
                                     <!-- Keybindings Card -->
                                     <div style="background-color: #1a1a1a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 24px; margin-bottom: 20px;">
-                                      <div style="font-size: 0.95rem; font-weight: 700; color: #fff; text-transform: uppercase; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; letter-spacing: 1px;"><i class="bi bi-keyboard fs-5 text-secondary"></i> Lane Keybindings</div>
+                                      <div style="font-size: 0.95rem; font-weight: 700; color: #fff; text-transform: uppercase; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; letter-spacing: 1px;"><i class="bi bi-keyboard fs-5 text-secondary"></i> {{ 'rhythm.settings.keybindings'|trans }}</div>
                                       <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;">
                                         <button class="rg-key-btn" data-lane="0">A</button>
                                         <button class="rg-key-btn" data-lane="1">S</button>
@@ -183,20 +183,20 @@
                                         <button class="rg-key-btn" data-lane="9">;</button>
                                       </div>
                                       <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 16px; gap: 16px; flex-wrap: wrap;">
-                                        <div style="font-size: 0.8rem; color: #888; font-weight: 500;"><i class="bi bi-info-circle me-1"></i>Tap a key to rebind. Easy/Med uses 4 keys (D,F,J,K), Hard-Master uses 6 keys (S,D,F,J,K,L), Demon uses all 10 lanes!</div>
+                                        <div style="font-size: 0.8rem; color: #888; font-weight: 500;"><i class="bi bi-info-circle me-1"></i>{{ 'rhythm.settings.keybindings_help'|trans }}</div>
                                         <button class="btn btn-info text-dark rounded-pill fw-bold d-flex align-items-center gap-2 flex-shrink-0" data-bs-toggle="modal" data-bs-target="#rg-how-to-play-modal" style="font-size: 0.85rem;">
-                                          <i class="bi bi-info-circle-fill"></i> How to Play
+                                          <i class="bi bi-info-circle-fill"></i> {{ 'rhythm.settings.how_to_play'|trans }}
                                         </button>
                                       </div>
                                     </div>
     
                                     <!-- Gameplay Sliders Card -->
                                     <div style="background-color: #1a1a1a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 24px; margin-bottom: 20px;">
-                                      <div style="font-size: 0.95rem; font-weight: 700; color: #fff; text-transform: uppercase; margin-bottom: 28px; display: flex; align-items: center; gap: 8px; letter-spacing: 1px;"><i class="bi bi-sliders fs-5 text-secondary"></i> Gameplay Options</div>
+                                      <div style="font-size: 0.95rem; font-weight: 700; color: #fff; text-transform: uppercase; margin-bottom: 28px; display: flex; align-items: center; gap: 8px; letter-spacing: 1px;"><i class="bi bi-sliders fs-5 text-secondary"></i> {{ 'rhythm.settings.gameplay_options'|trans }}</div>
     
                                       <div style="margin-bottom: 28px;">
                                         <div style="font-size: 0.85rem; font-weight: 700; color: #ccc; text-transform: uppercase; display: flex; justify-content: space-between; margin-bottom: 12px;">
-                                          <span>Audio Latency Offset</span>
+                                          <span>{{ 'rhythm.settings.latency_offset'|trans }}</span>
                                           <span id="rg-offset-display" style="color: #fff; font-family: monospace; font-size: 1rem; background: #333; padding: 2px 8px; border-radius: 4px;">0ms</span>
                                         </div>
                                         <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
@@ -208,7 +208,7 @@
     
                                       <div style="margin-bottom: 28px;">
                                         <div style="font-size: 0.85rem; font-weight: 700; color: #ccc; text-transform: uppercase; display: flex; justify-content: space-between; margin-bottom: 12px;">
-                                          <span>Note Speed (Tick)</span>
+                                          <span>{{ 'rhythm.settings.note_speed'|trans }}</span>
                                           <span id="rg-speed-display" style="color: #fff; font-family: monospace; font-size: 1rem; background: #333; padding: 2px 8px; border-radius: 4px;">1.0x</span>
                                         </div>
                                         <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
@@ -220,7 +220,7 @@
     
                                       <div>
                                         <div style="font-size: 0.85rem; font-weight: 700; color: #ccc; text-transform: uppercase; display: flex; justify-content: space-between; margin-bottom: 12px;">
-                                          <span>Hit SFX Volume</span>
+                                          <span>{{ 'rhythm.settings.sfx_volume'|trans }}</span>
                                           <span id="rg-sfx-display" style="color: #fff; font-family: monospace; font-size: 1rem; background: #333; padding: 2px 8px; border-radius: 4px;">30%</span>
                                         </div>
                                         <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
@@ -231,21 +231,21 @@
                                       </div>
     
                                       <div style="display: flex; justify-content: flex-end; margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                        <button id="rg-btn-reset-options" class="btn btn-outline-danger btn-sm rounded-pill fw-bold px-3 py-1"><i class="bi bi-arrow-counterclockwise"></i> Reset Options</button>
+                                        <button id="rg-btn-reset-options" class="btn btn-outline-danger btn-sm rounded-pill fw-bold px-3 py-1"><i class="bi bi-arrow-counterclockwise"></i> {{ 'rhythm.settings.reset_options'|trans }}</button>
                                       </div>
                                     </div>
     
                                     <!-- Calibration Card -->
                                     <div style="background-color: #1a1a1a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 24px;">
                                       <div style="font-size: 0.95rem; font-weight: 700; color: #fff; text-transform: uppercase; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; letter-spacing: 1px;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><i class="bi bi-crosshair fs-5 text-secondary"></i> Calibration Tool</div>
-                                        <button id="rg-btn-cal-test" style="background: var(--rg-primary); color: #fff; border: none; border-radius: 4px; padding: 6px 16px; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; transition: opacity 0.2s; cursor: pointer;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Start Test</button>
+                                        <div style="display: flex; align-items: center; gap: 8px;"><i class="bi bi-crosshair fs-5 text-secondary"></i> {{ 'rhythm.settings.calibration'|trans }}</div>
+                                        <button id="rg-btn-cal-test" style="background: var(--rg-primary); color: #fff; border: none; border-radius: 4px; padding: 6px 16px; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; transition: opacity 0.2s; cursor: pointer;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">{{ 'js.rhythm.calibration.start'|trans }}</button>
                                       </div>
                                       <div style="position: relative; width: 100%; height: 160px; border-radius: 8px; overflow: hidden; display: none; margin-bottom: 16px; border: 1px solid #333;" id="rg-cal-test-area">
                                         <canvas id="rg-cal-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0a0a0a;"></canvas>
-                                        <div id="rg-cal-feedback" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'Roboto', sans-serif; font-weight: 900; font-size: 1.2rem; color: #fff; pointer-events: none; white-space: nowrap; transition: transform 0.05s ease-out;">Tap Key to Calibrate</div>
+                                        <div id="rg-cal-feedback" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'Roboto', sans-serif; font-weight: 900; font-size: 1.2rem; color: #fff; pointer-events: none; white-space: nowrap; transition: transform 0.05s ease-out;">{{ 'js.rhythm.calibration.tap_prompt'|trans }}</div>
                                       </div>
-                                      <div style="font-size: 0.8rem; color: #888; font-weight: 500; line-height: 1.5;"><i class="bi bi-info-circle me-1"></i>Test your latency offset and note speed in real-time. Hit your bound keys as the falling lines cross the red target!</div>
+                                      <div style="font-size: 0.8rem; color: #888; font-weight: 500; line-height: 1.5;"><i class="bi bi-info-circle me-1"></i>{{ 'rhythm.calibration.help'|trans }}</div>
                                     </div>
                                   </div>
                                 </div>
@@ -253,27 +253,27 @@
     
                               <div id="rg-tab-offline" class="rg-tab-content rg-hidden">
                                 <div class="rg-search-bar" style="display: flex; gap: 8px;">
-                                  <input type="text" id="rg-search-offline" class="rg-search-input" placeholder="Search offline tracks..." style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
+                                  <input type="text" id="rg-search-offline" class="rg-search-input" placeholder="{{ 'rhythm.search.offline'|trans }}" style="flex-grow: 1; min-width: 0; padding: 8px 16px; height: 38px; border-radius: 50px;">
                                   <select id="rg-sort-offline" class="rg-search-input" style="width: auto; flex-shrink: 0; padding: 0 32px 0 16px; height: 38px; cursor: pointer; border-radius: 50px;">
-                                    <option value="manual_order">My Order</option>
-                                    <option value="random">Random</option>
-                                    <option value="trending">Trending</option>
-                                    <option value="added_newest">Newest</option>
-                                    <option value="title_asc">Title (A-Z)</option>
-                                    <option value="artist_asc">Artist (A-Z)</option>
+                                    <option value="manual_order">{{ 'rhythm.sort.my_order'|trans }}</option>
+                                    <option value="random">{{ 'rhythm.sort.random'|trans }}</option>
+                                    <option value="trending">{{ 'rhythm.sort.trending'|trans }}</option>
+                                    <option value="added_newest">{{ 'rhythm.sort.newest'|trans }}</option>
+                                    <option value="title_asc">{{ 'rhythm.sort.title_asc'|trans }}</option>
+                                    <option value="artist_asc">{{ 'rhythm.sort.artist_asc'|trans }}</option>
                                   </select>
                                 </div>
                                 <div class="rg-list-container" id="rg-list-offline"></div>
                               </div>
                             </div>
                             <div class="rg-bottom-nav">
-                              <div class="rg-nav-item active" data-target="songs"><i class="bi bi-music-note-list fs-4"></i><div class="rg-nav-label">Songs</div></div>
-                              <div class="rg-nav-item" data-target="artists"><i class="bi bi-people-fill fs-4"></i><div class="rg-nav-label">Artists</div></div>
-                              <div class="rg-nav-item" data-target="favorites"><i class="bi bi-heart-fill fs-4"></i><div class="rg-nav-label">Favorites</div></div>
-                              <div class="rg-nav-item" data-target="leaderboard"><i class="bi bi-trophy-fill fs-4"></i><div class="rg-nav-label">Ranks</div></div>
-                              <div class="rg-nav-item" id="rg-nav-my-profile"><i class="bi bi-person-fill fs-4"></i><div class="rg-nav-label">Profile</div></div>
-                              <div class="rg-nav-item" data-target="offline"><i class="bi bi-cloud-check-fill fs-4"></i><div class="rg-nav-label">Offline</div></div>
-                              <div class="rg-nav-item" data-target="settings"><i class="bi bi-sliders fs-4"></i><div class="rg-nav-label">Settings</div></div>
+                              <div class="rg-nav-item active" data-target="songs"><i class="bi bi-music-note-list fs-4"></i><div class="rg-nav-label">{{ 'rhythm.nav.songs'|trans }}</div></div>
+                              <div class="rg-nav-item" data-target="artists"><i class="bi bi-people-fill fs-4"></i><div class="rg-nav-label">{{ 'rhythm.nav.artists'|trans }}</div></div>
+                              <div class="rg-nav-item" data-target="favorites"><i class="bi bi-heart-fill fs-4"></i><div class="rg-nav-label">{{ 'rhythm.nav.favorites'|trans }}</div></div>
+                              <div class="rg-nav-item" data-target="leaderboard"><i class="bi bi-trophy-fill fs-4"></i><div class="rg-nav-label">{{ 'rhythm.nav.ranks'|trans }}</div></div>
+                              <div class="rg-nav-item" id="rg-nav-my-profile"><i class="bi bi-person-fill fs-4"></i><div class="rg-nav-label">{{ 'rhythm.nav.profile'|trans }}</div></div>
+                              <div class="rg-nav-item" data-target="offline"><i class="bi bi-cloud-check-fill fs-4"></i><div class="rg-nav-label">{{ 'rhythm.nav.offline'|trans }}</div></div>
+                              <div class="rg-nav-item" data-target="settings"><i class="bi bi-sliders fs-4"></i><div class="rg-nav-label">{{ 'rhythm.nav.settings'|trans }}</div></div>
                             </div>
                           </div>
     
@@ -285,40 +285,40 @@
     
                                 <img id="rg-dialog-cover" src="" style="width: 240px; height: 240px; object-fit: cover; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 12px 32px rgba(0,0,0,0.6); margin-bottom: 24px; flex-shrink: 0; margin-top: auto;">
     
-                                <div class="rg-dialog-title w-100 text-truncate" id="rg-dialog-song-name" style="margin-bottom: 4px; font-size: 2.2rem; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.6);">Song Name</div>
-                                <div class="w-100 text-truncate fw-bold" id="rg-dialog-song-artist" style="margin-bottom: 24px; font-size: 1.1rem; color: #a1a1aa; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">Artist Name</div>
+                                <div class="rg-dialog-title w-100 text-truncate" id="rg-dialog-song-name" style="margin-bottom: 4px; font-size: 2.2rem; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.6);">{{ 'rhythm.dialog.song_name_placeholder'|trans }}</div>
+                                <div class="w-100 text-truncate fw-bold" id="rg-dialog-song-artist" style="margin-bottom: 24px; font-size: 1.1rem; color: #a1a1aa; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">{{ 'rhythm.dialog.artist_name_placeholder'|trans }}</div>
     
                                 <!-- Share and Favorite Controls -->
                                 <div class="d-flex gap-3 mb-4" style="width: 100%; max-width: 400px; margin: 0 auto;">
                                   <button type="button" class="btn btn-outline-light flex-grow-1 fw-bold py-2 rounded-pill d-flex align-items-center justify-content-center gap-2" id="rg-dialog-fav-btn" style="font-size: 0.95rem; border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #fff; transition: all 0.2s;">
-                                    <i class="bi bi-heart" id="rg-dialog-fav-icon"></i> <span id="rg-dialog-fav-text">Favorite</span>
+                                    <i class="bi bi-heart" id="rg-dialog-fav-icon"></i> <span id="rg-dialog-fav-text">{{ 'js.rhythm.dialog.favorite'|trans }}</span>
                                   </button>
                                   <button type="button" class="btn btn-outline-light flex-grow-1 fw-bold py-2 rounded-pill d-flex align-items-center justify-content-center gap-2" id="rg-dialog-share-btn" style="font-size: 0.95rem; border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #fff; transition: all 0.2s;">
-                                    <i class="bi bi-share-fill"></i> <span>Share</span>
+                                    <i class="bi bi-share-fill"></i> <span>{{ 'common.share'|trans }}</span>
                                   </button>
                                 </div>
     
                                 <div style="width: 100%; max-width: 400px; margin: 0 auto; background: rgba(0,0,0,0.4); padding: 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
-                                  <div style="font-size: 0.8rem; font-weight: 800; color: #888; margin-bottom: 16px; text-align: left; text-transform: uppercase; letter-spacing: 1px;">Select Difficulty</div>
+                                  <div style="font-size: 0.8rem; font-weight: 800; color: #888; margin-bottom: 16px; text-align: left; text-transform: uppercase; letter-spacing: 1px;">{{ 'rhythm.dialog.select_difficulty'|trans }}</div>
                                   <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                                    <button class="rg-diff-btn active" data-diff="easy"><div class="rg-diff-btn-inner">EASY <span class="lvl">LV.--</span></div></button>
-                                    <button class="rg-diff-btn" data-diff="medium"><div class="rg-diff-btn-inner">NORMAL <span class="lvl">LV.--</span></div></button>
-                                    <button class="rg-diff-btn" data-diff="hard"><div class="rg-diff-btn-inner">HARD <span class="lvl">LV.--</span></div></button>
-                                    <button class="rg-diff-btn" data-diff="expert"><div class="rg-diff-btn-inner">EXPERT <span class="lvl">LV.--</span></div></button>
-                                    <button class="rg-diff-btn" data-diff="master"><div class="rg-diff-btn-inner">MASTER <span class="lvl">LV.--</span></div></button>
-                                    <button class="rg-diff-btn" data-diff="demon"><div class="rg-diff-btn-inner">DEMON <span class="lvl">LV.--</span></div></button>
+                                    <button class="rg-diff-btn active" data-diff="easy"><div class="rg-diff-btn-inner">{{ 'js.rhythm.difficulty.easy'|trans }} <span class="lvl">{{ 'js.rhythm.level_badge'|trans({level: '--'}) }}</span></div></button>
+                                    <button class="rg-diff-btn" data-diff="medium"><div class="rg-diff-btn-inner">{{ 'js.rhythm.difficulty.medium'|trans }} <span class="lvl">{{ 'js.rhythm.level_badge'|trans({level: '--'}) }}</span></div></button>
+                                    <button class="rg-diff-btn" data-diff="hard"><div class="rg-diff-btn-inner">{{ 'js.rhythm.difficulty.hard'|trans }} <span class="lvl">{{ 'js.rhythm.level_badge'|trans({level: '--'}) }}</span></div></button>
+                                    <button class="rg-diff-btn" data-diff="expert"><div class="rg-diff-btn-inner">{{ 'js.rhythm.difficulty.expert'|trans }} <span class="lvl">{{ 'js.rhythm.level_badge'|trans({level: '--'}) }}</span></div></button>
+                                    <button class="rg-diff-btn" data-diff="master"><div class="rg-diff-btn-inner">{{ 'js.rhythm.difficulty.master'|trans }} <span class="lvl">{{ 'js.rhythm.level_badge'|trans({level: '--'}) }}</span></div></button>
+                                    <button class="rg-diff-btn" data-diff="demon"><div class="rg-diff-btn-inner">{{ 'js.rhythm.difficulty.demon'|trans }} <span class="lvl">{{ 'js.rhythm.level_badge'|trans({level: '--'}) }}</span></div></button>
                                   </div>
     
                                   <div id="rg-demon-warning" class="rounded-3 text-center" style="background-color: rgba(255, 59, 48, 0.15); border-color: #ff3b30; border-style: solid; max-height: 0; opacity: 0; margin-top: 0; padding: 0 0.5rem; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-width: 0;">
                                     <i class="bi bi-phone-landscape text-danger fs-4 d-block mb-1 mt-1"></i>
-                                    <span class="text-danger fw-bold" style="font-size: 0.8rem; display: block; padding-bottom: 8px;">Demon mode uses 10 lanes!<br>Rotate device to landscape or use a desktop.</span>
+                                    <span class="text-danger fw-bold" style="font-size: 0.8rem; display: block; padding-bottom: 8px;">{{ 'rhythm.dialog.demon_warning'|trans }}<br>{{ 'rhythm.dialog.demon_warning_rotate'|trans }}</span>
                                   </div>
                                 </div>
     
                                 <div style="width: 100%; max-width: 400px; margin: 16px auto 0 auto; display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.4); padding: 12px 20px; border-radius: 100px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
                                   <div class="text-start" style="min-width: 0;">
-                                    <div style="font-size: 0.95rem; font-weight: 800; color: #fff;">Autoplay (Bot Mode)</div>
-                                    <div style="font-size: 0.75rem; color: #aaa; font-weight: 500;">Watch the bot play perfectly.</div>
+                                    <div style="font-size: 0.95rem; font-weight: 800; color: #fff;">{{ 'rhythm.dialog.autoplay'|trans }}</div>
+                                    <div style="font-size: 0.75rem; color: #aaa; font-weight: 500;">{{ 'rhythm.dialog.autoplay_help'|trans }}</div>
                                   </div>
                                   <div class="form-check form-switch m-0 fs-4">
                                     <input class="form-check-input" type="checkbox" id="rg-autoplay-toggle" style="cursor: pointer; accent-color: var(--ytm-accent); border-color: rgba(255,255,255,0.2);">
@@ -326,12 +326,12 @@
                                 </div>
     
                                 <div style="width: 100%; max-width: 400px; margin: 16px auto 0 auto;">
-                                  <button id="rg-btn-view-chart" class="btn btn-outline-light w-100 fw-bold rounded-pill" style="font-size: 0.9rem; border-color: rgba(255,255,255,0.15);"><i class="bi bi-map me-1"></i> View Chart Map</button>
+                                  <button id="rg-btn-view-chart" class="btn btn-outline-light w-100 fw-bold rounded-pill" style="font-size: 0.9rem; border-color: rgba(255,255,255,0.15);"><i class="bi bi-map me-1"></i> {{ 'rhythm.dialog.view_chart'|trans }}</button>
                                 </div>
     
                                 <div style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 36px; margin-bottom: auto; width: 100%; max-width: 400px;">
-                                  <button class="btn btn-outline-secondary fw-bold rounded-pill" id="rg-btn-dialog-cancel" style="font-size: 1.1rem; width: 120px; border-color: rgba(255,255,255,0.1); color: #ccc;">Cancel</button>
-                                  <button class="btn btn-danger flex-grow-1 fw-bold fs-5 shadow-lg rounded-pill" id="rg-btn-dialog-play" style="padding: 10px;">Play</button>
+                                  <button class="btn btn-outline-secondary fw-bold rounded-pill" id="rg-btn-dialog-cancel" style="font-size: 1.1rem; width: 120px; border-color: rgba(255,255,255,0.1); color: #ccc;">{{ 'common.cancel'|trans }}</button>
+                                  <button class="btn btn-danger flex-grow-1 fw-bold fs-5 shadow-lg rounded-pill" id="rg-btn-dialog-play" style="padding: 10px;">{{ 'rhythm.dialog.play'|trans }}</button>
                                 </div>
                               </div>
     
@@ -340,10 +340,10 @@
                                 <div class="d-flex flex-column h-100 overflow-hidden w-100 rg-play-menu-right-inner">
                                   <div class="p-3 border-bottom border-secondary d-flex align-items-center gap-2 flex-shrink-0" style="background-color: rgba(0, 0, 0, 0.25);">
                                     <i class="bi bi-trophy-fill text-warning fs-5"></i>
-                                    <h5 class="m-0 text-white fw-bold text-uppercase" style="font-size: 1rem; letter-spacing: 1px;">Top Scores</h5>
+                                    <h5 class="m-0 text-white fw-bold text-uppercase" style="font-size: 1rem; letter-spacing: 1px;">{{ 'rhythm.dialog.top_scores'|trans }}</h5>
                                   </div>
                                   <div id="rg-song-leaderboard" class="overflow-auto flex-grow-1 p-3 modern-custom-scroll">
-                                    <div class="text-center text-secondary small py-4">Loading scores...</div>
+                                    <div class="text-center text-secondary small py-4">{{ 'js.rhythm.leaderboard.loading_scores'|trans }}</div>
                                   </div>
                                 </div>
                               </div>
@@ -354,11 +354,11 @@
                           <div id="rg-screen-loading" class="rg-screen rg-screen-center rg-hidden" style="justify-content: center; background-color: #000;">
                             <div class="text-center w-100 px-4" style="max-width: 100%;">
                               <img id="rg-loading-cover" src="" style="width: 250px; height: 250px; object-fit: cover; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.8); margin-bottom: 24px;">
-                              <h2 id="rg-loading-title" class="text-truncate" style="color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8); margin: 0 auto 4px auto; font-size: 1.8rem; font-weight: bold; text-align: center; max-width: 100%;">Song Title</h2>
-                              <div id="rg-loading-artist" class="text-truncate text-secondary fw-bold" style="text-shadow: 0 1px 3px rgba(0,0,0,0.8); margin: 0 auto 24px auto; font-size: 1.1rem; text-align: center; max-width: 100%;">Artist Name</div>
+                              <h2 id="rg-loading-title" class="text-truncate" style="color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8); margin: 0 auto 4px auto; font-size: 1.8rem; font-weight: bold; text-align: center; max-width: 100%;">{{ 'rhythm.loading.song_title_placeholder'|trans }}</h2>
+                              <div id="rg-loading-artist" class="text-truncate text-secondary fw-bold" style="text-shadow: 0 1px 3px rgba(0,0,0,0.8); margin: 0 auto 24px auto; font-size: 1.1rem; text-align: center; max-width: 100%;">{{ 'rhythm.dialog.artist_name_placeholder'|trans }}</div>
                               <div class="d-flex align-items-center justify-content-center gap-3">
                                 <div class="spinner-border text-danger" style="width: 1.5rem; height: 1.5rem; border-width: 0.2em;"></div>
-                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--rg-primary);" id="rg-loading-text">Downloading 0%</div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--rg-primary);" id="rg-loading-text">{{ 'js.rhythm.loading.preparing'|trans({percent: 0}) }}</div>
                               </div>
                             </div>
                           </div>
@@ -369,14 +369,14 @@
                             <!-- Z-index 40 ensures the HUD buttons are clickable above the touch layer -->
                             <div class="rg-hud" style="justify-content: center; position: relative; z-index: 40;">
                               <div style="display:flex; flex-direction:column; align-items:center; text-align: center; width: 100%; max-width: 210px; margin: 0 auto;">
-                                <div class="rg-hud-title text-truncate" id="rg-in-game-title" style="max-width: 140px;">Title</div>
+                                <div class="rg-hud-title text-truncate" id="rg-in-game-title" style="max-width: 140px;">{{ 'rhythm.game.title_placeholder'|trans }}</div>
     
                                 <!-- In-Game Score Progress Bar & Rank -->
                                 <div class="w-100 d-flex align-items-center gap-2 mb-1 mt-1" style="padding: 0 6px;">
                                   <div id="rg-in-game-rank" style="font-size: 1.3rem; font-weight: 900; font-family: 'Arial Black', sans-serif; color: #7f1d1d; min-width: 28px; text-align: left; text-shadow: 0 0 8px currentColor; line-height: 1;">F</div>
                                   <div class="flex-grow-1" style="min-width: 0;">
                                     <div class="d-flex justify-content-between align-items-baseline" style="font-size: 0.6rem; color: #888; font-weight: bold; letter-spacing: 0.5px;">
-                                      <span>SCORE</span>
+                                      <span>{{ 'rhythm.game.score'|trans }}</span>
                                       <span id="rg-in-game-score" style="font-family: monospace; font-size: 0.85rem; color: #fff;">000000000</span>
                                     </div>
                                     <div style="width: 100%; height: 4px; background-color: #222; border-radius: 2px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
@@ -387,7 +387,7 @@
     
                                 <div class="rg-combo-box">
                                   <div class="rg-combo-number" id="rg-in-game-combo">0</div>
-                                  <div class="rg-combo-text" id="rg-in-game-combo-lbl">COMBO</div>
+                                  <div class="rg-combo-text" id="rg-in-game-combo-lbl">{{ 'rhythm.game.combo'|trans }}</div>
                                   <div id="rg-in-game-rating" style="font-size: 1.4rem; font-weight: 900; margin-top: 6px; text-transform: uppercase; min-height: 24px; transition: transform 0.05s ease-out; text-shadow: 0 2px 4px rgba(0,0,0,0.5);"></div>
                                 </div>
                               </div>
@@ -397,8 +397,8 @@
                                   <div id="rg-in-game-hp" style="width: 100%; height: 100%; background-color: #27c93f; transition: width 0.1s, background-color: 0.1s;"></div>
                                 </div>
                                 <div id="rg-in-game-accuracy" style="font-family: monospace; font-size: 0.8rem; font-weight: bold; color: #aaa; text-shadow: 0 1px 2px rgba(0,0,0,0.8); line-height: 1;">100.00%</div>
-                                <div id="rg-in-game-fps" style="font-family: monospace; font-size: 0.7rem; font-weight: bold; color: #888; text-shadow: 0 1px 2px rgba(0,0,0,0.8); line-height: 1; margin-top: 4px;">-- FPS</div>
-                                <div id="rg-in-game-autoplay" style="font-size: 0.65rem; font-weight: 800; color: #00bcd4; text-transform: uppercase; margin-top: 2px; text-shadow: 0 0 6px rgba(0,188,212,0.4); display: none;">Autoplay</div>
+                                <div id="rg-in-game-fps" style="font-family: monospace; font-size: 0.7rem; font-weight: bold; color: #888; text-shadow: 0 1px 2px rgba(0,0,0,0.8); line-height: 1; margin-top: 4px;">{{ 'js.rhythm.game.fps'|trans({fps: '--'}) }}</div>
+                                <div id="rg-in-game-autoplay" style="font-size: 0.65rem; font-weight: 800; color: #00bcd4; text-transform: uppercase; margin-top: 2px; text-shadow: 0 0 6px rgba(0,188,212,0.4); display: none;">{{ 'rhythm.game.autoplay'|trans }}</div>
                               </div>
                             </div>
                           </div>
@@ -406,42 +406,42 @@
                           <div id="rg-dialog-chart-modal" class="rg-dialog-backdrop rg-hidden" style="z-index: 60;">
                             <div class="rg-dialog-surface text-center" style="max-width: 95%; width: 100%; max-width: 600px; max-height: 80vh; padding: 0; overflow: hidden; gap: 0;">
                               <div style="padding: 16px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background: var(--rg-surface-variant); flex-shrink: 0;">
-                                <h5 class="text-white m-0 fw-bold" style="font-size: 1.1rem;"><i class="bi bi-map text-danger me-2"></i> Chart Map</h5>
-                                <button class="btn-close btn-close-white" id="rg-btn-close-chart"></button>
+                                <h5 class="text-white m-0 fw-bold" style="font-size: 1.1rem;"><i class="bi bi-map text-danger me-2"></i> {{ 'rhythm.chart.title'|trans }}</h5>
+                                <button class="btn-close btn-close-white" id="rg-btn-close-chart" aria-label="{{ 'common.close'|trans }}"></button>
                               </div>
                               <div id="rg-chart-modal-content" style="overflow-y: auto; overflow-x: auto; background: #000; padding: 16px; flex-grow: 1;">
                                 <!-- SVG injected here -->
                               </div>
                               <div style="padding: 16px; border-top: 1px solid #333; background: var(--rg-surface-variant); flex-shrink: 0;">
-                                <button id="rg-btn-dl-chart" class="btn btn-info w-100 fw-bold text-dark rounded-pill"><i class="bi bi-download me-1"></i> Download SVG</button>
+                                <button id="rg-btn-dl-chart" class="btn btn-info w-100 fw-bold text-dark rounded-pill"><i class="bi bi-download me-1"></i> {{ 'rhythm.chart.download_svg'|trans }}</button>
                               </div>
                             </div>
                           </div>
     
                           <div id="rg-dialog-pause" class="rg-dialog-backdrop rg-hidden" style="z-index: 50;">
                             <div class="rg-dialog-surface text-center">
-                              <h3 class="text-white fw-bold mb-1">Game Paused</h3>
-                              <div class="text-secondary small fw-bold text-uppercase mb-4">Difficulty: <span id="rg-pause-diff-display" class="text-danger">Medium</span></div>
+                              <h3 class="text-white fw-bold mb-1">{{ 'rhythm.pause.title'|trans }}</h3>
+                              <div class="text-secondary small fw-bold text-uppercase mb-4">{{ 'rhythm.pause.difficulty'|trans }} <span id="rg-pause-diff-display" class="text-danger">{{ 'js.rhythm.difficulty.medium'|trans }}</span></div>
                               <div class="d-flex flex-column gap-3 w-100">
-                                <button class="rg-primary-btn" id="rg-btn-resume" style="background-color: #ff3b30; color: #ffffff; border-radius: 12px; border: none; padding: 16px; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4);">Resume</button>
-                                <button class="rg-primary-btn" id="rg-btn-retry-pause" style="background-color: #8e1c1c; color: #ffffff; border-radius: 12px; border: none; padding: 16px;">Retry</button>
-                                <button class="rg-primary-btn" id="rg-btn-quit" style="background-color: #4a0000; color: #ffffff; border-radius: 12px; border: none; padding: 16px;">Quit to Menu</button>
+                                <button class="rg-primary-btn" id="rg-btn-resume" style="background-color: #ff3b30; color: #ffffff; border-radius: 12px; border: none; padding: 16px; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4);">{{ 'rhythm.pause.resume'|trans }}</button>
+                                <button class="rg-primary-btn" id="rg-btn-retry-pause" style="background-color: #8e1c1c; color: #ffffff; border-radius: 12px; border: none; padding: 16px;">{{ 'rhythm.game.retry'|trans }}</button>
+                                <button class="rg-primary-btn" id="rg-btn-quit" style="background-color: #4a0000; color: #ffffff; border-radius: 12px; border: none; padding: 16px;">{{ 'rhythm.pause.quit'|trans }}</button>
                               </div>
                             </div>
                           </div>
     
                           <div id="rg-screen-result" class="rg-screen rg-hidden" style="background-color: transparent; overflow-y: auto; overflow-x: hidden; display: block; width: 100%; max-width: 100%; box-sizing: border-box;">
                             <div style="width: 100%; max-width: 600px; margin: 0 auto; padding: 48px 16px 120px 16px; position: relative; z-index: 1; box-sizing: border-box; overflow-x: hidden;">
-                              <h2 style="text-align: center; color: var(--rg-primary); margin-bottom: 24px; text-transform: uppercase; font-weight: 900; font-size: 2.2rem; letter-spacing: 2px; text-shadow: 0 4px 12px rgba(0,0,0,0.5);">Stage Cleared</h2>
+                              <h2 style="text-align: center; color: var(--rg-primary); margin-bottom: 24px; text-transform: uppercase; font-weight: 900; font-size: 2.2rem; letter-spacing: 2px; text-shadow: 0 4px 12px rgba(0,0,0,0.5);">{{ 'js.rhythm.result.stage_cleared'|trans }}</h2>
     
                               <!-- Rank & Accuracy Card -->
                               <div class="p-3 mb-4 d-flex align-items-center justify-content-between rounded-4" style="background: linear-gradient(135deg, rgba(255,59,48,0.15), rgba(0,0,0,0.4)); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
                                 <div class="d-flex flex-column text-start">
-                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px;">Accuracy</span>
+                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px;">{{ 'rhythm.result.accuracy'|trans }}</span>
                                   <span id="rg-res-acc" style="font-size: 2.2rem; font-weight: 900; font-family: monospace; color: #fff; line-height: 1.1;">100.00%</span>
                                 </div>
                                 <div class="d-flex flex-column align-items-end text-end">
-                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Rank</span>
+                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">{{ 'rhythm.result.rank'|trans }}</span>
                                   <span id="rg-res-rank" style="font-size: 3.5rem; font-weight: 900; line-height: 0.8; font-family: 'Arial Black', sans-serif; text-shadow: 0 0 15px currentColor; transition: color 0.3s;">SS</span>
                                 </div>
                               </div>
@@ -449,7 +449,7 @@
                               <!-- Score Progress Bar Container -->
                               <div class="p-3 mb-4 rounded-4" style="background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
                                 <div class="d-flex justify-content-between align-items-end mb-2">
-                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px;">Total Score</span>
+                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px;">{{ 'rhythm.result.total_score'|trans }}</span>
                                   <span id="rg-res-score" style="font-size: 1.8rem; font-weight: 900; font-family: monospace; color: var(--rg-primary); line-height: 1;">000,000,000</span>
                                 </div>
                                 <div style="width: 100%; height: 10px; background-color: #111; border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
@@ -461,46 +461,46 @@
                               <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 32px;">
                                 <!-- Max Combo (Full Width) -->
                                 <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 12px 18px; border-radius: 12px;">
-                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px;">Max Combo</span>
+                                  <span style="font-size: 0.75rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px;">{{ 'rhythm.result.max_combo'|trans }}</span>
                                   <span id="rg-res-max-combo" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff;">0</span>
                                 </div>
     
                                 <!-- Perfect -->
                                 <div style="background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 12px; display: flex; flex-direction: column; text-align: left;">
-                                  <span style="font-size: 0.7rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px;">Perfect</span>
+                                  <span style="font-size: 0.7rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px;">{{ 'js.rhythm.judgement.perfect'|trans }}</span>
                                   <span id="rg-res-perfect" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff; margin-top: 2px;">0</span>
                                 </div>
     
                                 <!-- Great -->
                                 <div style="background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 12px; display: flex; flex-direction: column; text-align: left;">
-                                  <span style="font-size: 0.7rem; font-weight: 700; color: #ff3b30; text-transform: uppercase; letter-spacing: 0.5px;">Great</span>
+                                  <span style="font-size: 0.7rem; font-weight: 700; color: #ff3b30; text-transform: uppercase; letter-spacing: 0.5px;">{{ 'js.rhythm.judgement.great'|trans }}</span>
                                   <span id="rg-res-great" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff; margin-top: 2px;">0</span>
                                 </div>
     
                                 <!-- Good -->
                                 <div style="background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 12px; display: flex; flex-direction: column; text-align: left;">
-                                  <span style="font-size: 0.7rem; font-weight: 700; color: #ffa000; text-transform: uppercase; letter-spacing: 0.5px;">Good</span>
+                                  <span style="font-size: 0.7rem; font-weight: 700; color: #ffa000; text-transform: uppercase; letter-spacing: 0.5px;">{{ 'js.rhythm.judgement.good'|trans }}</span>
                                   <span id="rg-res-good" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff; margin-top: 2px;">0</span>
                                 </div>
     
                                 <!-- Bad -->
                                 <div style="background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 12px; display: flex; flex-direction: column; text-align: left;">
-                                  <span style="font-size: 0.7rem; font-weight: 700; color: #8e1c1c; text-transform: uppercase; letter-spacing: 0.5px;">Bad</span>
+                                  <span style="font-size: 0.7rem; font-weight: 700; color: #8e1c1c; text-transform: uppercase; letter-spacing: 0.5px;">{{ 'js.rhythm.judgement.bad'|trans }}</span>
                                   <span id="rg-res-bad" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff; margin-top: 2px;">0</span>
                                 </div>
     
                                 <!-- Miss (Full Width) -->
                                 <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; background-color: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); padding: 12px 18px; border-radius: 12px;">
-                                  <span style="font-size: 0.75rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px;">Miss</span>
+                                  <span style="font-size: 0.75rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px;">{{ 'js.rhythm.judgement.miss'|trans }}</span>
                                   <span id="rg-res-miss" style="font-size: 1.4rem; font-weight: 900; font-family: monospace; color: #fff;">0</span>
                                 </div>
                               </div>
     
                               <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
-                                <button class="rg-primary-btn" id="rg-btn-result-share" style="width: 100%; background-color: #1DB954; color: #fff; padding: 16px; border-radius: 16px; margin-bottom: 8px;"><i class="bi bi-share-fill"></i> Share Score</button>
+                                <button class="rg-primary-btn" id="rg-btn-result-share" style="width: 100%; background-color: #1DB954; color: #fff; padding: 16px; border-radius: 16px; margin-bottom: 8px;"><i class="bi bi-share-fill"></i> {{ 'rhythm.result.share_score'|trans }}</button>
                                 <div style="display: flex; gap: 12px; width: 100%; margin-bottom: 1em;">
-                                  <button class="rg-primary-btn" id="rg-btn-result-retry" style="flex: 1; background-color: #4a0000; color: var(--rg-primary); padding: 16px; border-radius: 16px;">Retry</button>
-                                  <button class="rg-primary-btn" id="rg-btn-result-back" style="flex: 1; padding: 16px; border-radius: 16px;">Menu</button>
+                                  <button class="rg-primary-btn" id="rg-btn-result-retry" style="flex: 1; background-color: #4a0000; color: var(--rg-primary); padding: 16px; border-radius: 16px;">{{ 'rhythm.game.retry'|trans }}</button>
+                                  <button class="rg-primary-btn" id="rg-btn-result-back" style="flex: 1; padding: 16px; border-radius: 16px;">{{ 'rhythm.result.menu'|trans }}</button>
                                 </div>
                               </div>
                             </div>
@@ -512,26 +512,26 @@
       <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-sm">
         <div class="modal-content" style="background-color: var(--ytm-surface); border: 1px solid #404040;">
           <div class="modal-header border-0 pb-2" style="border-bottom: 1px solid var(--ytm-surface-2) !important;">
-            <h5 class="modal-title text-white fw-bold"><i class="bi bi-sliders text-danger me-2"></i> Adjust Chart Scan</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <h5 class="modal-title text-white fw-bold"><i class="bi bi-sliders text-danger me-2"></i> {{ 'rhythm.density.title'|trans }}</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ 'common.close'|trans }}"></button>
           </div>
           <div class="modal-body p-4 text-white">
-            <label class="form-label text-secondary small fw-bold mb-2">CHART DENSITY MODIFIER</label>
+            <label class="form-label text-secondary small fw-bold mb-2">{{ 'rhythm.density.label'|trans }}</label>
             <div style="position: relative; display: flex; align-items: center; margin-bottom: 1.5rem;">
               <select id="rhythm-global-density-select" class="form-control bg-dark text-white border-secondary" style="appearance: none; -webkit-appearance: none; padding-right: 48px; cursor: pointer; z-index: 1; height: 45px; font-weight: 500;">
-                <option value="0.5">0.5x (Very Sparse - Casual)</option>
-                <option value="0.8">0.8x (Sparse)</option>
-                <option value="1.0">1.0x (Neutral / Standard 3x)</option>
-                <option value="1.2">1.2x (Dense)</option>
-                <option value="1.5">1.5x (Very Dense)</option>
-                <option value="2.0">2.0x (Extreme / 6x)</option>
+                <option value="0.5">{{ 'rhythm.density.very_sparse'|trans }}</option>
+                <option value="0.8">{{ 'rhythm.density.sparse'|trans }}</option>
+                <option value="1.0">{{ 'rhythm.density.neutral'|trans }}</option>
+                <option value="1.2">{{ 'rhythm.density.dense'|trans }}</option>
+                <option value="1.5">{{ 'rhythm.density.very_dense'|trans }}</option>
+                <option value="2.0">{{ 'rhythm.density.extreme'|trans }}</option>
               </select>
               <i class="bi bi-chevron-down text-secondary" style="position: absolute; right: 16px; pointer-events: none; font-size: 1.2rem; z-index: 2;"></i>
             </div>
-            <button type="button" class="btn btn-danger w-100 fw-bold mb-3" id="save-rhythm-global-density-btn" style="height: 45px;">Save Settings</button>
+            <button type="button" class="btn btn-danger w-100 fw-bold mb-3" id="save-rhythm-global-density-btn" style="height: 45px;">{{ 'rhythm.density.save'|trans }}</button>
             <hr class="border-secondary opacity-50 mb-3">
-            <button type="button" class="btn btn-outline-warning w-100 fw-bold" id="vacuum-database-btn" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#vacuum-modal" style="height: 45px;"><i class="bi bi-database-fill-gear me-1"></i> Optimize Storage</button>
-            <div class="text-secondary small mt-2 text-center" style="line-height: 1.4;">Frees up disk space by removing remnants of old replaced charts. Does not delete active data.</div>
+            <button type="button" class="btn btn-outline-warning w-100 fw-bold" id="vacuum-database-btn" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#vacuum-modal" style="height: 45px;"><i class="bi bi-database-fill-gear me-1"></i> {{ 'rhythm.density.optimize_storage'|trans }}</button>
+            <div class="text-secondary small mt-2 text-center" style="line-height: 1.4;">{{ 'rhythm.density.optimize_help'|trans }}</div>
           </div>
         </div>
       </div>
@@ -541,8 +541,8 @@
       <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header border-0">
-            <h5 class="modal-title">Database Optimization Log</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <h5 class="modal-title">{{ 'rhythm.vacuum.title'|trans }}</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ 'common.close'|trans }}"></button>
           </div>
           <div class="modal-body p-0">
             <iframe id="vacuum-iframe" src="about:blank" style="width: 100%; height: 60vh; border: none; background-color: #030303;"></iframe>
@@ -555,8 +555,8 @@
       <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content" style="background-color: #030303; border: 1px solid #333; border-radius: 16px;">
           <div class="modal-header border-0 pb-0">
-            <h5 class="modal-title text-white fw-bold"><i class="bi bi-controller text-danger me-2"></i> Player History</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <h5 class="modal-title text-white fw-bold"><i class="bi bi-controller text-danger me-2"></i> {{ 'rhythm.player_stats.title'|trans }}</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ 'common.close'|trans }}"></button>
           </div>
           <div class="modal-body p-4" id="rg-player-stats-body">
             <!-- Populated dynamically via JS -->
@@ -569,20 +569,20 @@
       <div class="modal-dialog modal-dialog-scrollable modal-fullscreen">
         <div class="modal-content" style="background-color: var(--ytm-bg); border: none;">
           <div class="modal-header border-0 pb-2 px-4" style="border-bottom: 1px solid var(--ytm-surface-2) !important; background-color: var(--ytm-surface);">
-            <h5 class="modal-title text-white fw-bold"><i class="bi bi-info-circle-fill text-info me-2"></i>How to Play: Rhythm Game</h5>
-            <button type="button" class="btn-close btn-close-white fs-5" data-bs-dismiss="modal"></button>
+            <h5 class="modal-title text-white fw-bold"><i class="bi bi-info-circle-fill text-info me-2"></i>{{ 'rhythm.howto.title'|trans }}</h5>
+            <button type="button" class="btn-close btn-close-white fs-5" data-bs-dismiss="modal" aria-label="{{ 'common.close'|trans }}"></button>
           </div>
           <div class="modal-body text-light px-4 py-4 mx-auto" style="width: 100%;">
             
             <div class="text-center mb-5 mt-2">
               <i class="bi bi-controller text-danger" style="font-size: 4rem;"></i>
-              <h2 class="fw-bold mt-3 text-white">Master the Beat</h2>
-              <p class="text-secondary">Learn the core mechanics, note types, and scoring system to climb the leaderboards.</p>
+              <h2 class="fw-bold mt-3 text-white">{{ 'rhythm.howto.heading'|trans }}</h2>
+              <p class="text-secondary">{{ 'rhythm.howto.intro'|trans }}</p>
             </div>
 
             <div class="d-flex flex-column gap-3">
               
-              <h5 class="text-white mt-2 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">Note Types</h5>
+              <h5 class="text-white mt-2 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">{{ 'rhythm.howto.note_types'|trans }}</h5>
               
               <!-- Tap Notes -->
               <div class="d-flex flex-column p-4 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
@@ -594,8 +594,8 @@
                     </svg>
                   </div>
                   <div>
-                    <span class="fw-bold text-white fs-4 d-block mb-1">Tap Notes (Cyan)</span>
-                    <span class="text-secondary" style="font-size: 0.9rem;">The standard note. Tap the corresponding lane key exactly when the note aligns with the red judgment line at the bottom.</span>
+                    <span class="fw-bold text-white fs-4 d-block mb-1">{{ 'rhythm.howto.tap_title'|trans }}</span>
+                    <span class="text-secondary" style="font-size: 0.9rem;">{{ 'rhythm.howto.tap_text'|trans }}</span>
                   </div>
                 </div>
               </div>
@@ -611,8 +611,8 @@
                     </svg>
                   </div>
                   <div>
-                    <span class="fw-bold text-white fs-4 d-block mb-1">Hold Notes (Green)</span>
-                    <span class="text-secondary" style="font-size: 0.9rem;">Press and hold the key when the bottom of the note reaches the line, and release it exactly when the top tail passes. Letting go too early breaks your combo.</span>
+                    <span class="fw-bold text-white fs-4 d-block mb-1">{{ 'rhythm.howto.hold_title'|trans }}</span>
+                    <span class="text-secondary" style="font-size: 0.9rem;">{{ 'rhythm.howto.hold_text'|trans }}</span>
                   </div>
                 </div>
               </div>
@@ -627,8 +627,8 @@
                     </svg>
                   </div>
                   <div>
-                    <span class="fw-bold text-white fs-4 d-block mb-1">Flick Notes (Pink)</span>
-                    <span class="text-secondary" style="font-size: 0.9rem;">Swipe up or quickly flick your finger/mouse on the lane when it hits the line. On desktop, releasing the key rapidly counts as a flick.</span>
+                    <span class="fw-bold text-white fs-4 d-block mb-1">{{ 'rhythm.howto.flick_title'|trans }}</span>
+                    <span class="text-secondary" style="font-size: 0.9rem;">{{ 'rhythm.howto.flick_text'|trans }}</span>
                   </div>
                 </div>
               </div>
@@ -644,51 +644,51 @@
                     </svg>
                   </div>
                   <div>
-                    <span class="fw-bold text-white fs-4 d-block mb-1">Hold + Flick Notes</span>
-                    <span class="text-secondary" style="font-size: 0.9rem;">A combination of Hold and Flick. Keep the key pressed during the transparent body, and release it with a flick/swipe exactly as the pink tail passes the judgment line.</span>
+                    <span class="fw-bold text-white fs-4 d-block mb-1">{{ 'rhythm.howto.hold_flick_title'|trans }}</span>
+                    <span class="text-secondary" style="font-size: 0.9rem;">{{ 'rhythm.howto.hold_flick_text'|trans }}</span>
                   </div>
                 </div>
               </div>
 
-              <h5 class="text-white mt-4 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">Navigation & Difficulties</h5>
+              <h5 class="text-white mt-4 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">{{ 'rhythm.howto.nav_heading'|trans }}</h5>
               
               <div class="p-4 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
                 <ul class="text-secondary mb-0" style="font-size: 0.95rem; line-height: 1.8;">
-                  <li><strong class="text-white"><i class="bi bi-compass text-info"></i> Hub Navigation:</strong> Use the bottom navigation bar to switch between <strong>Songs</strong>, <strong>Artists</strong>, <strong>Favorites</strong>, <strong>Ranks</strong>, your <strong>Profile</strong>, or <strong>Offline</strong> tracks.</li>
-                  <li><strong class="text-white"><i class="bi bi-bar-chart-fill text-warning"></i> Difficulty Scaling:</strong>
+                  <li><strong class="text-white"><i class="bi bi-compass text-info"></i> {{ 'rhythm.howto.hub_navigation_label'|trans }}</strong> {{ 'rhythm.howto.hub_navigation_html'|trans|raw }}</li>
+                  <li><strong class="text-white"><i class="bi bi-bar-chart-fill text-warning"></i> {{ 'rhythm.howto.difficulty_scaling'|trans }}</strong>
                     <ul class="mt-1 mb-2">
-                      <li><strong>Easy / Normal:</strong> Uses 4 lanes (D, F, J, K). Best for beginners.</li>
-                      <li><strong>Hard / Expert / Master:</strong> Uses 6 lanes (S, D, F, J, K, L). Requires faster reaction times.</li>
-                      <li><strong>Demon:</strong> Uses all 10 lanes! <span class="text-danger fw-bold">Requires Landscape orientation on mobile devices.</span></li>
+                      <li><strong>{{ 'rhythm.howto.diff_easy_label'|trans }}</strong> {{ 'rhythm.howto.diff_easy'|trans }}</li>
+                      <li><strong>{{ 'rhythm.howto.diff_hard_label'|trans }}</strong> {{ 'rhythm.howto.diff_hard'|trans }}</li>
+                      <li><strong>{{ 'rhythm.howto.diff_demon_label'|trans }}</strong> {{ 'rhythm.howto.diff_demon'|trans }} <span class="text-danger fw-bold">{{ 'rhythm.howto.diff_demon_landscape'|trans }}</span></li>
                     </ul>
                   </li>
-                  <li><strong class="text-white"><i class="bi bi-robot text-primary"></i> Autoplay (Bot Mode):</strong> Toggle "Autoplay" on the song menu to let the bot achieve a perfect score automatically. <i>Note: Autoplay scores are not saved to the leaderboards.</i></li>
+                  <li><strong class="text-white"><i class="bi bi-robot text-primary"></i> {{ 'rhythm.howto.autoplay_label'|trans }}</strong> {{ 'rhythm.howto.autoplay'|trans }} <i>{{ 'rhythm.howto.autoplay_note'|trans }}</i></li>
                 </ul>
               </div>
 
-              <h5 class="text-white mt-4 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">Scoring & Ranks</h5>
+              <h5 class="text-white mt-4 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">{{ 'rhythm.howto.scoring_heading'|trans }}</h5>
               
               <div class="p-4 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
                 <div class="row g-3 text-center mb-4">
                   <div class="col-3">
-                    <div class="fw-bold fs-5 text-white">PERFECT</div>
-                    <div class="text-success small">Â±45ms</div>
-                    <div class="text-secondary small">100% Acc</div>
+                    <div class="fw-bold fs-5 text-white">{{ 'js.rhythm.judgement.perfect'|trans|upper }}</div>
+                    <div class="text-success small">±45ms</div>
+                    <div class="text-secondary small">{{ 'rhythm.howto.accuracy'|trans({percent: 100}) }}</div>
                   </div>
                   <div class="col-3">
-                    <div class="fw-bold fs-5" style="color: #ff3b30;">GREAT</div>
-                    <div class="text-success small">Â±80ms</div>
-                    <div class="text-secondary small">75% Acc</div>
+                    <div class="fw-bold fs-5" style="color: #ff3b30;">{{ 'js.rhythm.judgement.great'|trans|upper }}</div>
+                    <div class="text-success small">±80ms</div>
+                    <div class="text-secondary small">{{ 'rhythm.howto.accuracy'|trans({percent: 75}) }}</div>
                   </div>
                   <div class="col-3">
-                    <div class="fw-bold fs-5" style="color: #ffa000;">GOOD</div>
-                    <div class="text-success small">Â±125ms</div>
-                    <div class="text-secondary small">40% Acc</div>
+                    <div class="fw-bold fs-5" style="color: #ffa000;">{{ 'js.rhythm.judgement.good'|trans|upper }}</div>
+                    <div class="text-success small">±125ms</div>
+                    <div class="text-secondary small">{{ 'rhythm.howto.accuracy'|trans({percent: 40}) }}</div>
                   </div>
                   <div class="col-3">
-                    <div class="fw-bold fs-5" style="color: #8e1c1c;">BAD / MISS</div>
+                    <div class="fw-bold fs-5" style="color: #8e1c1c;">{{ 'js.rhythm.judgement.bad'|trans|upper }} / {{ 'js.rhythm.judgement.miss'|trans|upper }}</div>
                     <div class="text-danger small">&gt;125ms</div>
-                    <div class="text-secondary small">Breaks Combo</div>
+                    <div class="text-secondary small">{{ 'rhythm.howto.breaks_combo'|trans }}</div>
                   </div>
                 </div>
                 
@@ -701,12 +701,12 @@
                 </div>
               </div>
 
-              <h5 class="text-white mt-4 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">Tips & Settings</h5>
+              <h5 class="text-white mt-4 mb-2 fw-bold" style="border-bottom: 2px solid #444; padding-bottom: 8px;">{{ 'rhythm.howto.tips_heading'|trans }}</h5>
               <ul class="text-secondary" style="font-size: 0.95rem; line-height: 1.8;">
-                <li><strong class="text-white">Calibration:</strong> If notes feel out of sync with the beat, use the Calibration Tool in the Settings tab to adjust your audio offset (in milliseconds).</li>
-                <li><strong class="text-white">Note Speed:</strong> Adjusting the Tick Speed in settings spreads the notes further apart, making fast sections easier to read without altering the song's BPM.</li>
-                <li><strong class="text-white">HP Bar:</strong> Missing notes drains your green health bar. If it empties completely, you fail the stage!</li>
-                <li><strong class="text-white">Anti-Cheat:</strong> The server actively detects inhuman macros and auto-clickers. Do not use scripts, or you will be permanently banned.</li>
+                <li><strong class="text-white">{{ 'rhythm.howto.tip_calibration_label'|trans }}</strong> {{ 'rhythm.howto.tip_calibration'|trans }}</li>
+                <li><strong class="text-white">{{ 'rhythm.howto.tip_speed_label'|trans }}</strong> {{ 'rhythm.howto.tip_speed'|trans }}</li>
+                <li><strong class="text-white">{{ 'rhythm.howto.tip_hp_label'|trans }}</strong> {{ 'rhythm.howto.tip_hp'|trans }}</li>
+                <li><strong class="text-white">{{ 'rhythm.howto.tip_anticheat_label'|trans }}</strong> {{ 'rhythm.howto.tip_anticheat'|trans }}</li>
               </ul>
 
             </div>
@@ -744,6 +744,8 @@
     }
 }
 </script>
+<script type="application/json" id="i18n-config">{{ {locale: app.request.locale, messages: js_translations()}|json_encode|raw }}</script>
+<script src="/i18n.js"></script>
 <script src="/rhythm-analyze.js"></script>
 <script src="/rhythm.js"></script>
 </body>

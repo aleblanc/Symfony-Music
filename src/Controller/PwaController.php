@@ -6,6 +6,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Serves the PWA assets: manifest, service worker and app icon.
@@ -23,17 +25,19 @@ use Symfony\Component\Routing\Attribute\Route;
 class PwaController extends AbstractController
 {
     #[Route('/manifest.json', name: 'app_pwa_manifest')]
-    public function manifest(): JsonResponse
+    public function manifest(Request $request, TranslatorInterface $translator): JsonResponse
     {
+        // Per request locale (session / cookie / Accept-Language, see LocaleSubscriber).
         $response = new JsonResponse([
-            'name' => 'PHP Music',
-            'short_name' => 'Music',
+            'name' => $translator->trans('common.brand'),
+            'short_name' => $translator->trans('ui.pwa.short_name'),
+            'lang' => $request->getLocale(),
             'start_url' => '/',
             'scope' => '/',
             'display' => 'standalone',
             'background_color' => '#0a0a0a',
             'theme_color' => '#0a0a0a',
-            'description' => 'A simple, fast music player with user accounts and uploads.',
+            'description' => $translator->trans('ui.pwa.description'),
             'icons' => [
                 [
                     'src' => '/icon.svg',
@@ -63,7 +67,7 @@ class PwaController extends AbstractController
             // does not attempt to cache audio streaming or any dynamic JSON/HTML
             // endpoint (range requests, non-GET requests, and anything that is not a
             // navigation or a recognizably-static file are left untouched).
-            const CACHE_NAME = 'symfony-music-cache-v2';
+            const CACHE_NAME = 'symfony-music-cache-v3';
             const APP_SHELL_URL = '/';
             const PRECACHE_URLS = [APP_SHELL_URL, '/manifest.json', '/icon.svg'];
 

@@ -1,22 +1,22 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_post_card.html.twig' as post %}
 
-{% block title %}New posts · PHP Music{% endblock %}
+{% block title %}{{ 'posts.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>New Instagram posts</h1>
+    <h1>{{ 'posts.heading'|trans }}</h1>
     <p class="section-sub">
         {% if onlyNew %}
-            {{ total }} new post{{ total == 1 ? '' : 's' }} since your last visit of each artist page ·
-            <a class="link" href="{{ path('app_posts') }}">show all latest posts</a>
+            {{ 'posts.new_since_visit'|trans({count: total}) }} ·
+            <a class="link" href="{{ path('app_posts') }}">{{ 'posts.show_all'|trans }}</a>
         {% else %}
-            Latest Instagram posts of your artists, newest first{% if total > limit %} (the {{ limit }} most recent){% endif %}
-            {% if newCount %}· <a href="{{ path('app_posts', {new: 1}) }}"><span class="badge-new">{{ newCount }} new</span></a>{% endif %}
+            {{ 'posts.latest'|trans }}{% if total > limit %} {{ 'videos.latest_limit'|trans({limit: limit}) }}{% endif %}
+            {% if newCount %}· <a href="{{ path('app_posts', {new: 1}) }}"><span class="badge-new">{{ 'posts.new_badge'|trans({count: newCount}) }}</span></a>{% endif %}
         {% endif %}
     </p>
 
     {% if items is empty %}
-        <p class="muted">No post{{ onlyNew ? ' new since your last visits' : ' yet: run php bin/console app:artist:posts' }}.</p>
+        <p class="muted">{{ (onlyNew ? 'posts.empty_new' : 'posts.empty')|trans }}</p>
     {% else %}
         <div class="video-grid post-grid">
             {% for v in items %}

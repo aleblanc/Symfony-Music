@@ -1,55 +1,55 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Edit Profile - {{ user.artist }}{% endblock %}
+{% block title %}{{ 'profile.edit.title'|trans({name: user.artist}) }}{% endblock %}
 
 {% block body %}
     <div class="edit-profile-view">
         <div class="form-container">
-            <h1>Edit Profile</h1>
+            <h1>{{ 'profile.edit.heading'|trans }}</h1>
 
             <form method="POST" class="form">
                 <input type="hidden" name="_token" value="{{ csrf_token('profile_edit') }}">
 
                 <div class="form-group">
-                    <label for="name">Display Name *</label>
+                    <label for="name">{{ 'profile.edit.display_name_label'|trans }} *</label>
                     <input type="text" id="name" name="name" value="{{ user.artist }}" required maxlength="255">
                 </div>
 
                 <div class="form-group">
-                    <label for="bio">Bio</label>
+                    <label for="bio">{{ 'profile.edit.bio_label'|trans }}</label>
                     <textarea id="bio" name="bio" rows="6" maxlength="1000">{{ user.bio }}</textarea>
-                    <small>Max 1000 characters</small>
+                    <small>{{ 'profile.edit.bio_max'|trans({max: 1000}) }}</small>
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                    <a href="{{ path('app_profile_show') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">{{ 'profile.edit.save_changes'|trans }}</button>
+                    <a href="{{ path('app_profile_show') }}" class="btn btn-secondary">{{ 'common.cancel'|trans }}</a>
                 </div>
             </form>
 
             <hr>
 
-            <h2>Profile Picture</h2>
+            <h2>{{ 'profile.edit.picture_heading'|trans }}</h2>
             <div class="picture-section">
                 <img class="current-picture" src="{{ path('app_profile_get_picture', {id: user.id}) }}" alt="{{ user.artist }}">
                 <form id="picture-form" enctype="multipart/form-data" class="upload-form">
                     <input type="hidden" name="_token" value="{{ csrf_token('upload_picture') }}">
                     <input type="file" id="profile_picture" name="profile_picture" accept="image/jpeg,image/png,image/gif" required>
-                    <button type="submit" class="btn btn-secondary">Upload Picture</button>
-                    <small>JPG, PNG, or GIF. Max 5MB.</small>
+                    <button type="submit" class="btn btn-secondary">{{ 'profile.edit.upload_picture'|trans }}</button>
+                    <small>{{ 'profile.edit.picture_formats'|trans }}</small>
                 </form>
             </div>
 
             <hr>
 
-            <h2>Profile Background</h2>
+            <h2>{{ 'profile.edit.background_heading'|trans }}</h2>
             <div class="background-section">
-                <img class="current-background" src="{{ path('app_profile_get_background', {id: user.id}) }}" alt="Background">
+                <img class="current-background" src="{{ path('app_profile_get_background', {id: user.id}) }}" alt="{{ 'profile.edit.background_alt'|trans }}">
                 <form id="background-form" enctype="multipart/form-data" class="upload-form">
                     <input type="hidden" name="_token" value="{{ csrf_token('upload_background') }}">
                     <input type="file" id="profile_background" name="profile_background" accept="image/jpeg,image/png,image/gif,image/webp" required>
-                    <button type="submit" class="btn btn-secondary">Upload Background</button>
-                    <small>JPG, PNG, GIF, or WebP. Max 5MB.</small>
+                    <button type="submit" class="btn btn-secondary">{{ 'profile.edit.upload_background'|trans }}</button>
+                    <small>{{ 'profile.edit.background_formats'|trans }}</small>
                 </form>
             </div>
         </div>
@@ -224,11 +224,11 @@
                         alert(data.message);
                         window.location.href = '{{ path('app_profile_show') }}';
                     } else {
-                        alert('Error: ' + data.message);
+                        alert({{ 'profile.alert.error'|trans({message: '%message%'})|json_encode|raw }}.replace('%message%', () => data.message));
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    alert('An error occurred.');
+                    alert({{ 'profile.alert.error_generic'|trans|json_encode|raw }});
                 }
             });
         }

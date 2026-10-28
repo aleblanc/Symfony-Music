@@ -1,6 +1,7 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_video_card.html.twig' as video %}
 {% import 'partials/_post_card.html.twig' as post %}
+{% import 'partials/_concert_row.html.twig' as concert %}
 {% import 'partials/_tracks.html.twig' as tracks %}
 {% import 'partials/_mosaic.html.twig' as tiles %}
 {% import 'partials/_play_all.html.twig' as playAll %}
@@ -22,7 +23,7 @@
             <h1>{{ artist }}</h1>
             <p class="section-sub">
                 {% if found and profile.description %}{{ profile.description|capitalize }} · {% endif %}
-                {{ albums|length }} album{{ albums|length == 1 ? '' : 's' }} · {{ songs|length }} track{{ songs|length == 1 ? '' : 's' }}
+                {{ 'common.count.albums'|trans({count: albums|length}) }} · {{ 'common.track_count'|trans({count: songs|length}) }}
             </p>
             {% if found and profile.summary %}
                 <p class="artist-summary">{{ profile.summary }}</p>
@@ -30,7 +31,7 @@
             {{ playAll.bar('artist', artist, '#artist-tracks') }}
             {% if found %}
                 <div class="artist-links">
-                    {% if profile.wikipediaUrl %}<a class="btn btn-sm btn-ghost" href="{{ profile.wikipediaUrl }}" target="_blank" rel="noopener">Wikipedia ↗</a>{% endif %}
+                    {% if profile.wikipediaUrl %}<a class="btn btn-sm btn-ghost" href="{{ profile.wikipediaUrl }}" target="_blank" rel="noopener">{{ 'library.artist.wikipedia'|trans }} ↗</a>{% endif %}
                     {% if profile.youtubeUrl %}<a class="btn btn-sm btn-ghost artist-yt" href="{{ profile.youtubeUrl }}" target="_blank" rel="noopener">▶ YouTube ↗</a>{% endif %}
                     {% for link in profile.links %}
                         <a class="btn btn-sm btn-ghost" href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }} ↗</a>
@@ -42,10 +43,10 @@
                     <input type="hidden" name="artist" value="{{ artist }}">
                     <input type="hidden" name="_token" value="{{ csrf_token('artist_refresh') }}">
                     <button class="btn btn-sm btn-ghost" type="submit">
-                        {{ profile is null ? 'Fetch photo, Wikipedia, YouTube…' : 'Refresh artist info' }}
+                        {{ (profile is null ? 'library.artist.fetch_info' : 'library.artist.refresh_info')|trans }}
                     </button>
-                    {% if profile and not found %}<span class="muted">Not found on MusicBrainz.</span>{% endif %}
-                    {% if profile and profile.fetchedAt %}<span class="muted">Updated {{ profile.fetchedAt|date('d/m/Y') }}{% if profile.videosCheckedAt %} · videos checked {{ profile.videosCheckedAt|date('d/m/Y H:i') }}{% endif %}</span>{% endif %}
+                    {% if profile and not found %}<span class="muted">{{ 'library.artist.not_found_mb'|trans }}</span>{% endif %}
+                    {% if profile and profile.fetchedAt %}<span class="muted">{{ 'library.artist.updated'|trans({date: profile.fetchedAt|format_date('short')}) }}{% if profile.videosCheckedAt %} · {{ 'library.artist.videos_checked'|trans({date: profile.videosCheckedAt|format_datetime('short', 'short')}) }}{% endif %}</span>{% endif %}
                 </form>
             {% endif %}
         </div>
@@ -54,9 +55,9 @@
     {% if found and profile.videos is not empty %}
         {% set videos = profile.videos|slice(0, 8) %}
         <section class="artist-section">
-            <h2>Latest videos
-                {% if newVideoIds is not empty %}<span class="badge-new">{{ newVideoIds|length }} new</span>{% endif %}
-                <a class="link muted" href="{{ path('app_videos') }}" style="font-size: 13px; font-weight: 400; margin-left: 8px">all artists' videos →</a>
+            <h2>{{ 'library.artist.latest_videos'|trans }}
+                {% if newVideoIds is not empty %}<span class="badge-new">{{ 'library.artist.new_videos_badge'|trans({count: newVideoIds|length}) }}</span>{% endif %}
+                <a class="link muted" href="{{ path('app_videos') }}" style="font-size: 13px; font-weight: 400; margin-left: 8px">{{ 'library.artist.all_videos_link'|trans }} →</a>
             </h2>
             <div class="video-grid">
                 {% for v in videos %}
@@ -68,9 +69,9 @@
 
     {% if found and profile.posts is not empty %}
         <section class="artist-section">
-            <h2>Latest Instagram posts
-                {% if newPostIds is not empty %}<span class="badge-new">{{ newPostIds|length }} new</span>{% endif %}
-                <a class="link muted" href="{{ path('app_posts') }}" style="font-size: 13px; font-weight: 400; margin-left: 8px">all artists' posts →</a>
+            <h2>{{ 'library.artist.latest_posts'|trans }}
+                {% if newPostIds is not empty %}<span class="badge-new">{{ 'library.artist.new_posts_badge'|trans({count: newPostIds|length}) }}</span>{% endif %}
+                <a class="link muted" href="{{ path('app_posts') }}" style="font-size: 13px; font-weight: 400; margin-left: 8px">{{ 'library.artist.all_posts_link'|trans }} →</a>
             </h2>
             <div class="video-grid post-grid">
                 {% for p in profile.posts|slice(0, 12) %}
@@ -80,16 +81,35 @@
         </section>
     {% endif %}
 
+    {% set upcoming = found ? profile.concerts|filter(c => c.date >= 'now'|date('Y-m-d')) : [] %}
+    {% if upcoming is not empty %}
+        <section class="artist-section">
+            <h2>{{ 'library.artist.upcoming_concerts'|trans }}
+                <span class="muted" style="font-size: 14px; font-weight: 400">· {{ 'concerts.count'|trans({count: upcoming|length}) }}</span>
+                {% if newConcertIds is not empty %}<span class="badge-new">{{ 'library.artist.new_concerts_badge'|trans({count: newConcertIds|length}) }}</span>{% endif %}
+                <a class="link muted" href="{{ path('app_concerts') }}" style="font-size: 13px; font-weight: 400; margin-left: 8px">{{ 'library.artist.all_concerts_link'|trans }} →</a>
+            </h2>
+            <ul class="concert-list">
+                {% for c in upcoming|slice(0, 10) %}
+                    {{ concert.row(c, c.id in newConcertIds) }}
+                {% endfor %}
+            </ul>
+            {% if upcoming|length > 10 and profile.songkickId %}
+                <p><a class="link" href="https://www.songkick.com/artists/{{ profile.songkickId|url_encode }}/calendar" target="_blank" rel="noopener">{{ 'library.artist.more_concerts'|trans({count: upcoming|length - 10}) }} ↗</a></p>
+            {% endif %}
+        </section>
+    {% endif %}
+
     {% if albums|length > 1 %}
         <section class="artist-section">
-            <h2>Albums</h2>
+            <h2>{{ 'library.artist.albums'|trans }}</h2>
             <div class="card-grid">
                 {% for a in albums %}
                     <div class="disco-item">
                     <a class="card" href="{{ path('app_album', {name: a.album}) }}">
                         {{ tiles.mosaic(a.coverId ? [a.coverId] : [], a.album|slice(0, 1)|upper) }}
                         <div class="card-title">{{ a.album }}</div>
-                        <div class="card-sub">{% if a.year %}{{ a.year }} · {% endif %}{{ a.cnt }} track{{ a.cnt == 1 ? '' : 's' }}</div>
+                        <div class="card-sub">{% if a.year %}{{ a.year }} · {% endif %}{{ 'common.track_count'|trans({count: a.cnt}) }}</div>
                     </a>
                     {% if albumTracklists[a.album] is defined %}{{ disco.tracklist(albumTracklists[a.album], 'own-' ~ loop.index) }}{% endif %}
                     </div>
@@ -101,7 +121,7 @@
     {% if discography is not empty %}
         {% set ownedCount = discography|filter(d => d.owned)|length %}
         <section class="artist-section">
-            <h2>Discography <span class="muted">· {{ discography|length }} albums & EPs, {{ ownedCount }} in the library{% if discography|filter(d => d.popularity is not null)|length %} · bars: listeners on ListenBrainz{% endif %}</span></h2>
+            <h2>{{ 'library.artist.discography'|trans }} <span class="muted">· {{ 'library.artist.discography_sub'|trans({total: discography|length, owned: ownedCount}) }}{% if discography|filter(d => d.popularity is not null)|length %} · {{ 'library.artist.discography_bars'|trans }}{% endif %}</span></h2>
             <div class="card-grid">
                 {% for d in discography %}
                     {{ disco.card(d, loop.index) }}
@@ -111,7 +131,7 @@
     {% endif %}
 
     <section class="artist-section" id="artist-tracks">
-        <h2>Tracks</h2>
+        <h2>{{ 'library.artist.tracks'|trans }}</h2>
         {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
     </section>
 {% endblock %}

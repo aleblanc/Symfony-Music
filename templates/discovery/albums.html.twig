@@ -1,17 +1,16 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_disco.html.twig' as disco %}
 
-{% block title %}Albums to discover · PHP Music{% endblock %}
+{% block title %}{{ 'discovery.albums.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
-    <h1>Albums to discover from your artists</h1>
+    <h1>{{ 'discovery.albums.heading'|trans }}</h1>
     <p class="section-sub">
-        {{ cards|length }} album{{ cards|length == 1 ? '' : 's' }} not in the library yet, from the artists you have at
-        least 11 tracks of — each artist's most listened (ListenBrainz) first, then their next ones.
-        <a class="link" href="{{ path('app_discover') }}">← Discover</a>
+        {{ 'discovery.albums.intro'|trans({count: cards|length}) }}
+        <a class="link" href="{{ path('app_discover') }}">← {{ 'nav.discover'|trans }}</a>
     </p>
     {% if cards is empty %}
-        <p class="muted">Nothing yet: run <code>php bin/console app:artist:fetch</code> to get the discographies.</p>
+        <p class="muted">{{ 'discovery.albums.empty_html'|trans|raw }}</p>
     {% else %}
         <div class="card-grid disco-discover">
             {% for d in cards %}

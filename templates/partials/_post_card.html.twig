@@ -2,17 +2,17 @@
    The thumbnail is served by the app (app_instagram_thumb): Instagram's CDN refuses to be shown on another site. #}
 {% macro card(p, isNew, artist = null) %}
     {%- set url = 'https://www.instagram.com/' ~ (p.type == 'reel' ? 'reel' : 'p') ~ '/' ~ p.id|url_encode ~ '/' -%}
-    {%- set label = p.caption ? (p.caption|length > 90 ? p.caption|slice(0, 89) ~ '…' : p.caption) : (p.type == 'reel' ? 'Reel' : 'Post') -%}
+    {%- set label = p.caption ? (p.caption|length > 90 ? p.caption|slice(0, 89) ~ '…' : p.caption) : (p.type == 'reel' ? 'post.kind.reel' : 'post.kind.post')|trans -%}
     <div class="video-card post-card">
         <div class="video-thumb post-thumb">
             <a href="{{ url }}" target="_blank" rel="noopener" tabindex="-1">
                 <img src="{{ path('app_instagram_thumb', {code: p.id}) }}" alt="" loading="lazy">
             </a>
-            {% if isNew %}<span class="badge-new">New</span>{% endif %}
-            {% if p.type == 'reel' %}<span class="post-kind" title="Reel">Reel</span>{% endif %}
-            <button type="button" class="video-play" data-instagram-play="{{ p.id }}" data-video-title="{{ artist ? artist ~ ' · ' }}{{ label }}" title="View here" aria-label="View {{ label }}">{{ p.type == 'reel' ? '▶' : '⤢' }}</button>
+            {% if isNew %}<span class="badge-new">{{ 'video.new_badge'|trans }}</span>{% endif %}
+            {% if p.type == 'reel' %}<span class="post-kind" title="{{ 'post.kind.reel'|trans }}">{{ 'post.kind.reel'|trans }}</span>{% endif %}
+            <button type="button" class="video-play" data-instagram-play="{{ p.id }}" data-video-title="{{ artist ? artist ~ ' · ' }}{{ label }}" title="{{ 'post.view_here'|trans }}" aria-label="{{ 'post.view_aria'|trans({label: label}) }}">{{ p.type == 'reel' ? '▶' : '⤢' }}</button>
         </div>
         <a class="video-title" href="{{ url }}" target="_blank" rel="noopener">{{ label }}</a>
-        <span class="muted video-date">{% if artist %}<a class="link" href="{{ path('app_artist', {name: artist}) }}">{{ artist }}</a> · {% endif %}{{ p.published|date('d/m/Y') }}</span>
+        <span class="muted video-date">{% if artist %}<a class="link" href="{{ path('app_artist', {name: artist}) }}">{{ artist }}</a> · {% endif %}{{ p.published|format_date('short') }}</span>
     </div>
 {% endmacro %}

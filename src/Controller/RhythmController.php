@@ -22,6 +22,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Rhythm game (Feature 20). Unlike the rest of the port (classic Twig CRUD),
@@ -45,6 +47,7 @@ class RhythmController extends AbstractController
         private readonly RhythmChartGenerator $generator,
         private readonly RhythmAntiCheat $antiCheat,
         private readonly EntityManagerInterface $em,
+        private readonly TranslatorInterface $translator,
     ) {}
 
     #[Route('/rhythm', name: 'app_rhythm')]
@@ -104,7 +107,7 @@ class RhythmController extends AbstractController
     {
         $name = trim($request->query->getString('name'));
         if ($name === '') {
-            return new JsonResponse(['status' => 'error', 'message' => 'Missing artist name'], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.rhythm.missing_artist')], Response::HTTP_BAD_REQUEST);
         }
 
         $owner = $this->users->findOneBy(['artist' => $name]);
@@ -191,12 +194,12 @@ class RhythmController extends AbstractController
     public function chart(int $songId, string $difficulty): JsonResponse
     {
         if (!\in_array($difficulty, self::VALID_DIFFICULTIES, true)) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Invalid difficulty'], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.rhythm.invalid_difficulty')], Response::HTTP_BAD_REQUEST);
         }
 
         $song = $this->music->find($songId);
         if ($song === null) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Song not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.rhythm.song_not_found')], Response::HTTP_NOT_FOUND);
         }
 
         $duration = $song->getDuration() ?: 180;
@@ -307,12 +310,12 @@ class RhythmController extends AbstractController
     public function saveScore(Request $request, #[CurrentUser] User $user): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, (string) $request->headers->get('X-CSRF-TOKEN'))) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.csrf_invalid')], Response::HTTP_FORBIDDEN);
         }
 
         $data = json_decode($request->getContent(), true);
         if (!\is_array($data)) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Invalid body'], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.rhythm.invalid_body')], Response::HTTP_BAD_REQUEST);
         }
 
         $rawHitDeltas = \is_array($data['hit_deltas'] ?? null) ? $data['hit_deltas'] : [];
@@ -324,6 +327,7 @@ class RhythmController extends AbstractController
 
         $banReason = $this->antiCheat->inspect($hitDeltas, $claimedScore, $maxCombo);
         if ($banReason !== null) {
+            $reason = new TranslatableMessage('ui.rhythm.cheat_reason.' . $banReason);
             $newStrikes = abs($user->getRhythmStrikes()) + 1;
             $user->setRhythmStrikes($newStrikes);
             if ($newStrikes >= 3) {
@@ -332,21 +336,21 @@ class RhythmController extends AbstractController
                 $this->em->flush();
 
                 return new JsonResponse(
-                    ['status' => 'error', 'message' => '3rd Strike Cheat detected: ' . $banReason . '. Your account has been permanently banned.'],
+                    ['status' => 'error', 'message' => $this->translator->trans('error.rhythm.cheat_banned', ['reason' => $reason->trans($this->translator)])],
                     Response::HTTP_FORBIDDEN
                 );
             }
             $this->em->flush();
 
             return new JsonResponse(
-                ['status' => 'error', 'message' => 'Cheat detected (Strike ' . $newStrikes . '/3): ' . $banReason . '. You are banned from the Rhythm Game.'],
+                ['status' => 'error', 'message' => $this->translator->trans('error.rhythm.cheat_strike', ['strike' => $newStrikes, 'reason' => $reason->trans($this->translator)])],
                 Response::HTTP_FORBIDDEN
             );
         }
 
         $song = $this->music->find((int) ($data['song_id'] ?? 0));
         if ($song === null) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Song not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.rhythm.song_not_found')], Response::HTTP_NOT_FOUND);
         }
 
         $run = new RhythmScore();
@@ -371,12 +375,12 @@ class RhythmController extends AbstractController
     public function toggleFavorite(int $songId, Request $request, #[CurrentUser] User $user): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, (string) $request->headers->get('X-CSRF-TOKEN'))) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.csrf_invalid')], Response::HTTP_FORBIDDEN);
         }
 
         $song = $this->music->find($songId);
         if ($song === null) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Song not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.rhythm.song_not_found')], Response::HTTP_NOT_FOUND);
         }
 
         $existing = $this->favorites->findOneForUser($user, $song);
@@ -460,17 +464,17 @@ class RhythmController extends AbstractController
     public function saveBeatGrid(int $songId, Request $request): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, (string) $request->headers->get('X-CSRF-TOKEN'))) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.csrf_invalid')], Response::HTTP_FORBIDDEN);
         }
 
         $song = $this->music->find($songId);
         if ($song === null) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Song not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.rhythm.song_not_found')], Response::HTTP_NOT_FOUND);
         }
 
         $data = json_decode($request->getContent(), true);
         if (!\is_array($data)) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Invalid body'], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.rhythm.invalid_body')], Response::HTTP_BAD_REQUEST);
         }
 
         // Defensive normalisation, capped per band.
@@ -527,7 +531,7 @@ class RhythmController extends AbstractController
         // The low/mid onsets ARE the note anchors; without enough of them the
         // grid is useless (beats alone no longer suffice in the v3 model).
         if (\count($grid['bands']['low']) + \count($grid['bands']['mid']) < 8) {
-            return new JsonResponse(['status' => 'error', 'message' => 'Too few band onsets'], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(['status' => 'error', 'message' => $this->translator->trans('error.rhythm.too_few_onsets')], Response::HTTP_BAD_REQUEST);
         }
 
         $song->setBeatGridJson(json_encode($grid) ?: null);

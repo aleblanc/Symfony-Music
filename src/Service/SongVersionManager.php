@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\Music;
+use App\Exception\UserFacingException;
 
 /**
  * Lists and restores on-disk backups of an audio file's previous versions.
@@ -61,12 +62,12 @@ class SongVersionManager
         $source = $dir . '/' . $versionName;
 
         if (!is_file($source)) {
-            throw new \RuntimeException('Version not found.');
+            throw new UserFacingException('Version not found.', 'error.song.version_not_found');
         }
 
         $file = (string) $song->getFile();
         if (!is_file($file)) {
-            throw new \RuntimeException('Live audio file missing on disk.');
+            throw new UserFacingException('Live audio file missing on disk.', 'error.song.audio_missing');
         }
 
         if (!is_dir($dir)) {

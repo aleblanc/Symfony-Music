@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Hearts on the albums of an artist's discography (to listen to, often not
@@ -32,6 +33,7 @@ class AlbumFavoriteController extends AbstractController
         private readonly AlbumFavoriteRepository $favorites,
         private readonly ArtistProfileRepository $profiles,
         private readonly EntityManagerInterface $em,
+        private readonly TranslatorInterface $translator,
     ) {}
 
     #[Route('/favorites/discography', name: 'app_album_favorites', methods: ['GET'])]
@@ -80,7 +82,7 @@ class AlbumFavoriteController extends AbstractController
     public function toggle(string $id, Request $request, #[CurrentUser] User $user, ClockInterface $clock): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, (string) ($request->headers->get('X-CSRF-TOKEN') ?? $request->request->get('_token', '')))) {
-            return new JsonResponse(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+            return new JsonResponse(['error' => $this->translator->trans('error.csrf_invalid')], Response::HTTP_FORBIDDEN);
         }
 
         $existing = $this->favorites->findOneForUser($user, $id);
@@ -101,7 +103,7 @@ class AlbumFavoriteController extends AbstractController
             }
         }
         if ($entry === null) {
-            return new JsonResponse(['error' => 'Album not found in this artist\'s discography'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => $this->translator->trans('error.album_not_in_discography')], Response::HTTP_NOT_FOUND);
         }
 
         $this->em->persist(new AlbumFavorite($user, $id, $artist, (string) $entry['title'], (string) ($entry['type'] ?? 'Album'), $entry['date'] ?? null, $clock->now()));

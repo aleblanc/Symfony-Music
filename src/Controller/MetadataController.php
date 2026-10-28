@@ -17,6 +17,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
+use App\Exception\UserFacingException;
 
 /**
  * Tag editing, deletion and rescanning. Ported from the legacy
@@ -76,7 +78,7 @@ class MetadataController extends AbstractController
         $spotifyInput = trim((string) $request->request->get('spotify', ''));
         $spotifyId = $spotifyInput !== '' ? $this->parseSpotifyTrackId($spotifyInput) : null;
         if ($spotifyInput !== '' && $spotifyId === null) {
-            $this->addFlash('error', 'Spotify link not recognised: paste a https://open.spotify.com/track/… link.');
+            $this->addFlash('error', new TranslatableMessage('flash.metadata.spotify_link_invalid'));
 
             return $this->redirectToRoute('app_metadata_edit', ['id' => $song->getId()]);
         }
@@ -103,14 +105,14 @@ class MetadataController extends AbstractController
             // dependency of this project) and would throw at runtime.
             $mime = $this->sniffMimeType($cover->getPathname());
             if ($mime === null || !\in_array($mime, self::ALLOWED_COVER_MIME_TYPES, true)) {
-                $this->addFlash('error', 'Invalid cover image type. Only JPG, PNG, WEBP, and GIF are allowed.');
+                $this->addFlash('error', new TranslatableMessage('flash.metadata.cover_invalid_type'));
 
                 return $this->redirectToRoute('app_metadata_edit', ['id' => $song->getId()]);
             }
 
             $raw = file_get_contents($cover->getPathname());
             if ($raw === false) {
-                $this->addFlash('error', 'Could not read the uploaded cover image.');
+                $this->addFlash('error', new TranslatableMessage('flash.metadata.cover_unreadable'));
 
                 return $this->redirectToRoute('app_metadata_edit', ['id' => $song->getId()]);
             }
@@ -132,7 +134,7 @@ class MetadataController extends AbstractController
 
         $em->flush();
 
-        $this->addFlash('success', 'Metadata updated successfully.');
+        $this->addFlash('success', new TranslatableMessage('flash.metadata.updated'));
 
         return $this->redirectToRoute('app_song', ['id' => $song->getId()]);
     }
@@ -176,7 +178,7 @@ class MetadataController extends AbstractController
             @unlink($file);
         }
 
-        $this->addFlash('success', 'Song deleted.');
+        $this->addFlash('success', new TranslatableMessage('flash.metadata.song_deleted'));
 
         return $this->redirectToRoute('app_library');
     }
@@ -193,15 +195,14 @@ class MetadataController extends AbstractController
 
         try {
             $stats = $scanner->scan(null, $force);
-            $this->addFlash('success', \sprintf(
-                'Rescan complete — %d added, %d updated, %d removed, %d unchanged.',
-                $stats['added'],
-                $stats['updated'],
-                $stats['removed'],
-                $stats['skipped'],
-            ));
+            $this->addFlash('success', new TranslatableMessage('flash.library.rescan_done', [
+                'added' => $stats['added'],
+                'updated' => $stats['updated'],
+                'removed' => $stats['removed'],
+                'unchanged' => $stats['skipped'],
+            ]));
         } catch (\RuntimeException $e) {
-            $this->addFlash('error', $e->getMessage());
+            $this->addFlash('error', UserFacingException::messageFor($e));
         }
 
         return $this->redirectToRoute('app_library');

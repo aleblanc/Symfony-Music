@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Translation\TranslatableMessage;
 
 /**
  * The files `app:import` was not sure about, one at a time: listen, pick a
@@ -90,7 +91,7 @@ class ImportQueueController extends AbstractController
         $candidate = $item->getCandidates()[$index] ?? null;
         $path = $this->insideImportDir($item);
         if ($item->getStatus() !== ImportItem::PENDING || $candidate === null || $path === null) {
-            $this->addFlash('error', 'This file or candidate is no longer available.');
+            $this->addFlash('error', new TranslatableMessage('flash.import.unavailable_candidate'));
 
             return $this->redirectToRoute('app_import_queue');
         }
@@ -107,17 +108,17 @@ class ImportQueueController extends AbstractController
         } catch (\RuntimeException|\InvalidArgumentException $e) {
             $item->markChoiceFailed($e->getMessage());
             $em->flush();
-            $this->addFlash('error', \sprintf('Not filed: %s', $e->getMessage()));
+            $this->addFlash('error', new TranslatableMessage('flash.import.not_filed', ['error' => $e->getMessage()]));
 
             return $this->redirectToRoute('app_import_queue', ['id' => $item->getId()]);
         }
 
         if ($result->status === ImportResult::DUPLICATE) {
             $item->markDuplicate($result->destination);
-            $this->addFlash('success', \sprintf('%s was already in the library: moved to the duplicates folder.', $item->getOriginalName()));
+            $this->addFlash('success', new TranslatableMessage('flash.import.duplicate_in_library', ['file' => $item->getOriginalName()]));
         } else {
             $item->markImported($result->destination);
-            $this->addFlash('success', \sprintf('Filed: %s', basename($result->destination)));
+            $this->addFlash('success', new TranslatableMessage('flash.import.filed', ['file' => basename($result->destination)]));
         }
         $em->flush();
 
@@ -143,7 +144,7 @@ class ImportQueueController extends AbstractController
         $this->assertToken($request, $item);
         $path = $this->insideImportDir($item);
         if ($item->getStatus() !== ImportItem::PENDING || $path === null) {
-            $this->addFlash('error', 'This file is no longer available.');
+            $this->addFlash('error', new TranslatableMessage('flash.import.unavailable_file'));
 
             return $this->redirectToRoute('app_import_queue');
         }
@@ -153,17 +154,17 @@ class ImportQueueController extends AbstractController
         } catch (\RuntimeException|\InvalidArgumentException $e) {
             $item->markChoiceFailed($e->getMessage());
             $em->flush();
-            $this->addFlash('error', \sprintf('Not filed: %s', $e->getMessage()));
+            $this->addFlash('error', new TranslatableMessage('flash.import.not_filed', ['error' => $e->getMessage()]));
 
             return $this->redirectToRoute('app_import_queue', ['id' => $item->getId()]);
         }
 
         if ($result->status === ImportResult::DUPLICATE) {
             $item->markDuplicate($result->destination);
-            $this->addFlash('success', \sprintf('%s was already in %s: moved to the duplicates folder.', $item->getOriginalName(), FileImporter::UNCLASSIFIED_DIR));
+            $this->addFlash('success', new TranslatableMessage('flash.import.duplicate_in_folder', ['file' => $item->getOriginalName(), 'folder' => FileImporter::UNCLASSIFIED_DIR]));
         } else {
             $item->markImported($result->destination);
-            $this->addFlash('success', \sprintf('Kept as is: %s/%s', FileImporter::UNCLASSIFIED_DIR, basename($result->destination)));
+            $this->addFlash('success', new TranslatableMessage('flash.import.kept_as_is', ['path' => FileImporter::UNCLASSIFIED_DIR . '/' . basename($result->destination)]));
         }
         $em->flush();
 

@@ -1,10 +1,10 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Log in · PHP Music{% endblock %}
+{% block title %}{{ 'auth.login.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
     <div class="auth-wrap">
-        <h1>Log in</h1>
+        <h1>{{ 'auth.login.title'|trans }}</h1>
 
         {% if error %}
             <div class="flash flash-error">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
@@ -12,22 +12,22 @@
 
         <form method="post" action="{{ path('app_login') }}">
             <div class="field">
-                <label for="username">Email</label>
+                <label for="username">{{ 'auth.email'|trans }}</label>
                 <input type="email" id="username" name="_username" value="{{ last_username }}" autocomplete="email" required autofocus>
             </div>
             <div class="field">
-                <label for="password">Password</label>
+                <label for="password">{{ 'auth.password'|trans }}</label>
                 <input type="password" id="password" name="_password" autocomplete="current-password" required>
             </div>
             <div class="field">
                 <label style="display:flex;gap:8px;align-items:center;color:var(--text);">
-                    <input type="checkbox" name="_remember_me" checked style="width:auto;"> Remember me
+                    <input type="checkbox" name="_remember_me" checked style="width:auto;"> {{ 'auth.login.remember_me'|trans }}
                 </label>
             </div>
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-            <button class="btn" type="submit" style="width:100%;">Log in</button>
+            <button class="btn" type="submit" style="width:100%;">{{ 'auth.login.title'|trans }}</button>
         </form>
 
-        <p class="auth-alt">No account? <a href="{{ path('app_register') }}">Sign up</a></p>
+        <p class="auth-alt">{{ 'auth.login.no_account'|trans }} <a href="{{ path('app_register') }}">{{ 'auth.login.sign_up_link'|trans }}</a></p>
     </div>
 {% endblock %}

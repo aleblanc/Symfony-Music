@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Star rating of a track from anywhere (track lists, song page): one click
@@ -20,18 +21,18 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class RatingController extends AbstractController
 {
     #[Route('/rating/{id}', name: 'app_rating_set', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function set(int $id, Request $request, MusicRepository $music, EntityManagerInterface $em): JsonResponse
+    public function set(int $id, Request $request, MusicRepository $music, EntityManagerInterface $em, TranslatorInterface $translator): JsonResponse
     {
         if (!$this->isCsrfTokenValid('rating', (string) $request->headers->get('X-CSRF-TOKEN', ''))) {
-            return new JsonResponse(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+            return new JsonResponse(['error' => $translator->trans('error.csrf_invalid')], Response::HTTP_FORBIDDEN);
         }
         $song = $music->find($id);
         if ($song === null) {
-            return new JsonResponse(['error' => 'Track not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => $translator->trans('error.track_not_found')], Response::HTTP_NOT_FOUND);
         }
         $stars = $request->request->getInt('stars');
         if ($stars < 0 || $stars > 5) {
-            return new JsonResponse(['error' => 'stars must be 0 (none) to 5'], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(['error' => $translator->trans('error.rating.out_of_range')], Response::HTTP_BAD_REQUEST);
         }
 
         $song->setRating($stars);

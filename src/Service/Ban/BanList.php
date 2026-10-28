@@ -10,6 +10,7 @@ use App\Service\Enrichment\MatchScorer;
 use App\Service\Enrichment\RawFingerprint;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use App\Exception\UserFacingException;
 
 /**
  * "Not this song": a track whose audio is another recording than its title
@@ -53,11 +54,11 @@ class BanList
     {
         $file = (string) $song->getFile();
         if (!is_file($file)) {
-            throw new \RuntimeException('file not found: ' . $file);
+            throw new UserFacingException('file not found: ' . $file, 'error.ban.file_not_found', ['file' => $file]);
         }
         [$fingerprint, $duration] = $this->fingerprinter->raw($file);
         if ($fingerprint === []) {
-            throw new \RuntimeException('empty fingerprint: ' . basename($file));
+            throw new UserFacingException('empty fingerprint: ' . basename($file), 'error.ban.empty_fingerprint', ['file' => basename($file)]);
         }
 
         $root = rtrim($this->musicDir, '/');
