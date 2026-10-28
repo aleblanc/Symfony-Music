@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Service\MusicScanner;
+use SimpleCronScheduler\Attribute\AsCronTask;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -14,7 +15,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Indexes the music library. Replaces the legacy `?action=full_scan`
  * browser-driven scan with a proper CLI command that can also be cron-run.
  */
-#[AsCommand(name: 'app:scan', description: 'Scan the music library and sync the database')]
+#[AsCommand(name: 'app:cron:scan', description: 'Scan the music library and sync the database')]
+#[AsCronTask('5 * * * *', timeout: 3000, description: 'Hourly: index new, changed and removed files')]
 class ScanCommand extends Command
 {
     public function __construct(private readonly MusicScanner $scanner)

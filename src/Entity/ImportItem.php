@@ -7,7 +7,7 @@ use App\Service\Enrichment\Proposal;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * A file of the import folder that `app:import` looked at: its identification
+ * A file of the import folder that `app:import:files` looked at: its identification
  * candidates (for the web page when none was sure enough), and what became
  * of it. Size + mtime let re-runs skip files already tried unless they
  * changed (tags fixed, file replaced).

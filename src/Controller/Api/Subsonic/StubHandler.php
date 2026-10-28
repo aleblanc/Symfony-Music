@@ -32,7 +32,7 @@ final class StubHandler implements SubsonicHandler
             'getNowPlaying' => ['nowPlaying' => new \stdClass()],
             'getBookmarks' => ['bookmarks' => new \stdClass()],
             'getVideos' => ['videos' => new \stdClass()],
-            // Scans stay a manual `app:scan`; report the current state.
+            // Scans stay a manual `app:cron:scan`; report the current state.
             'startScan' => ['scanStatus' => $this->system->scanStatus($user)],
             default => throw new \LogicException("Unhandled Subsonic method {$method}"),
         };

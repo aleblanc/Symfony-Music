@@ -8,8 +8,8 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * What is known about an artist of the library beyond its tracks: photo,
  * Wikipedia summary, links (official site, YouTube, Spotify...) and the
- * latest YouTube videos. Filled by `app:artist:fetch` (MusicBrainz →
- * Wikidata → Wikipedia) and `app:artist:videos` (YouTube RSS feed); keyed by
+ * latest YouTube videos. Filled by `app:cron:artist-info` (MusicBrainz →
+ * Wikidata → Wikipedia) and `app:cron:artist-videos` (YouTube RSS feed); keyed by
  * the artist name as written in the tags (music.artist).
  */
 #[ORM\Entity(repositoryClass: ArtistProfileRepository::class)]
@@ -81,7 +81,7 @@ class ArtistProfile
      * Studio albums and EPs (MusicBrainz release groups), newest first, with
      * their ListenBrainz popularity (null: not read) and the track list of
      * their original edition (false: no official release, null: not read);
-     * null until fetched, so app:artist:fetch completes the profiles found before.
+     * null until fetched, so app:cron:artist-info completes the profiles found before.
      *
      * @var ?list<array{id: string, title: string, type: string, date: ?string, listens?: ?int, listeners?: ?int, tracklist?: array<string, mixed>|false|null}>
      */
@@ -414,7 +414,7 @@ class ArtistProfile
         $this->videosSeenAt = $now;
     }
 
-    /** The artist was renamed in the tags (`app:artist:merge`): the profile follows. */
+    /** The artist was renamed in the tags (`app:tool:artist-merge`): the profile follows. */
     public function rename(string $name): void
     {
         $this->name = $name;

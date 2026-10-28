@@ -1,0 +1,24 @@
+simple_cron_scheduler:
+    timezone: Europe/Luxembourg
+
+    # Everything below is optional — these are the defaults, shown for discoverability.
+    # default_runner: process          # process (subprocess isolation) | in_process
+    # default_timeout: 600             # seconds; 0/null = unlimited
+    # log_channel: scheduler
+    # log_output_max_bytes: 8192
+    # lock_runner: false               # global lock on scheduler:run (default off; overlap is per-task via `lock`)
+    # php_binary: '/usr/bin/php'       # omit/null = resolved at runtime (recommended)
+
+    # Shell / command / service tasks (exactly one of command|shell|service per task).
+    # tasks:
+    #     clear-old-cache:
+    #         schedule: '0 5 * * 1'
+    #         shell: 'rm -rf var/cache/old'
+    #     import-feed-a:
+    #         schedule: '1,31 0-6 * * *'
+    #         command: 'app:import:feed'
+    #         args: ['partner-a']
+    #         env: ['prod']
+    #     prune-orphans:
+    #         schedule: '@daily'
+    #         service: 'App\Cron\OrphanPruner'

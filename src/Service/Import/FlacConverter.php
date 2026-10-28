@@ -6,7 +6,7 @@ use App\Service\BinaryLocator;
 use Symfony\Component\Process\Process;
 
 /**
- * `app:import --flac-to-aac`: FLAC files of the import folder become M4A
+ * `app:import:files --flac-to-aac`: FLAC files of the import folder become M4A
  * (AAC 256 kb/s, transparent and about 4 times smaller) before being
  * identified and filed. Apple's AAC encoder is used when ffmpeg has it
  * (macOS), else ffmpeg's own; tags and cover are carried over. The FLAC is

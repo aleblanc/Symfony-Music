@@ -16,8 +16,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 /**
- * The latest YouTube videos (app:artist:videos) and Instagram posts
- * (app:artist:posts) of every library artist, newest first; "new" ones are
+ * The latest YouTube videos (app:cron:artist-videos) and Instagram posts
+ * (app:cron:artist-posts) of every library artist, newest first; "new" ones are
  * those since the last visit of the artist's page, as on the artist cards.
  * Viewing these lists marks nothing as seen.
  */

@@ -1,4 +1,4 @@
-{# One upcoming concert (app:artist:concerts): date, artist (on the global list), place, links to Songkick. #}
+{# One upcoming concert (app:cron:artist-concerts): date, artist (on the global list), place, links to Songkick. #}
 {% macro row(c, isNew, artist = null) %}
     <li class="concert{{ c.status != 'scheduled' ? ' concert-' ~ c.status }}">
         <time class="concert-date" datetime="{{ c.date }}">

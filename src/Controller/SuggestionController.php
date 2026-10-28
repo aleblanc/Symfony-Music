@@ -15,7 +15,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Translation\TranslatableMessage;
 
 /**
- * Review queue for metadata proposed by `app:enrich` below the auto-apply
+ * Review queue for metadata proposed by `app:tool:enrich` below the auto-apply
  * threshold: accept / reject one track or a whole album, revert applied ones.
  */
 #[IsGranted('ROLE_ADMIN')]

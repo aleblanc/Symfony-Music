@@ -12,7 +12,7 @@ use Symfony\Component\Clock\ClockInterface;
 /**
  * Fills ArtistProfile rows: info (photo, Wikipedia, links), discography
  * (MusicBrainz studio albums and EPs with their track list, ListenBrainz popularity)
- * and latest YouTube videos. Shared by `app:artist:fetch`, `app:artist:videos` and the
+ * and latest YouTube videos. Shared by `app:cron:artist-info`, `app:cron:artist-videos` and the
  * artist page's refresh button. The caller flushes.
  */
 class ArtistProfileUpdater

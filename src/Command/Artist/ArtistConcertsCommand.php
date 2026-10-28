@@ -8,6 +8,7 @@ use App\Service\Artist\SongkickClient;
 use App\Service\Artist\SongkickRefusedException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Clock\ClockInterface;
+use SimpleCronScheduler\Attribute\AsCronTask;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Formatter\OutputFormatter;
@@ -24,7 +25,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * where it stopped next time. Dates announced since the last visit of the
  * artist page are flagged "new" in the web pages.
  */
-#[AsCommand(name: 'app:artist:concerts', description: 'Fetch the upcoming concerts of the artists (public Songkick calendars, no API key)')]
+#[AsCommand(name: 'app:cron:artist-concerts', description: 'Fetch the upcoming concerts of the artists (public Songkick calendars, no API key)')]
+#[AsCronTask('0 4 * * *', timeout: 3600, description: 'Nightly: upcoming concerts')]
 class ArtistConcertsCommand extends Command
 {
     public function __construct(
@@ -63,7 +65,7 @@ class ArtistConcertsCommand extends Command
             $profiles = \array_slice($profiles, 0, max(1, (int) $input->getOption('limit')));
         }
         if ($profiles === []) {
-            $io->warning('No artist to check: run php bin/console app:artist:fetch first.');
+            $io->warning('No artist to check: run php bin/console app:cron:artist-info first.');
 
             return Command::SUCCESS;
         }

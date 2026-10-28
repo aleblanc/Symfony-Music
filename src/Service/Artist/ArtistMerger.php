@@ -5,7 +5,7 @@ namespace App\Service\Artist;
 /**
  * Finds the spellings of one artist ("Blink 182", "Blink182", "blink‐182";
  * "Offspring" / "The Offspring"; case differences...) and picks the name to
- * keep. Pure: fed with (artist, count) rows, used by `app:artist:merge`.
+ * keep. Pure: fed with (artist, count) rows, used by `app:tool:artist-merge`.
  *
  * Two names are the same artist when ArtistInfoFetcher::normalize() makes
  * them equal (case, accents, spaces, punctuation and a leading "The" ignored).

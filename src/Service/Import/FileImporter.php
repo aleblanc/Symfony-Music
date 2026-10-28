@@ -88,8 +88,8 @@ class FileImporter
     /**
      * Files a track nothing could identify, kept anyway: moved as is (tags
      * untouched) to MUSIC_DIR/_unclassified, under its path in the import
-     * folder ("Skrillex/Unreleased/01 Cat Rats.mp3"), so app:scan indexes it
-     * and app:enrich can still name it later.
+     * folder ("Skrillex/Unreleased/01 Cat Rats.mp3"), so app:cron:scan indexes it
+     * and app:tool:enrich can still name it later.
      *
      * @throws \InvalidArgumentException when the file is not inside the import folder
      * @throws \RuntimeException when moving fails (the file is left where it was)

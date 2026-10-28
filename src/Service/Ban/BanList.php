@@ -79,7 +79,7 @@ class BanList
 
         $event = $this->dispatcher->dispatch(new TrackBannedEvent($song, $file));
         if ($event->restoredFile !== null && is_file($event->restoredFile)) {
-            // Re-read by the next app:scan (tags, format, bitrate of the restored file).
+            // Re-read by the next app:cron:scan (tags, format, bitrate of the restored file).
             $song->setFile($event->restoredFile)->setLastModified(null);
         } else {
             $this->em->remove($song);

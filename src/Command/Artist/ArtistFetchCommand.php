@@ -8,6 +8,7 @@ use App\Repository\MusicRepository;
 use App\Service\Artist\ArtistProfileUpdater;
 use App\Service\Enrichment\EnrichmentException;
 use Doctrine\ORM\EntityManagerInterface;
+use SimpleCronScheduler\Attribute\AsCronTask;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -19,9 +20,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Artist pages: finds each artist of the library on MusicBrainz, then its
  * photo, Wikipedia summary, YouTube channel and other links (Wikidata,
  * Wikipedia). Artists already done are skipped. Then run
- * `app:artist:videos` for their latest YouTube videos.
+ * `app:cron:artist-videos` for their latest YouTube videos.
  */
-#[AsCommand(name: 'app:artist:fetch', description: 'Fetch photo, Wikipedia summary, YouTube channel and links of the library artists')]
+#[AsCommand(name: 'app:cron:artist-info', description: 'Fetch photo, Wikipedia summary, YouTube channel and links of the library artists')]
+#[AsCronTask('0 3 * * *', timeout: 3000, description: 'Nightly: info and discography of the new artists')]
 class ArtistFetchCommand extends Command
 {
     public function __construct(
@@ -114,7 +116,7 @@ class ArtistFetchCommand extends Command
         $io->newLine();
         $io->success(\sprintf('%d found, %d not found, %d failed, %d skipped (already done).', $stats['found'], $stats['not found'], $stats['failed'], $stats['skipped']));
         if ($stats['found'] > 0) {
-            $io->text('Next: php bin/console app:artist:videos');
+            $io->text('Next: php bin/console app:cron:artist-videos');
         }
         if ($stats['skipped'] > 0) {
             $io->text('Artists already done are skipped: --retry for those not found, --refresh for all.');

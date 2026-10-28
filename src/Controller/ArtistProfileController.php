@@ -15,7 +15,7 @@ use Symfony\Component\Translation\TranslatableMessage;
 
 /**
  * "Refresh" button of an artist page: same as
- * `app:artist:fetch --artist=NAME` + `app:artist:videos --artist=NAME`.
+ * `app:cron:artist-info --artist=NAME` + `app:cron:artist-videos --artist=NAME`.
  */
 #[IsGranted('ROLE_ADMIN')]
 class ArtistProfileController extends AbstractController

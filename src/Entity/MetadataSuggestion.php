@@ -7,7 +7,7 @@ use App\Repository\MetadataSuggestionRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Metadata proposed for a track by `app:enrich` (MusicBrainz / AcoustID).
+ * Metadata proposed for a track by `app:tool:enrich` (MusicBrainz / AcoustID).
  * Applied right away when confident enough, otherwise reviewed in
  * /admin/suggestions. Keeps the values it replaced so it can be reverted.
  */

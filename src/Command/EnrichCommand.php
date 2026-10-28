@@ -30,7 +30,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * same album (no network), then from MusicBrainz for the rest; nothing else
  * of the track is changed.
  */
-#[AsCommand(name: 'app:enrich', description: 'Complete track metadata (titles, album, track numbers, covers) from MusicBrainz/AcoustID')]
+#[AsCommand(name: 'app:tool:enrich', description: 'Complete track metadata (titles, album, track numbers, covers) from MusicBrainz/AcoustID')]
 class EnrichCommand extends Command
 {
     private const DEFAULT_THRESHOLD = 0.85;

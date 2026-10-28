@@ -30,9 +30,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * files nothing identifies at all are kept anyway, as they are, under
  * MUSIC_DIR/_unclassified (--no-unclassified leaves them in the import folder).
  *
- * Then run `app:scan` and `app:spotify:match` yourself.
+ * Then run `app:cron:scan` and `app:cron:spotify-match` yourself.
  */
-#[AsCommand(name: 'app:import', description: 'Identify, tag and file the import folder into the library (MUSIC_DIR/Artist/Album/NN Title)')]
+#[AsCommand(name: 'app:import:files', description: 'Identify, tag and file the import folder into the library (MUSIC_DIR/Artist/Album/NN Title)')]
 class ImportCommand extends Command
 {
     private const DEFAULT_THRESHOLD = 0.85;
@@ -98,7 +98,7 @@ class ImportCommand extends Command
         $realSource = (string) realpath($source);
         $realLibrary = is_dir($library) ? (string) realpath($library) : $library;
         if ($realSource === $realLibrary || str_starts_with($realSource . '/', $realLibrary . '/') || str_starts_with($realLibrary . '/', $realSource . '/')) {
-            $io->error('The import folder and MUSIC_DIR must be separate folders (neither inside the other). To complete tracks already in the library, use app:enrich.');
+            $io->error('The import folder and MUSIC_DIR must be separate folders (neither inside the other). To complete tracks already in the library, use app:tool:enrich.');
 
             return Command::FAILURE;
         }
@@ -201,7 +201,7 @@ class ImportCommand extends Command
             $stats['skipped'],
         ));
         if (!$dryRun && $stats['imported'] + $stats['unclassified'] > 0) {
-            $io->text('Next: php bin/console app:scan, then php bin/console app:spotify:match');
+            $io->text('Next: php bin/console app:cron:scan, then php bin/console app:cron:spotify-match');
         }
         if ($stats['skipped'] > 0) {
             $io->text('Files already tried are skipped until they change; --retry forces them.');

@@ -11,6 +11,7 @@ use App\Service\Spotify\SpotifyMatcher;
 use App\Service\Spotify\SpotifyResolver;
 use App\Service\Spotify\SpotifyTagWriter;
 use Doctrine\ORM\EntityManagerInterface;
+use SimpleCronScheduler\Attribute\AsCronTask;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Command\SignalableCommandInterface;
@@ -27,9 +28,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *
  * Coverage is partial: unmatched songs keep the "Find on Spotify" search
  * button. Re-runnable: by default only tracks never looked up are processed,
- * so a cron after each `app:scan` only handles new files.
+ * so a cron after each `app:cron:scan` only handles new files.
  */
-#[AsCommand(name: 'app:spotify:match', description: 'Find the open.spotify.com link of each track (DB, optionally file tags)')]
+#[AsCommand(name: 'app:cron:spotify-match', description: 'Find the open.spotify.com link of each track (DB, optionally file tags)')]
+#[AsCronTask('20 */2 * * *', skipHours: [3, 4, 5], timeout: 3000, description: 'Every 2 hours, after the scan: Spotify link of the new tracks (not while the nightly MusicBrainz jobs run)')]
 class SpotifyMatchCommand extends Command implements SignalableCommandInterface
 {
     private const BROWSER_BATCH_SIZE = 25;
@@ -307,7 +309,7 @@ class SpotifyMatchCommand extends Command implements SignalableCommandInterface
             if ($this->tagWriter->write($song, (string) $song->getSpotifyUrl())) {
                 ++$stats['tagged'];
                 clearstatcache(true, (string) $song->getFile());
-                // The file changed on purpose: keep app:scan from re-reading it.
+                // The file changed on purpose: keep app:cron:scan from re-reading it.
                 $song->setLastModified(filemtime((string) $song->getFile()) ?: $song->getLastModified());
             }
         } catch (\RuntimeException $e) {

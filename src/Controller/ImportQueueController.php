@@ -20,7 +20,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Translation\TranslatableMessage;
 
 /**
- * The files `app:import` was not sure about, one at a time: listen, pick a
+ * The files `app:import:files` was not sure about, one at a time: listen, pick a
  * candidate in one click (or 1-5 on the keyboard), and the file is tagged
  * and filed exactly like the command does.
  */
@@ -137,7 +137,7 @@ class ImportQueueController extends AbstractController
         return $this->redirectToNext($item);
     }
 
-    /** None of the candidates: kept as is under MUSIC_DIR/_unclassified, like app:import does for files nothing identifies. */
+    /** None of the candidates: kept as is under MUSIC_DIR/_unclassified, like app:import:files does for files nothing identifies. */
     #[Route('/admin/import/{id}/unclassified', name: 'app_import_unclassified', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function unclassified(ImportItem $item, Request $request, FileImporter $filer, EntityManagerInterface $em): Response
     {

@@ -402,7 +402,7 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
-     * Number of tracks per artist name, whole library (for app:artist:merge).
+     * Number of tracks per artist name, whole library (for app:tool:artist-merge).
      *
      * @return array<string, int>
      */
@@ -553,7 +553,7 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
-     * Ids to process with app:spotify:match, oldest first. Not visibility
+     * Ids to process with app:cron:spotify-match, oldest first. Not visibility
      * filtered: this is a library maintenance task.
      *
      * - default: never looked up
@@ -580,7 +580,7 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
-     * Track ids for app:lyrics:fetch, oldest first. By default only tracks
+     * Track ids for app:cron:lyrics, oldest first. By default only tracks
      * without lyrics that were never looked up; $retry adds those LRCLIB did
      * not know before; $all also re-fetches tracks that already have lyrics.
      *
@@ -604,7 +604,7 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
-     * Every track as plain rows for app:enrich (no cover bytes hydrated).
+     * Every track as plain rows for app:tool:enrich (no cover bytes hydrated).
      * Not visibility filtered: this is a library maintenance task.
      *
      * @return list<array{id: int, file: string, title: ?string, artist: ?string, album: ?string, genre: ?string, duration: ?int, trackNumber: ?int, year: ?int, albumKey: ?string, hasImage: bool, enrichedAt: ?\DateTimeImmutable}>

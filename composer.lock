@@ -4,8 +4,74 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7ff4df3eef5688ff53285f21b213a197",
+    "content-hash": "5c426709398ef46e61aef4319cc5c155",
     "packages": [
+        {
+            "name": "aleblanc/simple-cron-scheduler",
+            "version": "v0.3.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/aleblanc/simple-cron-scheduler.git",
+                "reference": "71e98162c9c5ef67c32315946a54116b6bee9493"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/aleblanc/simple-cron-scheduler/zipball/71e98162c9c5ef67c32315946a54116b6bee9493",
+                "reference": "71e98162c9c5ef67c32315946a54116b6bee9493",
+                "shasum": ""
+            },
+            "require": {
+                "dragonmantank/cron-expression": "^3.4",
+                "php": ">=8.4",
+                "psr/log": "^3.0",
+                "symfony/config": "^7.2|^8.0|^9.0|^10.0",
+                "symfony/console": "^7.2|^8.0|^9.0|^10.0",
+                "symfony/dependency-injection": "^7.2|^8.0|^9.0|^10.0",
+                "symfony/event-dispatcher": "^7.2|^8.0|^9.0|^10.0",
+                "symfony/http-kernel": "^7.2|^8.0|^9.0|^10.0",
+                "symfony/lock": "^7.2|^8.0|^9.0|^10.0",
+                "symfony/process": "^7.2|^8.0|^9.0|^10.0"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.95",
+                "phpstan/phpstan": "^2.2",
+                "phpunit/phpunit": "^11.0",
+                "symfony/clock": "^7.2|^8.0|^9.0|^10.0",
+                "symfony/framework-bundle": "^7.2|^8.0|^9.0|^10.0",
+                "symfony/yaml": "^7.2|^8.0|^9.0|^10.0"
+            },
+            "suggest": {
+                "symfony/clock": "Mockable clock for deterministic tests of due-now logic"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "SimpleCronScheduler\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Alexandre Leblanc"
+                }
+            ],
+            "description": "Symfony bundle to orchestrate cron through a single crontab entry + a declarative schedule (PHP attributes or YAML), with subprocess isolation. No Messenger, no long-running daemon.",
+            "keywords": [
+                "cron",
+                "crontab",
+                "scheduler",
+                "symfony",
+                "task"
+            ],
+            "support": {
+                "issues": "https://github.com/aleblanc/simple-cron-scheduler/issues",
+                "source": "https://github.com/aleblanc/simple-cron-scheduler/tree/v0.3.0"
+            },
+            "time": "2026-10-04T12:49:35+00:00"
+        },
         {
             "name": "composer/semver",
             "version": "3.4.4",
@@ -1200,6 +1266,70 @@
                 "source": "https://github.com/doctrine/sql-formatter/tree/1.5.4"
             },
             "time": "2026-02-08T16:21:46+00:00"
+        },
+        {
+            "name": "dragonmantank/cron-expression",
+            "version": "v3.6.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/dragonmantank/cron-expression.git",
+                "reference": "4189372ffeff09bf14f731f67a9de90c7b413ebe"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/dragonmantank/cron-expression/zipball/4189372ffeff09bf14f731f67a9de90c7b413ebe",
+                "reference": "4189372ffeff09bf14f731f67a9de90c7b413ebe",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.2|^8.3|^8.4|^8.5"
+            },
+            "replace": {
+                "mtdowling/cron-expression": "^1.0"
+            },
+            "require-dev": {
+                "phpstan/extension-installer": "^1.4.3",
+                "phpstan/phpstan": "^2.1.31",
+                "phpunit/phpunit": "^11.5.43 || ^12.4"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "3.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Cron\\": "src/Cron/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Chris Tankersley",
+                    "email": "chris@ctankersley.com",
+                    "homepage": "https://github.com/dragonmantank"
+                }
+            ],
+            "description": "CRON for PHP: Calculate the next or previous run date and determine if a CRON expression is due",
+            "keywords": [
+                "cron",
+                "schedule"
+            ],
+            "support": {
+                "issues": "https://github.com/dragonmantank/cron-expression/issues",
+                "source": "https://github.com/dragonmantank/cron-expression/tree/v3.6.1"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/dragonmantank",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-10-19T17:53:57+00:00"
         },
         {
             "name": "psr/cache",
@@ -3520,6 +3650,88 @@
                 }
             ],
             "time": "2026-08-21T17:47:34+00:00"
+        },
+        {
+            "name": "symfony/lock",
+            "version": "v8.1.10",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/symfony/lock.git",
+                "reference": "86767bf6c112741d39118cc4c946f1a7ee98fa6d"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/symfony/lock/zipball/86767bf6c112741d39118cc4c946f1a7ee98fa6d",
+                "reference": "86767bf6c112741d39118cc4c946f1a7ee98fa6d",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.4.1",
+                "psr/log": "^1|^2|^3"
+            },
+            "conflict": {
+                "doctrine/dbal": "<4.3"
+            },
+            "require-dev": {
+                "doctrine/dbal": "^4.3",
+                "predis/predis": "^1.1|^2.0",
+                "symfony/serializer": "^6.4|^7.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Symfony\\Component\\Lock\\": ""
+                },
+                "exclude-from-classmap": [
+                    "/Tests/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Jérémy Derussé",
+                    "email": "jeremy@derusse.com"
+                },
+                {
+                    "name": "Symfony Community",
+                    "homepage": "https://symfony.com/contributors"
+                }
+            ],
+            "description": "Creates and manages locks, a mechanism to provide exclusive access to a shared resource",
+            "homepage": "https://symfony.com",
+            "keywords": [
+                "cas",
+                "flock",
+                "locking",
+                "mutex",
+                "redlock",
+                "semaphore"
+            ],
+            "support": {
+                "source": "https://github.com/symfony/lock/tree/v8.1.10"
+            },
+            "funding": [
+                {
+                    "url": "https://symfony.com/sponsor",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/fabpot",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/nicolas-grekas",
+                    "type": "github"
+                },
+                {
+                    "url": "https://tidelift.com/funding/github/packagist/symfony/symfony",
+                    "type": "tidelift"
+                }
+            ],
+            "time": "2026-10-25T14:40:25+00:00"
         },
         {
             "name": "symfony/options-resolver",

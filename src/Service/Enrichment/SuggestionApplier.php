@@ -140,7 +140,7 @@ class SuggestionApplier
         ];
     }
 
-    /** The file changed on purpose: record its mtime so `app:scan` doesn't re-read it. */
+    /** The file changed on purpose: record its mtime so `app:cron:scan` doesn't re-read it. */
     private function touch(Music $music): void
     {
         $file = (string) $music->getFile();

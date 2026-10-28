@@ -91,7 +91,7 @@ class MetadataController extends AbstractController
         $song->setIsPrivate($isPrivate);
         if ($spotifyId !== $song->getSpotifyId()) {
             $song->setSpotifyId($spotifyId);
-            // A manual choice (even clearing it) must not be redone by app:spotify:match.
+            // A manual choice (even clearing it) must not be redone by app:cron:spotify-match.
             $song->setSpotifyCheckedAt(time());
         }
 

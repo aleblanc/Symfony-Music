@@ -122,7 +122,7 @@ class MetadataEnricher
      *
      * @param list<EnrichmentTrack> $tracks every indexed track of one folder; only `target` ones get proposals
      * @param callable(string):void $log
-     * @param ?string $root folder the paths are relative to for name hints (default MUSIC_DIR; the import folder for app:import)
+     * @param ?string $root folder the paths are relative to for name hints (default MUSIC_DIR; the import folder for app:import:files)
      *
      * @return array<int, non-empty-list<Proposal>> music id => candidates
      */

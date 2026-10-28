@@ -5,6 +5,7 @@ namespace App\Command\Artist;
 use App\Repository\ArtistProfileRepository;
 use App\Service\Artist\ArtistProfileUpdater;
 use Doctrine\ORM\EntityManagerInterface;
+use SimpleCronScheduler\Attribute\AsCronTask;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -14,11 +15,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Reads the YouTube RSS feed (no API key) of every artist whose channel
- * `app:artist:fetch` found, and stores the latest videos. Videos published
+ * `app:cron:artist-info` found, and stores the latest videos. Videos published
  * since the last visit of the artist page are flagged "new" in the web pages.
  * Meant to run regularly (cron).
  */
-#[AsCommand(name: 'app:artist:videos', description: 'Fetch the latest YouTube videos of the artists (flagged "new" in the artist pages)')]
+#[AsCommand(name: 'app:cron:artist-videos', description: 'Fetch the latest YouTube videos of the artists (flagged "new" in the artist pages)')]
+#[AsCronTask('50 */2 * * *', timeout: 3000, description: 'Every 2 hours: latest YouTube videos')]
 class ArtistVideosCommand extends Command
 {
     public function __construct(
@@ -45,7 +47,7 @@ class ArtistVideosCommand extends Command
             $profiles = array_values(array_filter($profiles, static fn($p) => $p->getName() === $only));
         }
         if ($profiles === []) {
-            $io->warning('No artist with a YouTube channel: run php bin/console app:artist:fetch first.');
+            $io->warning('No artist with a YouTube channel: run php bin/console app:cron:artist-info first.');
 
             return Command::SUCCESS;
         }

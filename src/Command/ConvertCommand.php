@@ -13,9 +13,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * Step 0 of adding music, when the import folder holds WMA files: converts
  * them to M4A (AAC) with ffmpeg, tags and cover kept, originals moved to
- * IMPORT_DIR/_wma. Then run `app:import` yourself.
+ * IMPORT_DIR/_wma. Then run `app:import:files` yourself.
  */
-#[AsCommand(name: 'app:convert', description: 'Convert the WMA files of the import folder to M4A (AAC), tags kept; originals moved to IMPORT_DIR/_wma')]
+#[AsCommand(name: 'app:import:convert-wma', description: 'Convert the WMA files of the import folder to M4A (AAC), tags kept; originals moved to IMPORT_DIR/_wma')]
 class ConvertCommand extends Command
 {
     private const BITRATES = [192, 256, 320];
@@ -97,7 +97,7 @@ class ConvertCommand extends Command
         $io->newLine();
         $io->success(\sprintf('%s — %d converted, %d failed.', $dryRun ? 'Dry run complete' : 'Conversion complete', $stats['converted'], $stats['failed']));
         if (!$dryRun && $stats['converted'] > 0) {
-            $io->text('Next: php bin/console app:import');
+            $io->text('Next: php bin/console app:import:files');
         }
 
         return $stats['failed'] > 0 ? Command::FAILURE : Command::SUCCESS;

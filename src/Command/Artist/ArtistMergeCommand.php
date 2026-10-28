@@ -22,7 +22,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * inside MUSIC_DIR are touched; tracks still indexed elsewhere (e.g. the
  * import folder) are listed and left alone.
  */
-#[AsCommand(name: 'app:artist:merge', description: 'Merge the spellings of an artist (Blink 182 / Blink182 / blink-182) into one name, tags included')]
+#[AsCommand(name: 'app:tool:artist-merge', description: 'Merge the spellings of an artist (Blink 182 / Blink182 / blink-182) into one name, tags included')]
 class ArtistMergeCommand extends Command
 {
     public function __construct(
@@ -116,7 +116,7 @@ class ArtistMergeCommand extends Command
                 $file = (string) $song->getFile();
                 $shown = str_starts_with($file, $library) ? substr($file, \strlen($library)) : $file;
                 if (!str_starts_with((string) (realpath($file) ?: $file), $library)) {
-                    $io->writeln(\sprintf('    <comment>-</comment> %s <fg=gray>— outside MUSIC_DIR, left alone (app:import it, or app:scan to drop it if gone)</>', $shown));
+                    $io->writeln(\sprintf('    <comment>-</comment> %s <fg=gray>— outside MUSIC_DIR, left alone (app:import:files it, or app:cron:scan to drop it if gone)</>', $shown));
                     ++$stats['outside'];
                     continue;
                 }

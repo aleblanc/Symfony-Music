@@ -28,7 +28,7 @@ use Symfony\Component\Process\Process;
  * tags and cover are kept. Run it again: only what is missing or changed is
  * written. Nothing is ever removed from the folder.
  */
-#[AsCommand(name: 'app:device-sync', description: 'Prepare a folder (to copy onto a phone, SD card, USB key) with a playlist, the 5-star and/or the hearted tracks, optionally converted to M4A or MP3')]
+#[AsCommand(name: 'app:tool:device-sync', description: 'Prepare a folder (to copy onto a phone, SD card, USB key) with a playlist, the 5-star and/or the hearted tracks, optionally converted to M4A or MP3')]
 class DeviceSyncCommand extends Command
 {
     private const LOSSLESS = ['flac', 'alac', 'wav', 'aiff'];

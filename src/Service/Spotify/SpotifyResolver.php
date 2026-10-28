@@ -12,7 +12,7 @@ use App\Entity\Music;
  *  2. the tracks of the album named in the tags (Wikidata or MusicBrainz → embed)
  *  3. the tracks of the artist's other albums known to Wikidata
  *
- * (app:spotify:match --browser then tries Spotify's own search page for what
+ * (app:cron:spotify-match --browser then tries Spotify's own search page for what
  * is left, see {@see HeadlessSearch}.)
  *
  * Coverage is partial (well-documented artists only); everything fetched is

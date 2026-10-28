@@ -9,6 +9,7 @@ use App\Service\Artist\LoginWallException;
 use App\Service\Browser\ChromePipe;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Clock\ClockInterface;
+use SimpleCronScheduler\Attribute\AsCronTask;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Formatter\OutputFormatter;
@@ -19,13 +20,14 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Reads the public Instagram profile (no account, no API key) of every
- * artist whose links (app:artist:fetch) have one, in Chrome, slowly, and
+ * artist whose links (app:cron:artist-info) have one, in Chrome, slowly, and
  * keeps the latest posts (ArtistProfile::MAX_POSTS). The artists checked
  * longest ago go first, so a run cut short by Instagram's login wall goes on
  * where it stopped next time. Posts published since the last visit of the
  * artist page are flagged "new" in the web pages.
  */
-#[AsCommand(name: 'app:artist:posts', description: 'Fetch the latest Instagram posts of the artists (public profiles, in Chrome, no account)')]
+#[AsCommand(name: 'app:cron:artist-posts', description: 'Fetch the latest Instagram posts of the artists (public profiles, in Chrome, no account)')]
+#[AsCronTask('0 6 * * *', args: ['--limit=100'], timeout: 3600, description: 'Nightly: Instagram posts of the 100 artists checked longest ago (needs Chrome)')]
 class ArtistPostsCommand extends Command
 {
     public function __construct(
@@ -70,7 +72,7 @@ class ArtistPostsCommand extends Command
             $profiles = \array_slice($profiles, 0, max(1, (int) $input->getOption('limit')));
         }
         if ($profiles === []) {
-            $io->warning('No artist with an Instagram link: run php bin/console app:artist:fetch first.');
+            $io->warning('No artist with an Instagram link: run php bin/console app:cron:artist-info first.');
 
             return Command::SUCCESS;
         }

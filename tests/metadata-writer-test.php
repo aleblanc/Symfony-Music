@@ -109,7 +109,7 @@ try {
     check('title untouched by unrelated write', ($info['comments']['title'][0] ?? null) === 'Fitter Happier (Remastered)');
 
     // 4) Frames the writer doesn't manage must survive: Spotify URL (WOAF, written by
-    //    app:spotify:match), custom TXXX, MusicBrainz UFID, a second (back) picture.
+    //    app:cron:spotify-match), custom TXXX, MusicBrainz UFID, a second (back) picture.
     $w = new getid3_writetags();
     $w->filename = $file;
     $w->tagformats = ['id3v2.3'];

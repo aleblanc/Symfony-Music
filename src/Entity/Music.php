@@ -66,7 +66,7 @@ class Music
 
     /**
      * Last metadata-enrichment attempt (MusicBrainz/AcoustID), matched or
-     * not; `app:enrich` skips tracks already attempted unless --retry.
+     * not; `app:tool:enrich` skips tracks already attempted unless --retry.
      */
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $enrichedAt = null;
@@ -147,19 +147,19 @@ class Music
 
     /**
      * Unix time of the last Spotify lookup, matched or not, so
-     * `app:spotify:match` doesn't re-query tracks it already failed on.
+     * `app:cron:spotify-match` doesn't re-query tracks it already failed on.
      */
     #[ORM\Column(nullable: true)]
     private ?int $spotifyCheckedAt = null;
 
     /**
      * Unix time of the last LRCLIB lookup, found or not, so
-     * `app:lyrics:fetch` doesn't re-query tracks it already failed on.
+     * `app:cron:lyrics` doesn't re-query tracks it already failed on.
      */
     #[ORM\Column(nullable: true)]
     private ?int $lyricsCheckedAt = null;
 
-    /** ReplayGain track gain in dB (from the tags, read by app:scan). */
+    /** ReplayGain track gain in dB (from the tags, read by app:cron:scan). */
     #[ORM\Column(type: 'float', nullable: true)]
     private ?float $replayGainTrack = null;
 

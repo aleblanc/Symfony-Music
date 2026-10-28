@@ -8,6 +8,7 @@ use App\Service\Lyrics\LrclibClient;
 use App\Service\Lyrics\LyricsException;
 use App\Service\MetadataWriter;
 use Doctrine\ORM\EntityManagerInterface;
+use SimpleCronScheduler\Attribute\AsCronTask;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Command\SignalableCommandInterface;
@@ -20,12 +21,13 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Fills the lyrics of library tracks from LRCLIB: synced LRC when the
  * durations agree (the player then scrolls them with the song), plain text
  * otherwise. Stored in the database and, with --write-tags, in the file's
- * lyrics tag (app:scan only overwrites the database when the tag has some).
+ * lyrics tag (app:cron:scan only overwrites the database when the tag has some).
  *
  * Re-runnable: by default only tracks without lyrics that were never looked
- * up are processed, so a cron after each `app:scan` only handles new files.
+ * up are processed, so a cron after each `app:cron:scan` only handles new files.
  */
-#[AsCommand(name: 'app:lyrics:fetch', description: 'Fetch synced (LRC) or plain lyrics from LRCLIB (DB, optionally file tags)')]
+#[AsCommand(name: 'app:cron:lyrics', description: 'Fetch synced (LRC) or plain lyrics from LRCLIB (DB, optionally file tags)')]
+#[AsCronTask('35 */2 * * *', timeout: 3000, description: 'Every 2 hours, after the scan: lyrics of the new tracks')]
 class LyricsFetchCommand extends Command implements SignalableCommandInterface
 {
     /** LRCLIB errors in a row before the run gives up (it is flaky: a track's error is usually gone on the next one). */
@@ -199,7 +201,7 @@ class LyricsFetchCommand extends Command implements SignalableCommandInterface
         }
         ++$stats['tagged'];
         clearstatcache(true, $file);
-        // The file changed on purpose: keep app:scan from re-reading it.
+        // The file changed on purpose: keep app:cron:scan from re-reading it.
         $song->setLastModified(filemtime($file) ?: $song->getLastModified());
     }
 

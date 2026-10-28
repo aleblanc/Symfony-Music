@@ -145,9 +145,9 @@
                             {% if song.spotifyUrl %}
                                 <a class="link" href="{{ song.spotifyUrl }}" target="_blank" rel="noopener" title="{{ song.spotifyUrl }}">open.spotify.com/track/{{ song.spotifyId }} ↗</a>
                             {% elseif song.spotifyCheckedAt %}
-                                <span class="muted" title="php bin/console app:spotify:match --retry">{{ 'song.show.spotify_not_found'|trans({date: song.spotifyCheckedAt|format_date('short')}) }}</span>
+                                <span class="muted" title="php bin/console app:cron:spotify-match --retry">{{ 'song.show.spotify_not_found'|trans({date: song.spotifyCheckedAt|format_date('short')}) }}</span>
                             {% else %}
-                                <span class="muted" title="php bin/console app:spotify:match --id={{ song.id }}">{{ 'song.show.spotify_not_matched'|trans }}</span>
+                                <span class="muted" title="php bin/console app:cron:spotify-match --id={{ song.id }}">{{ 'song.show.spotify_not_matched'|trans }}</span>
                             {% endif %}
                         </dd>
                         <dt>{{ 'song.show.rating'|trans }}</dt>

@@ -23,7 +23,7 @@ sudo apt install atomicparsley flac libchromaprint-tools vorbis-tools ffmpeg  # 
 | `metaflac` (flac) | writing FLAC tags |
 | `fpcalc` (chromaprint) | audio fingerprints: identifies files with useless names |
 | `vorbiscomment` (vorbis-tools) | writing Ogg tags |
-| `ffmpeg` | `app:convert` (WMA → M4A) |
+| `ffmpeg` | `app:import:convert-wma` (WMA → M4A) |
 
 They are found automatically (PATH, Homebrew, `~/.local/bin`…).
 
@@ -41,7 +41,7 @@ MUSICBRAINZ_USER_AGENT="PHPMusic/1.0 ( you@example.com )"  # a contact is requir
 ```bash
 composer install
 php bin/console doctrine:migrations:migrate --no-interaction
-php bin/console app:scan
+php bin/console app:cron:scan
 php -S 127.0.0.1:8000 -t public public/index.php     # or nginx + php-fpm
 ```
 
@@ -51,29 +51,41 @@ Drop files (any layout, any names) into `IMPORT_DIR`, then run **one command
 at a time**, checking the result before the next:
 
 ```bash
-php bin/console app:convert --dry-run        # 1. only if there are WMA files: list them
-php bin/console app:convert                  #    → M4A (AAC), tags kept, originals moved to IMPORT_DIR/_wma
+php bin/console app:import:convert-wma --dry-run   # 1. only if there are WMA files: list them
+php bin/console app:import:convert-wma             #    → M4A (AAC), tags kept, originals moved to IMPORT_DIR/_wma
 
-php bin/console app:import --dry-run --limit=50   # 2. preview: what would be tagged and where it would go
-php bin/console app:import                   #    identify, tag (+ cover, MusicBrainz ids) and move into MUSIC_DIR
+php bin/console app:import:files --dry-run --limit=50   # 2. preview: what would be tagged and where it would go
+php bin/console app:import:files                   #    identify, tag (+ cover, MusicBrainz ids) and move into MUSIC_DIR
 
-#                                              3. web page /admin/import: choose among the candidates of the doubtful files
+#                                                    3. web page /admin/import: choose among the candidates of the doubtful files
 
-php bin/console app:scan                     # 4. index the library (new files in, removed ones out)
-php bin/console app:spotify:match -v         # 5. Spotify link of each track (resumable: rerun it if it stops)
-php bin/console app:artist:fetch             # 6. artist pages: photo, Wikipedia, links, YouTube channel, discography
-php bin/console app:artist:videos            # 7. latest YouTube videos (cron, e.g. hourly)
-php bin/console app:lyrics:fetch -v          # 8. lyrics from LRCLIB, synced (LRC) when available (resumable)
+php bin/console app:cron:scan                      # 4. index the library (new files in, removed ones out)
+php bin/console app:cron:spotify-match -v          # 5. Spotify link of each track (resumable: rerun it if it stops)
+php bin/console app:cron:artist-info               # 6. artist pages: photo, Wikipedia, links, YouTube channel, discography
+php bin/console app:cron:artist-videos             # 7. latest YouTube videos
+php bin/console app:cron:lyrics -v                 # 8. lyrics from LRCLIB, synced (LRC) when available (resumable)
 ```
 
-What happens to each file in `app:import`:
+Steps 4–8 (`app:cron:*`) also run on their own once the scheduler is set up
+(see [Scheduled tasks](#scheduled-tasks)): running them by hand only gets the
+result sooner.
+
+Command names tell how they are meant to be used:
+
+| Prefix | Use |
+|---|---|
+| `app:import:*` | each time files are dropped into `IMPORT_DIR`, by hand |
+| `app:cron:*` | scheduled; only handle what is new or not done yet, safe to run anytime |
+| `app:tool:*` | now and then, by hand (they rewrite tags) |
+
+What happens to each file in `app:import:files`:
 
 | Result | Where the file goes |
 |---|---|
 | identified (score ≥ 0.85) | `MUSIC_DIR/Artist/Album (Year)/07 Title.ext` (multi-disc: `2-07`, no album: `Artist/Singles/`) |
 | doubtful | stays in `IMPORT_DIR`, up to 5 candidates wait in **/admin/import** |
 | same audio already in the library | `IMPORT_DIR/_duplicates/` |
-| not identified (no candidate at all) | `MUSIC_DIR/_unclassified/` + its path in the import folder, untouched (indexed by `app:scan`; `--no-unclassified` leaves it in `IMPORT_DIR`) |
+| not identified (no candidate at all) | `MUSIC_DIR/_unclassified/` + its path in the import folder, untouched (indexed by `app:cron:scan`; `--no-unclassified` leaves it in `IMPORT_DIR`) |
 | error | stays in `IMPORT_DIR` (retried when the file changes, or `--retry`) |
 
 Nothing is ever deleted: converted WMA go to `_wma/`, FLAC converted with
@@ -88,39 +100,65 @@ the title alone kept only for a similar artist ("Sum41" → Sum 41).
 ## 3. Keeping the library clean
 
 ```bash
-php bin/console app:enrich --dry-run --limit=50   # tracks already in MUSIC_DIR with poor tags ("Track 01", no cover...)
-php bin/console app:enrich                        #   → doubtful proposals wait in /admin/suggestions
-php bin/console app:artist:merge --dry-run        # "Blink 182" / "Blink182" / "blink‐182" → one artist name
-php bin/console app:artist:merge                  #   rewrites the tags (files are not moved)
-php bin/console app:scan --force                  # re-read every file (after editing tags elsewhere)
+php bin/console app:tool:enrich --dry-run --limit=50   # tracks already in MUSIC_DIR with poor tags ("Track 01", no cover...)
+php bin/console app:tool:enrich                        #   → doubtful proposals wait in /admin/suggestions
+php bin/console app:tool:artist-merge --dry-run        # "Blink 182" / "Blink182" / "blink‐182" → one artist name
+php bin/console app:tool:artist-merge                  #   rewrites the tags (files are not moved)
+php bin/console app:cron:scan --force                  # re-read every file (after editing tags elsewhere)
 ```
 
-`app:scan` also drops from the database the tracks whose file is gone and the
+`app:cron:scan` also drops from the database the tracks whose file is gone and the
 tracks outside `MUSIC_DIR` (files kept on disk).
 
 ## 4. Command reference
 
 | Command | Main options |
 |---|---|
-| `app:convert` | `--dry-run`, `--bitrate=auto\|192\|256\|320` (auto: WMA Lossless or ≥ 256 kb/s → 320, 160–255 → 256, below → 192), `--limit`, `--source` |
-| `app:import` | `--dry-run`, `--limit`, `--threshold=0.85`, `--retry`, `--only=failed,skipped,pending,unmatched`, `--source`, `--no-unclassified`, `--flac-to-aac` (FLAC → M4A AAC 256 kb/s before filing, originals to `IMPORT_DIR/_flac`) |
-| `app:scan` | `--force` (re-read every file), `--verbose-scan` |
-| `app:spotify:match` | `-v` (list matches), `--limit`, `--retry` (tracks not found before), `--write-tags` / `--tags-only` (URL into the MP3), `--browser` (last resort: Spotify's search page in headless Google Chrome), `--browser-only` (only that step, e.g. with `--retry`) |
-| `app:enrich` | `--dry-run`, `--limit`, `--path=TEXT`, `--threshold`, `--retry`, `--all` |
-| `app:artist:fetch` | `--artist=NAME`, `--retry` (not found before), `--refresh` (all), `--limit`; artists found before the discography existed only get it fetched (one MusicBrainz request per album for the track lists: about 1 s each the first time, cached 30 days) |
-| `app:artist:videos` | `--artist=NAME`, `-v` |
-| `app:lyrics:fetch` | `-v` (list results), `--dry-run`, `--limit`, `--id`, `--retry` (tracks not found before), `--force` (also tracks with lyrics; synced ones are never replaced by plain ones), `--write-tags` (lyrics into the file too), `--delay=200` (ms between tracks) |
-| `app:artist:merge` | `--dry-run`, `--artist=NAME --to=NEW_NAME` |
+| `app:import:convert-wma` | `--dry-run`, `--bitrate=auto\|192\|256\|320` (auto: WMA Lossless or ≥ 256 kb/s → 320, 160–255 → 256, below → 192), `--limit`, `--source` |
+| `app:import:files` | `--dry-run`, `--limit`, `--threshold=0.85`, `--retry`, `--only=failed,skipped,pending,unmatched`, `--source`, `--no-unclassified`, `--flac-to-aac` (FLAC → M4A AAC 256 kb/s before filing, originals to `IMPORT_DIR/_flac`) |
+| `app:cron:scan` | `--force` (re-read every file), `--verbose-scan` |
+| `app:cron:spotify-match` | `-v` (list matches), `--limit`, `--retry` (tracks not found before), `--write-tags` / `--tags-only` (URL into the MP3), `--browser` (last resort: Spotify's search page in headless Google Chrome), `--browser-only` (only that step, e.g. with `--retry`) |
+| `app:tool:enrich` | `--dry-run`, `--limit`, `--path=TEXT`, `--threshold`, `--retry`, `--all` |
+| `app:cron:artist-info` | `--artist=NAME`, `--retry` (not found before), `--refresh` (all), `--limit`; artists found before the discography existed only get it fetched (one MusicBrainz request per album for the track lists: about 1 s each the first time, cached 30 days) |
+| `app:cron:artist-videos` | `--artist=NAME`, `-v` |
+| `app:cron:lyrics` | `-v` (list results), `--dry-run`, `--limit`, `--id`, `--retry` (tracks not found before), `--force` (also tracks with lyrics; synced ones are never replaced by plain ones), `--write-tags` (lyrics into the file too), `--delay=200` (ms between tracks) |
+| `app:tool:artist-merge` | `--dry-run`, `--artist=NAME --to=NEW_NAME` |
 
 The long commands save as they go (per track, folder or artist): if one stops,
 rerun it and it continues with what is left.
+
+### Scheduled tasks
+
+The `app:cron:*` commands carry their schedule (`#[AsCronTask]`,
+[simple-cron-scheduler](https://github.com/aleblanc/simple-cron-scheduler)).
+One crontab line runs them, each in its own process, never twice at once:
+
+```cron
+* * * * * php /path/to/app/bin/console scheduler:run >> /path/to/app/var/log/scheduler.log 2>&1
+```
+
+| Task | When |
+|---|---|
+| `app:cron:scan` | hourly, at :05 |
+| `app:cron:spotify-match` | every 2 hours (even hours), at :20 (not 3–5 h, while the nightly MusicBrainz jobs run) |
+| `app:cron:lyrics` | every 2 hours (even hours), at :35 |
+| `app:cron:artist-videos` | every 2 hours (even hours), at :50 |
+| `app:cron:artist-info` | 03:00 |
+| `app:cron:artist-concerts` | 04:00 |
+| `app:cron:artist-posts` | 06:00, the 100 artists checked longest ago (needs Chrome on that machine) |
+
+Times are in `Europe/Luxembourg` (`config/packages/simple_cron_scheduler.yaml`).
+`php bin/console scheduler:run --list` shows the schedule, `--dry-run` what is
+due now. Run the scheduler on the machine that owns the database (see
+[Good to know](#7-good-to-know)), and avoid `app:import:files` / `app:tool:enrich`
+between 03:00 and 05:00 (MusicBrainz allows one request per second).
 
 ## 5. Web pages
 
 - **Library / Artists / Years / Genres** — artist and year tiles show album cover mosaics.
 - **Discover folder / Unclassified folder** (left menu) — the tracks under
   `MUSIC_DIR/_discover` (albums to discover, e.g. from your Favorite discography) and
-  `MUSIC_DIR/_unclassified` (files `app:import` could not identify), grouped by
+  `MUSIC_DIR/_unclassified` (files `app:import:files` could not identify), grouped by
   sub-folder, with the same play / queue / playlist buttons, plus *Play all* /
   *Queue* per album. Both folders are scanned like the rest of the library.
 - The **?** track list (MusicBrainz original edition, listeners of each track,
@@ -155,10 +193,10 @@ rerun it and it continues with what is left.
   the song, click a line to jump there. Queue button (or **Q**): the play queue —
   current track highlighted, played ones dimmed; click a track to jump to it,
   × to remove it, *Clear upcoming* to drop what follows. **RG** button: ReplayGain normalization
-  track → album → off (needs ReplayGain tags, read by `app:scan`).
+  track → album → off (needs ReplayGain tags, read by `app:cron:scan`).
 - Admin (buttons on the Library page): **/admin/import** (doubtful imports,
   keys 1–5 to choose, S skip, U keep as is in `_unclassified`, N next),
-  **/admin/suggestions** (`app:enrich` proposals, revertible), **/admin/quality**
+  **/admin/suggestions** (`app:tool:enrich` proposals, revertible), **/admin/quality**
   (bitrate / format stats, worst first, the tracks worth replacing with their
   Spotify link: MP3 ≤ 192 kb/s, AAC / Vorbis / Opus ≤ 112 kb/s, which sound
   better than MP3 at the same bitrate).
@@ -215,16 +253,16 @@ file is sent), podcasts, internet radio, shares, jukebox.
   container and the host through a mounted folder) corrupt it.
   If it is ever "malformed": stop the server, then
   `sqlite3 music.db ".recover" | sqlite3 recovered.db`, check
-  `PRAGMA integrity_check`, swap the files, run `app:scan`.
+  `PRAGMA integrity_check`, swap the files, run `app:cron:scan`.
 - **MusicBrainz** allows 1 request/s per IP and throttles clients without a
   contact in `MUSICBRAINZ_USER_AGENT`. Do not run several commands that query
-  it at the same time (`app:import`, `app:enrich`, `app:spotify:match`,
-  `app:artist:fetch`).
+  it at the same time (`app:import:files`, `app:tool:enrich`, `app:cron:spotify-match`,
+  `app:cron:artist-info`).
 - After updating `player.js` / `nav.js` / `app.css`, reload once with
   Cmd+Shift+R (service worker).
-- ReplayGain values are read by `app:scan` only for new or changed files:
-  run `app:scan --force` once so the tracks already indexed get theirs.
-- LRCLIB sometimes answers 503: `app:lyrics:fetch` skips that track and
+- ReplayGain values are read by `app:cron:scan` only for new or changed files:
+  run `app:cron:scan --force` once so the tracks already indexed get theirs.
+- LRCLIB sometimes answers 503: `app:cron:lyrics` skips that track and
   retries it on the next run (it only stops after 5 errors in a row).
 
 ## Development
@@ -246,7 +284,7 @@ src/Service/Enrichment/ identification (MusicBrainz, AcoustID, Cover Art Archive
 src/Service/Import/     import folder → library (FileImporter, LibraryPath, WmaConverter)
 src/Service/Artist/     artist pages (MusicBrainz → Wikidata → Wikipedia, discography + ListenBrainz popularity, YouTube RSS), merge
 src/Service/Spotify/    Spotify matching
-src/Service/Lyrics/     LRCLIB lyrics (app:lyrics:fetch)
+src/Service/Lyrics/     LRCLIB lyrics (app:cron:lyrics)
 templates/              Twig
 lib/getid3/             getID3 (tag reading / writing)
 migrations/             Doctrine migrations
@@ -255,7 +293,7 @@ migrations/             Doctrine migrations
 ## To do
 
 - Web page: paste a MusicBrainz link or search by hand when no import candidate fits.
-- MusicBrainz ids stored in the database, read back by `app:scan` from the tags.
+- MusicBrainz ids stored in the database, read back by `app:cron:scan` from the tags.
 - Spotify from the release's MusicBrainz id (no name search).
 - Latin names for artists credited in another script ("植松伸夫" → Nobuo Uematsu).
 - `composer update "symfony/*"` for the advisories reported by `composer audit`.

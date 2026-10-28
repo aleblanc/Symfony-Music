@@ -13,7 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 /**
- * Upcoming concerts of every library artist (app:artist:concerts, from
+ * Upcoming concerts of every library artist (app:cron:artist-concerts, from
  * Songkick), soonest first, optionally of one country only; "new" ones were
  * announced since the last visit of the artist's page. Viewing this list
  * marks nothing as seen.

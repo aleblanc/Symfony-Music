@@ -9,7 +9,7 @@ use Symfony\Component\Process\Process;
  * Converts the WMA files of the import folder with ffmpeg: browsers cannot
  * play WMA and getID3 cannot tag it. Every WMA becomes M4A (AAC, 320 kb/s
  * for WMA Lossless); tags and cover are carried over. The original is
- * moved to IMPORT_DIR/_wma, never deleted. `app:import` then identifies and
+ * moved to IMPORT_DIR/_wma, never deleted. `app:import:files` then identifies and
  * files the converted files like any other.
  */
 class WmaConverter

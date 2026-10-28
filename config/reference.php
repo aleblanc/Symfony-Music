@@ -419,7 +419,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         enabled?: bool|Param, // Default: false
  *     },
  *     lock?: Param|bool|string|array{ // Lock configuration
- *         enabled?: bool|Param, // Default: false
+ *         enabled?: bool|Param, // Default: true
  *         resources?: Param|string|array<string, Param|string|list<scalar|Param|null>>,
  *     },
  *     semaphore?: Param|bool|string|array{ // Semaphore configuration
@@ -1317,6 +1317,39 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     intercept_redirects?: bool|Param, // Default: false
  *     excluded_ajax_paths?: scalar|Param|null, // Default: "^/((index|app(_[\\w]+)?)\\.php/)?_wdt"
  * }
+ * @psalm-type SimpleCronSchedulerConfig = array{
+ *     timezone?: scalar|Param|null, // Default: "UTC"
+ *     php_binary?: scalar|Param|null, // PHP binary used to spawn task subprocesses. null = resolve at runtime (recommended). // Default: null
+ *     default_runner?: "process"|"in_process"|Param, // Default: "process"
+ *     execution?: "sequential"|"parallel"|Param, // parallel = all due tasks of a tick run concurrently (one subprocess per task). // Default: "sequential"
+ *     default_timeout?: int|Param, // Default: 600
+ *     log_channel?: scalar|Param|null, // Default: "scheduler"
+ *     log_output_max_bytes?: int|Param, // Default: 8192
+ *     lock_runner?: bool|Param, // Global lock on scheduler:run itself. false = concurrent ticks allowed (per-task `lock` handles overlap). // Default: false
+ *     tasks?: array<string, array{ // Default: []
+ *         schedule?: scalar|Param|null,
+ *         command?: scalar|Param|null, // Default: null
+ *         shell?: scalar|Param|null, // Default: null
+ *         service?: scalar|Param|null, // Default: null
+ *         args?: list<scalar|Param|null>,
+ *         description?: scalar|Param|null, // Default: null
+ *         runner?: "process"|"in_process"|Param, // Default: null
+ *         timeout?: int|Param, // Default: null
+ *         skipMinutes?: list<int|Param>,
+ *         skipHours?: list<int|Param>,
+ *         skipDays?: list<int|Param>,
+ *         skipMonths?: list<int|Param>,
+ *         days?: list<int|Param>,
+ *         between?: list<scalar|Param|null>,
+ *         unlessBetween?: list<scalar|Param|null>,
+ *         env?: list<scalar|Param|null>,
+ *         when?: scalar|Param|null, // Default: null
+ *         group?: scalar|Param|null, // Default: null
+ *         disabled?: bool|Param, // Default: false
+ *         lock?: bool|Param, // Per-task anti-overlap lock (skips this task if a previous run is still active). // Default: true
+ *         parallel?: bool|Param|null, // Override the global execution mode for this task. null = inherit. // Default: null
+ *     }>,
+ * }
  * @psalm-type ConfigType = array{
  *     imports?: ImportsConfig,
  *     parameters?: ParametersConfig,
@@ -1327,6 +1360,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     security?: SecurityConfig,
  *     twig?: TwigConfig,
  *     twig_extra?: TwigExtraConfig,
+ *     simple_cron_scheduler?: SimpleCronSchedulerConfig,
  *     "when@dev"?: array{
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
@@ -1339,6 +1373,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         twig_extra?: TwigExtraConfig,
  *         maker?: MakerConfig,
  *         web_profiler?: WebProfilerConfig,
+ *         simple_cron_scheduler?: SimpleCronSchedulerConfig,
  *     },
  *     "when@prod"?: array{
  *         imports?: ImportsConfig,
@@ -1350,6 +1385,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         security?: SecurityConfig,
  *         twig?: TwigConfig,
  *         twig_extra?: TwigExtraConfig,
+ *         simple_cron_scheduler?: SimpleCronSchedulerConfig,
  *     },
  *     "when@test"?: array{
  *         imports?: ImportsConfig,
@@ -1362,6 +1398,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         twig?: TwigConfig,
  *         twig_extra?: TwigExtraConfig,
  *         web_profiler?: WebProfilerConfig,
+ *         simple_cron_scheduler?: SimpleCronSchedulerConfig,
  *     },
  *     ...<string, ExtensionType|array{ // extra keys must follow the when@%env% pattern or match an extension alias
  *         imports?: ImportsConfig,
