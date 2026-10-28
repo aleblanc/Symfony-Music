@@ -145,6 +145,17 @@
             <div id="lyrics-body" class="lyrics-panel-body"></div>
         </aside>
 
+        {# YouTube lightbox, opened by public/video-lightbox.js #}
+        <dialog id="video-lightbox" class="video-lightbox" aria-label="Video">
+            <div class="video-lightbox-head">
+                <span class="video-lightbox-title"></span>
+                <button type="button" class="video-lightbox-close" title="Close (Esc)" aria-label="Close video">✕</button>
+            </div>
+            <div class="video-lightbox-frame">
+                <iframe src="about:blank" title="YouTube video" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+            </div>
+        </dialog>
+
         {# Shared per-track context menu, populated + positioned by player.js #}
         <div id="track-menu" class="context-menu" role="menu"></div>
 
@@ -193,6 +204,7 @@
            window.appPageInit), then nav (partial navigation). #}
         <script src="/player.js" defer></script>
         <script src="/nav.js" defer></script>
+        <script src="/video-lightbox.js" defer></script>
         {% block javascripts %}{% endblock %}
     </body>
 </html>

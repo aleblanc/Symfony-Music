@@ -1,4 +1,5 @@
 {% extends 'base.html.twig' %}
+{% import 'partials/_video_card.html.twig' as video %}
 {% import 'partials/_tracks.html.twig' as tracks %}
 {% import 'partials/_mosaic.html.twig' as tiles %}
 {% import 'partials/_play_all.html.twig' as playAll %}
@@ -58,14 +59,7 @@
             </h2>
             <div class="video-grid">
                 {% for v in videos %}
-                    <a class="video-card" href="https://www.youtube.com/watch?v={{ v.id|url_encode }}" target="_blank" rel="noopener">
-                        <span class="video-thumb">
-                            <img src="https://i.ytimg.com/vi/{{ v.id|url_encode }}/mqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">
-                            {% if v.id in newVideoIds %}<span class="badge-new">New</span>{% endif %}
-                        </span>
-                        <span class="video-title">{{ v.title }}</span>
-                        <span class="muted video-date">{{ v.published|date('d/m/Y') }}</span>
-                    </a>
+                    {{ video.card(v, v.id in newVideoIds) }}
                 {% endfor %}
             </div>
         </section>

@@ -1,4 +1,5 @@
 {% extends 'base.html.twig' %}
+{% import 'partials/_video_card.html.twig' as video %}
 
 {% block title %}New videos · PHP Music{% endblock %}
 
@@ -19,14 +20,7 @@
     {% else %}
         <div class="video-grid">
             {% for v in videos %}
-                <div class="video-card">
-                    <a class="video-thumb" href="https://www.youtube.com/watch?v={{ v.id|url_encode }}" target="_blank" rel="noopener">
-                        <img src="https://i.ytimg.com/vi/{{ v.id|url_encode }}/mqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">
-                        {% if v.new %}<span class="badge-new">New</span>{% endif %}
-                    </a>
-                    <a class="video-title" href="https://www.youtube.com/watch?v={{ v.id|url_encode }}" target="_blank" rel="noopener">{{ v.title }}</a>
-                    <span class="muted video-date"><a class="link" href="{{ path('app_artist', {name: v.artist}) }}">{{ v.artist }}</a> · {{ v.published|date('d/m/Y') }}</span>
-                </div>
+                {{ video.card(v, v.new, v.artist) }}
             {% endfor %}
         </div>
     {% endif %}

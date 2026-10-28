@@ -1,0 +1,15 @@
+{# One YouTube video: the thumbnail opens YouTube, ▶ plays it here in the lightbox (youtube-nocookie embed, see public/video-lightbox.js). #}
+{% macro card(v, isNew, artist = null) %}
+    {%- set url = 'https://www.youtube.com/watch?v=' ~ v.id|url_encode -%}
+    <div class="video-card">
+        <div class="video-thumb">
+            <a href="{{ url }}" target="_blank" rel="noopener" tabindex="-1">
+                <img src="https://i.ytimg.com/vi/{{ v.id|url_encode }}/mqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">
+            </a>
+            {% if isNew %}<span class="badge-new">New</span>{% endif %}
+            <button type="button" class="video-play" data-video-play="{{ v.id }}" data-video-title="{{ v.title }}" title="Play here" aria-label="Play {{ v.title }}">▶</button>
+        </div>
+        <a class="video-title" href="{{ url }}" target="_blank" rel="noopener">{{ v.title }}</a>
+        <span class="muted video-date">{% if artist %}<a class="link" href="{{ path('app_artist', {name: artist}) }}">{{ artist }}</a> · {% endif %}{{ v.published|date('d/m/Y') }}</span>
+    </div>
+{% endmacro %}

@@ -21,6 +21,8 @@ class ArtistProfile
     public const FOUND = 'found';
     /** No reliable MusicBrainz match: retried only with --retry. */
     public const NOT_FOUND = 'not_found';
+    /** Videos kept per artist: the RSS feed only gives the last 15, each check adds the new ones to those already known. */
+    public const MAX_VIDEOS = 60;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -64,7 +66,7 @@ class ArtistProfile
     private array $links = [];
 
     /**
-     * Latest videos of the channel, newest first.
+     * Latest videos of the channel, newest first (up to MAX_VIDEOS, gathered over the checks).
      *
      * @var list<array{id: string, title: string, published: string}>
      */
@@ -232,11 +234,20 @@ class ArtistProfile
     }
 
     /**
-     * @param list<array{id: string, title: string, published: string}> $videos newest first
+     * Adds the feed's videos to the ones already known (the feed's copy wins:
+     * a renamed video gets its new title), newest first, MAX_VIDEOS kept.
+     *
+     * @param list<array{id: string, title: string, published: string}> $videos the feed, newest first
      */
     public function setVideos(array $videos, \DateTimeImmutable $now): void
     {
-        $this->videos = $videos;
+        $byId = array_column($this->videos, null, 'id');
+        foreach ($videos as $video) {
+            $byId[$video['id']] = $video;
+        }
+        $merged = array_values($byId);
+        usort($merged, static fn (array $a, array $b): int => strcmp($b['published'], $a['published']));
+        $this->videos = \array_slice($merged, 0, self::MAX_VIDEOS);
         $this->videosCheckedAt = $now;
     }
 
