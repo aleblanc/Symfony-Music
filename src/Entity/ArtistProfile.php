@@ -98,13 +98,29 @@ class ArtistProfile
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $postsCheckedAt = null;
 
+    /** Songkick artist id, from MusicBrainz; '' when MusicBrainz has none, null until looked up. */
+    #[ORM\Column(length: 32, nullable: true)]
+    private ?string $songkickId = null;
+
+    /**
+     * Upcoming concerts (Songkick), soonest first, replaced on each check;
+     * "added": when the date first showed up ('' for those of the first check).
+     *
+     * @var list<array{id: string, date: string, time: ?string, title: string, venue: ?string, city: ?string, country: ?string, countryCode: ?string, festival: bool, status: string, url: string, added: string}>
+     */
+    #[ORM\Column(type: 'json', options: ['default' => '[]'])]
+    private array $concerts = [];
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $concertsCheckedAt = null;
+
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $fetchedAt = null;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $videosCheckedAt = null;
 
-    /** Last visit of the artist page: videos (and Instagram posts) published after it are "new". */
+    /** Last visit of the artist page: videos, Instagram posts and concerts published after it are "new". */
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $videosSeenAt = null;
 
@@ -336,6 +352,58 @@ class ArtistProfile
         }
 
         return array_values(array_filter($this->posts, static fn(array $p) => new \DateTimeImmutable($p['published']) > $since));
+    }
+
+    public function getSongkickId(): ?string
+    {
+        return $this->songkickId;
+    }
+
+    public function setSongkickId(?string $songkickId): void
+    {
+        $this->songkickId = $songkickId;
+    }
+
+    /** @return list<array{id: string, date: string, time: ?string, title: string, venue: ?string, city: ?string, country: ?string, countryCode: ?string, festival: bool, status: string, url: string, added: string}> */
+    public function getConcerts(): array
+    {
+        return $this->concerts;
+    }
+
+    public function getConcertsCheckedAt(): ?\DateTimeImmutable
+    {
+        return $this->concertsCheckedAt;
+    }
+
+    /**
+     * Replaces the upcoming concerts; a date already known keeps when it was
+     * first seen, a new one gets $now (none on the first check: the whole
+     * calendar is not "new").
+     *
+     * @param list<array{id: string, date: string, time: ?string, title: string, venue: ?string, city: ?string, country: ?string, countryCode: ?string, festival: bool, status: string, url: string}> $concerts
+     */
+    public function setConcerts(array $concerts, \DateTimeImmutable $now): void
+    {
+        $known = array_column($this->concerts, 'added', 'id');
+        $first = $this->concertsCheckedAt === null;
+        $this->concerts = array_map(static fn (array $c): array => $c + ['added' => $known[$c['id']] ?? ($first ? '' : $now->format(\DATE_ATOM))], $concerts);
+        usort($this->concerts, static fn (array $a, array $b): int => strcmp($a['date'] . ($a['time'] ?? ''), $b['date'] . ($b['time'] ?? '')));
+        $this->concertsCheckedAt = $now;
+    }
+
+    /**
+     * Concerts announced since the last visit of the artist page (at most the last 30 days), as newVideos().
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function newConcerts(\DateTimeImmutable $now): array
+    {
+        $since = $now->modify('-30 days');
+        if ($this->videosSeenAt !== null && $this->videosSeenAt > $since) {
+            $since = $this->videosSeenAt;
+        }
+
+        return array_values(array_filter($this->concerts, static fn(array $c) => $c['added'] !== '' && new \DateTimeImmutable($c['added']) > $since));
     }
 
     public function markVideosSeen(\DateTimeImmutable $now): void

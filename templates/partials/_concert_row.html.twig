@@ -1,0 +1,23 @@
+{# One upcoming concert (app:artist:concerts): date, artist (on the global list), place, links to Songkick. #}
+{% macro row(c, isNew, artist = null) %}
+    <li class="concert{{ c.status != 'scheduled' ? ' concert-' ~ c.status }}">
+        <time class="concert-date" datetime="{{ c.date }}">
+            <span class="concert-day">{{ c.date|format_date(pattern: 'd') }}</span>
+            <span class="concert-month">{{ c.date|format_date(pattern: 'MMM') }}</span>
+        </time>
+        <div class="concert-main">
+            <div class="concert-title">
+                {% if artist %}<a class="link" href="{{ path('app_artist', {name: artist}) }}">{{ artist }}</a> · {% endif %}
+                <a class="link" href="{{ c.url }}" target="_blank" rel="noopener">{{ c.title }}</a>
+                {% if c.festival %}<span class="pill-count">{{ 'concerts.festival'|trans }}</span>{% endif %}
+                {% if c.status != 'scheduled' %}<span class="pill-count pill-warn">{{ ('concerts.status.' ~ c.status)|trans }}</span>{% endif %}
+                {% if isNew %}<span class="badge-new">{{ 'concerts.new_badge'|trans }}</span>{% endif %}
+            </div>
+            <div class="muted concert-place">
+                {{ c.date|format_date(pattern: 'EEEE d MMMM y') }}{% if c.time %} · {{ c.time }}{% endif %}
+                {% if c.city or c.country %} · {{ [c.festival and c.venue != c.title ? c.venue : null, c.city, c.countryCode ? c.countryCode|country_name : c.country]|filter(v => v)|join(', ') }}{% endif %}
+            </div>
+        </div>
+        <a class="btn btn-sm btn-ghost concert-tickets" href="{{ c.url }}" target="_blank" rel="noopener" title="{{ 'concerts.tickets_title'|trans }}">{{ 'concerts.tickets'|trans }} ↗</a>
+    </li>
+{% endmacro %}

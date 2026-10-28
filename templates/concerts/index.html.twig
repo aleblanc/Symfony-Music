@@ -1,0 +1,44 @@
+{% extends 'base.html.twig' %}
+{% import 'partials/_concert_row.html.twig' as concert %}
+
+{% block title %}{{ 'concerts.title'|trans }} · PHP Music{% endblock %}
+
+{% block body %}
+    <h1>{{ 'concerts.heading'|trans }}</h1>
+    <p class="section-sub">
+        {{ 'concerts.count'|trans({count: concerts|length}) }}
+        {% if newCount and not onlyNew %}· <a href="{{ path('app_concerts', {new: 1, country: country}|filter(v => v)) }}"><span class="badge-new">{{ 'concerts.new_count'|trans({count: newCount}) }}</span></a>{% endif %}
+        {% if onlyNew %}· <a class="link" href="{{ path('app_concerts', {country: country}|filter(v => v)) }}">{{ 'concerts.show_all'|trans }}</a>{% endif %}
+    </p>
+
+    {% if countries is not empty %}
+        <form class="concert-filter" method="get" action="{{ path('app_concerts') }}">
+            {% if onlyNew %}<input type="hidden" name="new" value="1">{% endif %}
+            <label for="concert-country">{{ 'concerts.country'|trans }}</label>
+            <select id="concert-country" name="country" onchange="this.form.requestSubmit()">
+                <option value="">{{ 'concerts.all_countries'|trans }}</option>
+                {% for code, n in countries %}
+                    <option value="{{ code }}"{% if code == country %} selected{% endif %}>{{ code|country_name }} ({{ n }})</option>
+                {% endfor %}
+            </select>
+            <noscript><button class="btn btn-sm" type="submit">{{ 'concerts.filter'|trans }}</button></noscript>
+        </form>
+    {% endif %}
+
+    {% if concerts is empty %}
+        <p class="muted">{{ (onlyNew or country ? 'concerts.empty_filtered' : 'concerts.empty')|trans }}</p>
+    {% else %}
+        {% set month = null %}
+        {% for c in concerts %}
+            {% set m = c.date|slice(0, 7) %}
+            {% if m != month %}
+                {% if month is not null %}</ul>{% endif %}
+                <h2 class="concert-month-heading">{{ c.date|format_date(pattern: 'MMMM y')|capitalize }}</h2>
+                <ul class="concert-list">
+                {% set month = m %}
+            {% endif %}
+            {{ concert.row(c, c.new, c.artist) }}
+        {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock %}
