@@ -25,6 +25,8 @@ class ArtistProfile
     public const MAX_VIDEOS = 60;
     /** Instagram posts kept per artist: each check adds the ones on the profile page (about 12) to those already known. */
     public const MAX_POSTS = 50;
+    /** Upcoming concerts kept per artist: the soonest ones. */
+    public const MAX_CONCERTS = 100;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -103,7 +105,7 @@ class ArtistProfile
     private ?string $songkickId = null;
 
     /**
-     * Upcoming concerts (Songkick), soonest first, replaced on each check;
+     * Upcoming concerts (Songkick), soonest first, replaced on each check, up to MAX_CONCERTS;
      * "added": when the date first showed up ('' for those of the first check).
      *
      * @var list<array{id: string, date: string, time: ?string, title: string, venue: ?string, city: ?string, country: ?string, countryCode: ?string, festival: bool, status: string, url: string, added: string}>
@@ -388,6 +390,7 @@ class ArtistProfile
         $first = $this->concertsCheckedAt === null;
         $this->concerts = array_map(static fn (array $c): array => $c + ['added' => $known[$c['id']] ?? ($first ? '' : $now->format(\DATE_ATOM))], $concerts);
         usort($this->concerts, static fn (array $a, array $b): int => strcmp($a['date'] . ($a['time'] ?? ''), $b['date'] . ($b['time'] ?? '')));
+        $this->concerts = \array_slice($this->concerts, 0, self::MAX_CONCERTS);
         $this->concertsCheckedAt = $now;
     }
 
