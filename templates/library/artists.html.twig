@@ -7,7 +7,7 @@
     <h1>Artists</h1>
     <p class="section-sub">
         {{ artists|length }} artist{{ artists|length == 1 ? '' : 's' }}
-        {% if newVideos is not empty %}· <span class="badge-new">▶ {{ newVideos|length }} with new YouTube videos</span>{% endif %}
+        {% if newVideos is not empty %}· <a href="{{ path('app_videos', {new: 1}) }}" title="See the new videos"><span class="badge-new">▶ {{ newVideos|length }} with new YouTube videos</span></a>{% endif %}
     </p>
 
     {% if artists is empty %}

@@ -54,6 +54,7 @@
         <section class="artist-section">
             <h2>Latest videos
                 {% if newVideoIds is not empty %}<span class="badge-new">{{ newVideoIds|length }} new</span>{% endif %}
+                <a class="link muted" href="{{ path('app_videos') }}" style="font-size: 13px; font-weight: 400; margin-left: 8px">all artists' videos →</a>
             </h2>
             <div class="video-grid">
                 {% for v in videos %}

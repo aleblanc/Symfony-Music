@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}New videos · PHP Music{% endblock %}
+
+{% block body %}
+    <h1>New YouTube videos</h1>
+    <p class="section-sub">
+        {% if onlyNew %}
+            {{ total }} new video{{ total == 1 ? '' : 's' }} since your last visit of each artist page ·
+            <a class="link" href="{{ path('app_videos') }}">show all latest videos</a>
+        {% else %}
+            Latest videos of your artists, newest first{% if total > limit %} (the {{ limit }} most recent){% endif %}
+            {% if newCount %}· <a href="{{ path('app_videos', {new: 1}) }}"><span class="badge-new">{{ newCount }} new</span></a>{% endif %}
+        {% endif %}
+    </p>
+
+    {% if videos is empty %}
+        <p class="muted">No video{{ onlyNew ? ' new since your last visits' : ' yet: run php bin/console app:artist:videos' }}.</p>
+    {% else %}
+        <div class="video-grid">
+            {% for v in videos %}
+                <div class="video-card">
+                    <a class="video-thumb" href="https://www.youtube.com/watch?v={{ v.id|url_encode }}" target="_blank" rel="noopener">
+                        <img src="https://i.ytimg.com/vi/{{ v.id|url_encode }}/mqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">
+                        {% if v.new %}<span class="badge-new">New</span>{% endif %}
+                    </a>
+                    <a class="video-title" href="https://www.youtube.com/watch?v={{ v.id|url_encode }}" target="_blank" rel="noopener">{{ v.title }}</a>
+                    <span class="muted video-date"><a class="link" href="{{ path('app_artist', {name: v.artist}) }}">{{ v.artist }}</a> · {{ v.published|date('d/m/Y') }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}
