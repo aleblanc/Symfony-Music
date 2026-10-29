@@ -10,8 +10,9 @@ use App\Translation\LabelMessage;
  * Raw bitrates are not comparable across codecs (AAC/Vorbis/Opus sound better
  * than MP3 at the same bitrate), so each codec family has its own thresholds:
  *
- *   MP3 (and unknown lossy): < 128 kbps very low, < 160 low, otherwise standard —
- *                            MP3 tops out at "standard" even at 320 kbps.
+ *   MP3 (and unknown lossy): < 128 kbps very low, < 160 low, < 256 standard,
+ *                            < 320 high, 320 very high — MP3 320 and AAC 256
+ *                            cannot be told apart by ear.
  *   AAC / Vorbis:            < 64 very low, < 96 low, < 128 standard, < 224 high, else very high.
  *   Opus (most efficient):   < 48 very low, < 64 low, < 96 standard, < 160 high, else very high.
  *   FLAC / ALAC / WAV (PCM): lossless, whatever the bitrate.
@@ -59,7 +60,10 @@ enum AudioQuality: string
             default => match (true) {
                 $kbps < 128 => self::VeryLow,
                 $kbps < 160 => self::Low,
-                default => self::Standard,
+                $kbps < 256 => self::Standard,
+                // 320 kb/s VBR / LAME headers often read a little under 320.
+                $kbps < 310 => self::High,
+                default => self::VeryHigh,
             },
         };
     }

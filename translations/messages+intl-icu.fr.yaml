@@ -825,7 +825,7 @@ profile:
 quality:
     index:
         back: "← Retour aux titres à remplacer"
-        bitrate_note: "Les débits sont comparés par codec : le MP3 est « Très basse » sous 128 kb/s, « Basse » sous 160 et jamais au-dessus de « Standard » ; l’AAC / Vorbis sont « Très basse » sous 64, « Basse » sous 96, « Haute » dès 128, « Très haute » dès 224 kb/s ; FLAC / ALAC / WAV sont sans perte."
+        bitrate_note: "Les débits sont comparés par codec : le MP3 est « Très basse » sous 128 kb/s, « Basse » sous 160, « Haute » dès 256 et « Très haute » à 320 kb/s (impossible à distinguer d’un AAC 256 à l’oreille) ; l’AAC / Vorbis sont « Très basse » sous 64, « Basse » sous 96, « Haute » dès 128, « Très haute » dès 224 kb/s ; FLAC / ALAC / WAV sont sans perte."
         by_format: "Par format"
         by_quality: "Par qualité"
         col_album: "Album"

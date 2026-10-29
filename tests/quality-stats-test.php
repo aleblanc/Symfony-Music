@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
+use App\Enum\AudioQuality;
 use App\Service\QualityStats;
 
 $failures = 0;
@@ -44,7 +45,12 @@ $stats = (new QualityStats())->build([
 $tiers = array_column($stats['tiers'], 'count', 'key');
 check('total and not analysed', $stats['total'] === 38 && $stats['unscanned'] === 3, json_encode([$stats['total'], $stats['unscanned']]));
 check('tiers worst → best', array_keys($tiers) === ['unknown', 'very_low', 'low', 'standard', 'high', 'very_high', 'lossless'], json_encode(array_keys($tiers)));
-check('tier counts (MP3 48 = very low, MP3 128 = low, MP3 320 = standard, AAC 96 = standard, AAC 256 = very high)', $tiers === ['unknown' => 1, 'very_low' => 1, 'low' => 7, 'standard' => 13, 'high' => 0, 'very_high' => 4, 'lossless' => 9], json_encode($tiers));
+check('tier counts (MP3 48 = very low, MP3 128 = low, MP3 320 = very high, AAC 96 = standard, AAC 256 = very high)', $tiers === ['unknown' => 1, 'very_low' => 1, 'low' => 7, 'standard' => 3, 'high' => 0, 'very_high' => 14, 'lossless' => 9], json_encode($tiers));
+// MP3 320 and AAC 256 cannot be told apart by ear: same tier.
+foreach ([[192, 'standard'], [255, 'standard'], [256, 'high'], [288, 'high'], [318, 'very_high'], [320, 'very_high']] as [$kbps, $tier]) {
+    check("MP3 {$kbps} kb/s = {$tier}", AudioQuality::classify('mp3', false, $kbps * 1000)?->value === $tier);
+}
+check('AAC 256 = MP3 320', AudioQuality::classify('mp4', false, 256000) === AudioQuality::classify('mp3', false, 320000));
 
 $formats = array_column($stats['formats'], null, 'key');
 check('formats: lossy first, biggest first', array_keys($formats) === ['mp3', 'mp4', 'flac', 'mp4-lossless'], json_encode(array_keys($formats)));

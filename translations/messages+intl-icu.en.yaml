@@ -825,7 +825,7 @@ profile:
 quality:
     index:
         back: "← Back to the tracks worth replacing"
-        bitrate_note: "Bitrates are compared per codec: MP3 is “Very low” under 128 kb/s, “Low” under 160 and never above “Standard”; AAC / Vorbis are “Very low” under 64, “Low” under 96, “High” from 128, “Very high” from 224 kb/s; FLAC / ALAC / WAV are lossless."
+        bitrate_note: "Bitrates are compared per codec: MP3 is “Very low” under 128 kb/s, “Low” under 160, “High” from 256 and “Very high” at 320 kb/s (no ear can tell it from AAC 256); AAC / Vorbis are “Very low” under 64, “Low” under 96, “High” from 128, “Very high” from 224 kb/s; FLAC / ALAC / WAV are lossless."
         by_format: "By format"
         by_quality: "By quality"
         col_album: "Album"

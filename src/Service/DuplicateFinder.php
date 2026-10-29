@@ -3,7 +3,6 @@
 namespace App\Service;
 
 use App\Enum\AudioQuality;
-use App\Repository\MusicRepository;
 use Doctrine\DBAL\Connection;
 use App\Exception\UserFacingException;
 
@@ -232,7 +231,7 @@ final class DuplicateFinder
         $lossless = $row['lossless'] !== null ? (bool) $row['lossless'] : null;
         $bitrate = $row['bitrate'] !== null ? (int) $row['bitrate'] : null;
         $file = (string) $row['file'];
-        $efficient = \in_array($format, MusicRepository::EFFICIENT_LOSSY, true);
+        $quality = AudioQuality::classify($format, $lossless, $bitrate);
 
         return [
             'id' => (int) $row['id'],
@@ -247,13 +246,14 @@ final class DuplicateFinder
             'bitrate' => $bitrate,
             'bitrateMode' => $row['bitrate_mode'],
             'format' => strtoupper($format ?? pathinfo($file, \PATHINFO_EXTENSION)),
-            'quality' => AudioQuality::classify($format, $lossless, $bitrate),
+            'quality' => $quality,
             'spotifyId' => $row['spotify_id'],
             'favorites' => $usage['favorites'] ?? 0,
             'plays' => $usage['plays'] ?? 0,
             'playlists' => $usage['playlists'] ?? 0,
-            // The suggested keeper: lossless, then bitrate (AAC / Vorbis / Opus worth about 1.4× an MP3's), missing files last.
-            'score' => (is_file($file) ? 1_000_000_000 : 0) + ($lossless ? 100_000_000 : 0) + (int) (($bitrate ?? 0) * ($efficient ? 1.4 : 1)),
+            // The suggested keeper: the best quality tier (lossless first; MP3 320 and AAC 256 are
+            // the same tier), then the higher bitrate, missing files last.
+            'score' => (is_file($file) ? 1_000_000_000 : 0) + ($quality !== null ? array_search($quality, AudioQuality::cases(), true) + 1 : 0) * 10_000_000 + ($bitrate ?? 0),
         ];
     }
 
