@@ -1,7 +1,8 @@
 {#
  # Renders one "shelf" (a titled row of items) from RecommendationService.
  # A shelf is {title, type, items} where type is 'songs', 'albums',
- # 'artists' or 'discography' (DiscographyView cards) — each rendered differently since they carry different data
+ # 'artists' or 'discography' (DiscographyView cards; optional sub: its
+ # subtitle key, fullDate: day and month on the cards) — each rendered differently since they carry different data
  # shapes (Music entities vs plain album/artist arrays).
  #}
 {% macro shelf(shelf, favoriteIds, listenLaterIds = [], offlineIds = []) %}
@@ -23,10 +24,10 @@
             </div>
         {% elseif shelf.type == 'discography' %}
             {% import 'partials/_disco.html.twig' as disco %}
-            <p class="muted shelf-sub">{{ 'discovery.shelf.discography_sub'|trans }}</p>
+            <p class="muted shelf-sub">{{ (shelf.sub ?? 'discovery.shelf.discography_sub')|trans }}</p>
             <div class="card-grid disco-discover">
                 {% for d in shelf.items %}
-                    {{ disco.card(d, 'discover-' ~ loop.index, true) }}
+                    {{ disco.card(d, 'discover-' ~ shelf.key ~ '-' ~ loop.index, true, shelf.fullDate ?? false) }}
                 {% endfor %}
             </div>
         {% elseif shelf.type == 'artists' %}

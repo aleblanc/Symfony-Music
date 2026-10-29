@@ -1,6 +1,7 @@
-{# One album of a discography (artist page, Favorite discography page): cover, year,
-   popularity, heart, track list behind "?". d comes from DiscographyView::build(). #}
-{% macro card(d, idx, showArtist = false) %}
+{# One album of a discography (artist page, Favorite discography page): cover, year
+   (fullDate: the whole release date when known), popularity, heart, track list
+   behind "?". d comes from DiscographyView::build(). #}
+{% macro card(d, idx, showArtist = false, fullDate = false) %}
 {% import _self as disco %}
 <div class="disco-item">
 <a class="card{{ d.owned ? '' : ' disco-missing' }}"
@@ -12,7 +13,7 @@
     </div>
     <div class="card-title">{{ d.title }}</div>
     <div class="card-sub">
-        {{ d.date ? d.date|slice(0, 4) : '—' }}{% if d.type != 'Album' %}{% set typeKey = 'disco.type.' ~ d.type|lower %}{% set typeLabel = typeKey|trans %} · {{ typeLabel == typeKey ? d.type : typeLabel }}{% endif %}
+        {{ not d.date ? '—' : (fullDate and d.date|length == 10 ? d.date|format_date('medium') : (fullDate and d.date|length == 7 ? (d.date ~ '-01')|format_date(pattern: 'MMM y') : d.date|slice(0, 4))) }}{% if d.type != 'Album' %}{% set typeKey = 'disco.type.' ~ d.type|lower %}{% set typeLabel = typeKey|trans %} · {{ typeLabel == typeKey ? d.type : typeLabel }}{% endif %}
         {% if d.owned %}<span class="disco-owned" title="{{ 'disco.in_library'|trans }}">✓</span>{% endif %}
     </div>
     {% if d.popularity is not null %}

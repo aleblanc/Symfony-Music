@@ -68,6 +68,44 @@ class DiscographyView
     }
 
     /**
+     * "Latest releases": the entries of every library artist's
+     * discography already out, newest first, in the library or not. A date
+     * known to the year only counts as that year's first day ("2026" sorts
+     * after "2026-03-14"); announced ones (later than $today) are left out.
+     * $offset skips the newest ones (pages).
+     *
+     * @param list<string> $hearted release group ids the viewer hearted
+     *
+     * @return list<array<string, mixed>> cards as build() makes them
+     */
+    public function latestReleases(?User $viewer, array $hearted, string $today, int $limit = 25, int $offset = 0): array
+    {
+        $profiles = $this->profiles->allByName();
+        $latest = [];
+        foreach ($this->music->listArtists($viewer) as $row) {
+            foreach (($profiles[$row['artist']] ?? null)?->getDiscography() ?? [] as $entry) {
+                $date = (string) ($entry['date'] ?? '');
+                if ($date !== '' && $date <= $today) {
+                    $latest[] = ['artist' => (string) $row['artist'], 'id' => $entry['id'], 'date' => $date];
+                }
+            }
+        }
+        usort($latest, static fn(array $a, array $b): int => strcmp($b['date'], $a['date']) ?: strcasecmp($a['artist'], $b['artist']));
+        $latest = \array_slice($latest, max(0, $offset), $limit);
+
+        // Cards built per artist (popularity relative to the artist's other albums), only for the artists kept.
+        $libraryAlbums = $latest === [] ? [] : $this->music->artistAlbums();
+        $cards = [];
+        foreach (array_unique(array_column($latest, 'artist')) as $artist) {
+            foreach ($this->build($profiles[$artist]->getDiscography() ?? [], $artist, $viewer, $hearted, true, false, $libraryAlbums[$artist] ?? []) as $card) {
+                $cards[$artist . "\0" . $card['id']] = $card;
+            }
+        }
+
+        return array_values(array_filter(array_map(static fn(array $l): ?array => $cards[$l['artist'] . "\0" . $l['id']] ?? null, $latest)));
+    }
+
+    /**
      * The discography entry (as build() makes it: track list with listeners,
      * ★, owned tracks) of one library album, for its "?" button; null when the
      * artist has no profile or the album is not in their MusicBrainz discography.

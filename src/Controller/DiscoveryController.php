@@ -15,6 +15,7 @@ use App\Repository\OfflineSongRepository;
 use App\Service\Artist\DiscographyView;
 use App\Service\RecommendationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -37,6 +38,7 @@ class DiscoveryController extends AbstractController
 {
     private const MIXES_PER_PAGE = 24;
     private const TRENDING_PER_PAGE = 60;
+    private const LATEST_PER_PAGE = 60;
 
     public function __construct(
         private readonly RecommendationService $recommendations,
@@ -53,15 +55,21 @@ class DiscoveryController extends AbstractController
      * logged in.
      */
     #[Route('/discover', name: 'app_discover')]
-    public function hub(#[CurrentUser] ?User $user, DiscographyView $discography, AlbumFavoriteRepository $albumFavorites): Response
+    public function hub(#[CurrentUser] ?User $user, DiscographyView $discography, AlbumFavoriteRepository $albumFavorites, ClockInterface $clock): Response
     {
         $this->recommendations->refreshMixes();
         $shelves = $this->recommendations->explore($user);
-        $toDiscover = $discography->albumsToDiscover($user, $albumFavorites->releaseGroupIdsForUser($user));
+        $hearted = $albumFavorites->releaseGroupIdsForUser($user);
+        // Right after the random "Discover…" shelves, before "Frequently Played".
+        $at = \count(array_filter($shelves, static fn(array $s): bool => str_starts_with($s['key'], 'discover_')));
+        $toDiscover = $discography->albumsToDiscover($user, $hearted);
         if ($toDiscover !== []) {
-            // Right after the random "Discover…" shelves, before "Frequently Played".
-            $at = \count(array_filter($shelves, static fn(array $s): bool => str_starts_with($s['key'], 'discover_')));
             array_splice($shelves, $at, 0, [['key' => 'albums_from_your_artists', 'title' => new TranslatableMessage('ui.discover.shelf.albums_from_your_artists'), 'type' => 'discography', 'items' => $toDiscover, 'more' => $this->generateUrl('app_discover_albums')]]);
+        }
+        // Newest discography releases of all the library artists (in the library or not), before the albums to discover.
+        $latest = $discography->latestReleases($user, $hearted, $clock->now()->format('Y-m-d'), 28);
+        if ($latest !== []) {
+            array_splice($shelves, $at, 0, [['key' => 'latest_releases', 'title' => new TranslatableMessage('ui.discover.shelf.latest_releases'), 'type' => 'discography', 'items' => $latest, 'sub' => 'discovery.shelf.latest_releases_sub', 'fullDate' => true, 'more' => $this->generateUrl('app_discover_latest')]]);
         }
 
         return $this->render('discovery/hub.html.twig', [
@@ -82,6 +90,25 @@ class DiscoveryController extends AbstractController
     {
         return $this->render('discovery/albums.html.twig', [
             'cards' => $discography->albumsToDiscover($user, $albumFavorites->releaseGroupIdsForUser($user), limit: 120),
+        ]);
+    }
+
+    /**
+     * The latest discography releases of all the library artists, newest
+     * first, page by page (the hub shows the first 28).
+     */
+    #[Route('/discover/latest', name: 'app_discover_latest')]
+    public function latestReleases(Request $request, #[CurrentUser] ?User $user, DiscographyView $discography, AlbumFavoriteRepository $albumFavorites, ClockInterface $clock): Response
+    {
+        $page = max(1, $request->query->getInt('page', 1));
+        // One more than shown: whether a next page exists.
+        $cards = $discography->latestReleases($user, $albumFavorites->releaseGroupIdsForUser($user), $clock->now()->format('Y-m-d'), self::LATEST_PER_PAGE + 1, ($page - 1) * self::LATEST_PER_PAGE);
+
+        return $this->render('discovery/latest.html.twig', [
+            'cards' => \array_slice($cards, 0, self::LATEST_PER_PAGE),
+            'page' => $page,
+            'hasNext' => \count($cards) > self::LATEST_PER_PAGE,
+            'offset' => ($page - 1) * self::LATEST_PER_PAGE,
         ]);
     }
 

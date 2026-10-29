@@ -118,6 +118,11 @@ discovery:
         personal_reco: "See your personal recommendations"
         title: "Discover"
         trending: "Trending"
+    latest:
+        intro: "The latest releases in the discography of all your artists (MusicBrainz), in the library or not — newest first."
+        no_more: "No more releases."
+        page: "Page {page}"
+        title: "Latest releases"
     mix:
         meta: "{count, plural, one {# track} other {# tracks}} · by {creator}"
     mixes:
@@ -134,6 +139,7 @@ discovery:
         title: "For You"
     shelf:
         discography_sub: "Not in the library yet, from the artists you have at least 11 tracks of — most listened (ListenBrainz) first."
+        latest_releases_sub: "The latest releases in the discography of all your artists (MusicBrainz), in the library or not — newest first."
         registered_artist: "Registered artist"
     trending:
         page: "Page {page}"
@@ -1083,6 +1089,7 @@ ui:
             discover_songs: "Discover Songs"
             frequently_played: "Frequently Played"
             genre_mix: "Your Genre Mix"
+            latest_releases: "Latest releases"
             more_from_artist: "More from {artist}"
             recently_played: "Recently Played"
             your_favorites: "Your Favorites"

@@ -1,0 +1,28 @@
+{% extends 'base.html.twig' %}
+{% import 'partials/_disco.html.twig' as disco %}
+
+{% block title %}{{ 'discovery.latest.title'|trans }}{% if page > 1 %} · {{ 'discovery.latest.page'|trans({page: page}) }}{% endif %} · PHP Music{% endblock %}
+
+{% block body %}
+    <h1>{{ 'discovery.latest.title'|trans }}</h1>
+    <p class="section-sub">
+        {{ 'discovery.latest.intro'|trans }}
+        <a class="link" href="{{ path('app_discover') }}">← {{ 'nav.discover'|trans }}</a>
+    </p>
+    {% if cards is empty %}
+        <p class="muted">{{ (page > 1 ? 'discovery.latest.no_more' : 'discovery.albums.empty_html')|trans|raw }}</p>
+    {% else %}
+        <div class="card-grid disco-discover">
+            {% for d in cards %}
+                {{ disco.card(d, 'latest-' ~ (offset + loop.index), true, true) }}
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% if page > 1 or hasNext %}
+        <div class="pagination">
+            {% if page > 1 %}<a href="{{ path('app_discover_latest', page > 2 ? {page: page - 1} : {}) }}">{{ 'common.pagination.prev'|trans }}</a>{% endif %}
+            <span class="current">{{ 'discovery.latest.page'|trans({page: page}) }}</span>
+            {% if hasNext %}<a href="{{ path('app_discover_latest', {page: page + 1}) }}">{{ 'common.pagination.next'|trans }}</a>{% endif %}
+        </div>
+    {% endif %}
+{% endblock %}
