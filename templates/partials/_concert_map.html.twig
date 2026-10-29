@@ -1,0 +1,41 @@
+{# Upcoming concerts on an OpenStreetMap map (public/concerts-map.js): one
+   marker per concert at its city (app:cron:concert-geocode). Each concert
+   carries geo ([lat, lng] or null) and new; artist names its page in the
+   popup (left out on the artist's own page). The popups are rendered here,
+   the script only places them. #}
+{% macro map(concerts) %}
+    {% set points = [] %}
+    {% for c in concerts|filter(c => c.geo) %}
+        {% set popup %}
+            <div class="concert-pop">
+                <div class="concert-pop-date">{{ c.date|format_date(pattern: 'EEE d MMM y') }}{% if c.time %} · {{ c.time }}{% endif %}</div>
+                {% if c.artist is defined %}<a class="concert-pop-artist" href="{{ path('app_artist', {name: c.artist}) }}">{{ c.artist }}</a>{% endif %}
+                <div class="concert-pop-title">
+                    <a class="link" href="{{ c.url }}" target="_blank" rel="noopener">{{ c.title }} ↗</a>
+                    {% if c.festival %}<span class="pill-count">{{ 'concerts.festival'|trans }}</span>{% endif %}
+                    {% if c.status != 'scheduled' %}<span class="pill-count pill-warn">{{ ('concerts.status.' ~ c.status)|trans }}</span>{% endif %}
+                    {% if c.new %}<span class="badge-new">{{ 'concerts.new_badge'|trans }}</span>{% endif %}
+                </div>
+                <div class="muted">{{ [c.festival and c.venue != c.title ? c.venue : null, c.city, c.countryCode ? c.countryCode|country_name : c.country]|filter(v => v)|join(', ') }}</div>
+            </div>
+        {% endset %}
+        {% set points = points|merge([{
+            lat: c.geo[0],
+            lng: c.geo[1],
+            kind: c.status != 'scheduled' ? 'off' : (c.new ? 'new' : (c.festival ? 'festival' : 'concert')),
+            popup: popup ~ '',
+        }]) %}
+    {% endfor %}
+    {% if points|length < concerts|length %}
+        <p class="muted concert-map-note">{{ 'concerts.map.unlocated'|trans({count: concerts|length - points|length}) }}</p>
+    {% endif %}
+    <div id="concert-map" class="concert-map" role="region" aria-label="{{ 'concerts.view_map'|trans }}"></div>
+    <ul class="concert-map-legend muted">
+        <li><span class="concert-dot concert-dot-concert"></span>{{ 'concerts.map.concert'|trans }}</li>
+        <li><span class="concert-dot concert-dot-festival"></span>{{ 'concerts.festival'|trans }}</li>
+        <li><span class="concert-dot concert-dot-new"></span>{{ 'concerts.new_badge'|trans }}</li>
+        <li><span class="concert-dot concert-dot-off"></span>{{ 'concerts.map.off'|trans }}</li>
+    </ul>
+    <script type="application/json" id="concert-map-data">{{ points|json_encode|raw }}</script>
+    <script src="/concerts-map.js"></script>
+{% endmacro %}

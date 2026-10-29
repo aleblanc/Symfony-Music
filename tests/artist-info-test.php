@@ -50,6 +50,11 @@ $routes = [
         ['id' => 'mb-muse', 'name' => 'Muse', 'score' => 100, 'disambiguation' => 'UK rock band'],
         ['id' => 'mb-x', 'name' => 'Muse Muse', 'score' => 90],
     ]],
+    // "Luke": the French band only shows up through its albums (a plain search ranks Laidback Luke first).
+    'release-group?query=releasegroup%3A%22Les+Enfants+de+Saturne%22' => ['release-groups' => [
+        ['title' => 'Les Enfants de Saturne', 'artist-credit' => [['artist' => ['id' => 'mb-luke-fr', 'name' => 'Luke', 'disambiguation' => 'French rock band']]]],
+        ['title' => 'Saturn', 'artist-credit' => [['artist' => ['id' => 'mb-laidback', 'name' => 'Laidback Luke']]]],
+    ]],
     'release-group?artist=mb-other' => ['release-groups' => [['title' => 'Something else']]],
     'release-group?artist=mb-muse' => ['release-groups' => [['title' => 'Origin of Symmetry'], ['title' => 'The Resistance']]],
     'artist/mb-muse?inc=url-rels' => ['relations' => [
@@ -96,6 +101,9 @@ check('French Wikipedia article + summary', ($info['wikipediaUrl'] ?? null) === 
 check('YouTube channel from Wikidata, link from MusicBrainz', ($info['youtubeChannelId'] ?? null) === 'UCGGhM6XCSJFQ6DTRffnKRIw' && ($info['youtubeUrl'] ?? null) === 'https://www.youtube.com/@muse');
 check('links: official first, ended ones dropped, MusicBrainz last', array_column($info['links'] ?? [], 'label') === ['Official site', 'Spotify', 'MusicBrainz'], json_encode(array_column($info['links'] ?? [], 'label')));
 check('channel page not fetched when Wikidata has the id', !\in_array(true, array_map(static fn($u) => str_contains($u, '/@muse'), $requested), true));
+
+$luke = $fetcher->pickArtist('Luke', ['Les Enfants de Saturne', 'Les Enfants de Saturne']);
+check('homonym found through the release groups of the library albums', ($luke['id'] ?? null) === 'mb-luke-fr' && ($luke['disambiguation'] ?? null) === 'French rock band', json_encode($luke));
 
 check('unknown artist → null', $fetcher->fetch('Nobody At All') === null);
 check('name normalisation', ArtistInfoFetcher::normalize('The Beatles') === ArtistInfoFetcher::normalize('beatles') && ArtistInfoFetcher::normalize('Simon & Garfunkel') === 'simonandgarfunkel' && ArtistInfoFetcher::normalize('Mötley Crüe') === 'motleycrue');

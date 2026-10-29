@@ -1,19 +1,27 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_concert_row.html.twig' as concert %}
+{% import 'partials/_concert_map.html.twig' as concert_map %}
 
 {% block title %}{{ 'concerts.title'|trans }} · PHP Music{% endblock %}
 
 {% block body %}
+    {% set view = map ? 'map' : null %}
     <h1>{{ 'concerts.heading'|trans }}</h1>
     <p class="section-sub">
         {{ 'concerts.count'|trans({count: concerts|length}) }}
-        {% if newCount and not onlyNew %}· <a href="{{ path('app_concerts', {new: 1, country: country}|filter(v => v)) }}"><span class="badge-new">{{ 'concerts.new_count'|trans({count: newCount}) }}</span></a>{% endif %}
-        {% if onlyNew %}· <a class="link" href="{{ path('app_concerts', {country: country}|filter(v => v)) }}">{{ 'concerts.show_all'|trans }}</a>{% endif %}
+        {% if newCount and not onlyNew %}· <a href="{{ path('app_concerts', {new: 1, country: country, view: view}|filter(v => v)) }}"><span class="badge-new">{{ 'concerts.new_count'|trans({count: newCount}) }}</span></a>{% endif %}
+        {% if onlyNew %}· <a class="link" href="{{ path('app_concerts', {country: country, view: view}|filter(v => v)) }}">{{ 'concerts.show_all'|trans }}</a>{% endif %}
     </p>
+
+    <nav class="rating-tabs concert-views" aria-label="{{ 'concerts.views'|trans }}">
+        <a href="{{ path('app_concerts', {new: onlyNew ? 1 : null, country: country}|filter(v => v)) }}"{% if not map %} class="active" aria-current="page"{% endif %}>{{ 'concerts.view_list'|trans }}</a>
+        <a href="{{ path('app_concerts', {new: onlyNew ? 1 : null, country: country, view: 'map'}|filter(v => v)) }}"{% if map %} class="active" aria-current="page"{% endif %}>{{ 'concerts.view_map'|trans }}</a>
+    </nav>
 
     {% if countries is not empty %}
         <form class="concert-filter" method="get" action="{{ path('app_concerts') }}">
             {% if onlyNew %}<input type="hidden" name="new" value="1">{% endif %}
+            {% if map %}<input type="hidden" name="view" value="map">{% endif %}
             <label for="concert-country">{{ 'concerts.country'|trans }}</label>
             <select id="concert-country" name="country" onchange="this.form.requestSubmit()">
                 <option value="">{{ 'concerts.all_countries'|trans }}</option>
@@ -27,6 +35,8 @@
 
     {% if concerts is empty %}
         <p class="muted">{{ (onlyNew or country ? 'concerts.empty_filtered' : 'concerts.empty')|trans }}</p>
+    {% elseif map %}
+        {{ concert_map.map(concerts) }}
     {% else %}
         {% set month = null %}
         {% for c in concerts %}

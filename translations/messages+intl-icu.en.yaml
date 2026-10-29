@@ -67,6 +67,10 @@ concerts:
     festival: "Festival"
     filter: "Filter"
     heading: "Upcoming concerts"
+    map:
+        concert: "Concert"
+        off: "Cancelled / postponed"
+        unlocated: "{count, plural, one {# concert is not on the map yet: its city is not located (php bin/console app:cron:concert-geocode).} other {# concerts are not on the map yet: their city is not located (php bin/console app:cron:concert-geocode).}}"
     new_badge: "New"
     new_count: "{count, plural, one {# new date} other {# new dates}}"
     show_all: "show all concerts"
@@ -78,6 +82,9 @@ concerts:
     tickets: "Tickets"
     tickets_title: "Details and tickets on Songkick"
     title: "Concerts"
+    view_list: "List"
+    view_map: "Map"
+    views: "Display"
 disco:
     essential: "★ Essential"
     essential_title: "Among the artist's most listened albums (ListenBrainz)"

@@ -145,6 +145,7 @@ One crontab line runs them, each in its own process, never twice at once:
 | `app:cron:artist-videos` | every 2 hours (even hours), at :50 |
 | `app:cron:artist-info` | 03:00 |
 | `app:cron:artist-concerts` | 04:00 |
+| `app:cron:concert-geocode` | 05:15, the cities of the new concerts (OpenStreetMap Nominatim, one request per second) |
 | `app:cron:artist-posts` | 06:00, the 100 artists checked longest ago (needs Chrome on that machine) |
 
 Times are in `Europe/Luxembourg` (`config/packages/simple_cron_scheduler.yaml`).
@@ -177,6 +178,10 @@ between 03:00 and 05:00 (MusicBrainz allows one request per second).
 - **Favorite discography** (left menu) — the albums hearted in artist
   discographies, latest first, with their track list and a ✓ when already in
   the library.
+- **Concerts** (left menu) — upcoming concerts of the library artists
+  (Songkick, `app:cron:artist-concerts`), by month or on an OpenStreetMap
+  **map** (*Map* tab: one pin per concert at its city, located by
+  `app:cron:concert-geocode`, no API key), filtered by country or new dates.
 - **Discover** — trending tracks, random tracks / albums / artists you never
   played, mixes, and **Albums to discover from your artists**: the most
   listened albums (ListenBrainz) missing from the library, for the artists

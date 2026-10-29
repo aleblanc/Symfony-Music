@@ -68,6 +68,33 @@ class MusicBrainzClient
     }
 
     /**
+     * Artists credited on the release groups titled $title by an artist
+     * named $artist: names a homonym (the French band "Luke" is far behind
+     * Laidback Luke and the US rapper in a plain artist search).
+     *
+     * @return list<array{id: string, name: string, disambiguation: ?string}>
+     */
+    public function searchReleaseGroupArtists(string $artist, string $title, int $limit = 5): array
+    {
+        $data = $this->get('release-group', ['query' => 'releasegroup:' . $this->quote($title) . ' AND artist:' . $this->quote($artist), 'limit' => $limit]);
+        $artists = [];
+        foreach ($data['release-groups'] ?? [] as $group) {
+            foreach ($group['artist-credit'] ?? [] as $credit) {
+                $a = $credit['artist'] ?? null;
+                if (\is_array($a) && isset($a['id'], $a['name'])) {
+                    $artists[] = [
+                        'id' => (string) $a['id'],
+                        'name' => (string) $a['name'],
+                        'disambiguation' => isset($a['disambiguation']) && $a['disambiguation'] !== '' ? (string) $a['disambiguation'] : null,
+                    ];
+                }
+            }
+        }
+
+        return $artists;
+    }
+
+    /**
      * The artist's URL relations (Wikidata, Wikipedia, YouTube, official homepage...).
      *
      * @return list<array{type: string, url: string}>

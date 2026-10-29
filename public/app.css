@@ -729,6 +729,38 @@ html.nav-loading { cursor: progress; }
 .concert-filter { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; }
 .concert-filter select { background: var(--bg-elev-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
 .concert-month-heading { font-size: 16px; margin: 22px 0 4px; color: var(--text-dim); }
+/* Concerts map (public/concerts-map.js): OSM tiles darkened to match the app. */
+.concert-views { margin-bottom: 14px; }
+/* Artist page: the same pills as buttons (no page load). */
+div.concert-views { display: flex; gap: 8px; }
+.concert-views button { display: inline-flex; align-items: center; padding: 7px 14px; border: 0; border-radius: 999px; background: var(--bg-elev); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+.concert-views button:hover { background: var(--bg-elev-2); }
+.concert-views button.active { background: var(--accent); color: #fff; }
+.concert-map { height: max(450px, calc((100vh - var(--player-h) - 300px) * 1.25)); border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-elev); z-index: 0; }
+.concert-map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.6); }
+.concert-map.leaflet-container .leaflet-control-attribution { background: rgba(15, 15, 15, .75); color: var(--text-dim); }
+.concert-map.leaflet-container .leaflet-control-attribution a { color: var(--text); }
+.concert-map .leaflet-bar a { background: var(--bg-elev-2); color: var(--text); border-bottom-color: var(--border); }
+.concert-map .leaflet-bar a:hover { background: var(--bg-hover); }
+.concert-map .leaflet-popup-content-wrapper, .concert-map .leaflet-popup-tip { background: var(--bg-elev-2); color: var(--text); box-shadow: var(--shadow); }
+.concert-map.leaflet-container { font: inherit; }
+.concert-map .leaflet-popup-content { margin: 12px 14px; font-size: 13px; line-height: 1.4; }
+.concert-map a.leaflet-popup-close-button { color: var(--text-dim); }
+.concert-map .concert-cluster { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; box-shadow: 0 0 0 5px var(--accent-soft); }
+.concert-pop-date { font-size: 12px; color: var(--text-dim); }
+.concert-pop-date::first-letter { text-transform: uppercase; }
+.concert-pop-artist { display: block; font-weight: 700; font-size: 15px; margin: 2px 0; color: var(--text); }
+.concert-map .concert-pop a { color: var(--text); }
+.concert-map .concert-pop a:hover { text-decoration: underline; }
+.concert-pop-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 2px; }
+.concert-map-note { margin: 0 0 10px; font-size: 13px; }
+.concert-map-legend { display: flex; flex-wrap: wrap; gap: 16px; list-style: none; margin: 10px 0 0; padding: 0; font-size: 13px; }
+.concert-map-legend li { display: flex; align-items: center; gap: 6px; }
+.concert-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--bg); box-shadow: 0 0 0 1px var(--border); }
+.concert-dot-concert { background: #f1f1f1; }
+.concert-dot-festival { background: #ffb020; }
+.concert-dot-new { background: var(--accent); }
+.concert-dot-off { background: var(--text-faint); }
 @media (max-width: 600px) { .concert-tickets { display: none; } }
 @media (max-width: 640px) {
     .artist-hero { grid-template-columns: 1fr; gap: 16px; }

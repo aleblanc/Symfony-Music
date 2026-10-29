@@ -27,7 +27,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * artist page are flagged "new" in the web pages.
  */
 #[AsCommand(name: 'app:cron:artist-posts', description: 'Fetch the latest Instagram posts of the artists (public profiles, in Chrome, no account)')]
-#[AsCronTask('0 6 * * *', args: ['--limit=100'], timeout: 3600, description: 'Nightly: Instagram posts of the 100 artists checked longest ago (needs Chrome)')]
+#[AsCronTask('0 6,12,20 * * *', args: ['--limit=100'], timeout: 3600, description: 'Nightly: Instagram posts of the 100 artists checked longest ago (needs Chrome)')]
 class ArtistPostsCommand extends Command
 {
     public function __construct(

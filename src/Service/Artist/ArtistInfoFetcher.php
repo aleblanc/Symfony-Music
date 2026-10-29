@@ -125,12 +125,13 @@ class ArtistInfoFetcher
     }
 
     /**
-     * The MusicBrainz artist with this exact name (or alias); among
-     * homonyms, the one sharing the most album titles with the library.
+     * The MusicBrainz artist with this exact name (or alias): first the one
+     * credited on the library's albums, else, among homonyms, the one sharing
+     * the most album titles with the library.
      *
      * @param list<string> $albums
      *
-     * @return ?array{id: string, name: string, score: int, disambiguation: ?string, aliases: list<string>}
+     * @return ?array{id: string, name: string, score?: int, disambiguation: ?string, aliases?: list<string>}
      */
     public function pickArtist(string $name, array $albums): ?array
     {
@@ -138,8 +139,27 @@ class ArtistInfoFetcher
         if ($wanted === '') {
             return null;
         }
+
+        // A plain artist search ranks partial names first ("Laidback Luke" before "Luke"):
+        // the artist credited on the library's own albums is the reliable answer.
+        $votes = [];
+        $credited = [];
+        foreach (\array_slice(array_values(array_unique(array_filter($albums, static fn(string $a) => self::normalize($a) !== ''))), 0, 3) as $album) {
+            foreach ($this->musicBrainz->searchReleaseGroupArtists($name, $album) as $a) {
+                if (self::normalize($a['name']) === $wanted) {
+                    $votes[$a['id']] = ($votes[$a['id']] ?? 0) + 1;
+                    $credited[$a['id']] ??= $a;
+                }
+            }
+        }
+        if ($votes !== []) {
+            arsort($votes);
+
+            return $credited[array_key_first($votes)];
+        }
+
         $exact = array_values(array_filter(
-            $this->musicBrainz->searchArtists($name, 8),
+            $this->musicBrainz->searchArtists($name, 25),
             static fn(array $a) => $a['score'] >= 80 && (self::normalize($a['name']) === $wanted
                 || \in_array($wanted, array_map(self::normalize(...), $a['aliases']), true)),
         ));

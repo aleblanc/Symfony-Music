@@ -2,9 +2,11 @@
 
 namespace App\Controller;
 
+use App\Entity\CityGeo;
 use App\Entity\User;
 use App\Repository\AlbumFavoriteRepository;
 use App\Repository\ArtistProfileRepository;
+use App\Repository\CityGeoRepository;
 use App\Repository\FavoriteRepository;
 use App\Repository\HistoryRepository;
 use App\Repository\ListenLaterRepository;
@@ -154,7 +156,7 @@ class LibraryController extends AbstractController
     }
 
     #[Route('/artist/{name}', name: 'app_artist', requirements: ['name' => '.+'])]
-    public function artist(string $name, #[CurrentUser] ?User $user, MusicRepository $music, ArtistProfileRepository $profiles, EntityManagerInterface $em, ClockInterface $clock, DiscographyView $discographyView, AlbumFavoriteRepository $albumFavorites): Response
+    public function artist(string $name, #[CurrentUser] ?User $user, MusicRepository $music, ArtistProfileRepository $profiles, EntityManagerInterface $em, ClockInterface $clock, DiscographyView $discographyView, AlbumFavoriteRepository $albumFavorites, CityGeoRepository $cities): Response
     {
         // Its duos / trios / feat. included: a name only credited with others gets a page too.
         $songs = $music->findByArtistWithCollaborations($name, $user);
@@ -164,11 +166,19 @@ class LibraryController extends AbstractController
 
         // Videos are "new" until this visit: flagged now, not on the next one.
         $profile = $profiles->findOneByName($name);
-        $newVideoIds = $newPostIds = $newConcertIds = [];
+        $newVideoIds = $newPostIds = $newConcertIds = $concertGeo = [];
         if ($profile !== null) {
             $newVideoIds = array_column($profile->newVideos($clock->now()), 'id');
             $newPostIds = array_column($profile->newPosts($clock->now()), 'id');
             $newConcertIds = array_column($profile->newConcerts($clock->now()), 'id');
+            // Concert id => [lat, lng] of its city, for the concerts map.
+            $coordinates = $profile->getConcerts() !== [] ? $cities->coordinates() : [];
+            foreach ($profile->getConcerts() as $concert) {
+                $place = CityGeo::place($concert);
+                if ($place !== null && isset($coordinates[$place])) {
+                    $concertGeo[$concert['id']] = $coordinates[$place];
+                }
+            }
             if ($profile->getVideos() !== [] || $profile->getPosts() !== [] || $profile->getConcerts() !== []) {
                 $profile->markVideosSeen($clock->now());
                 $em->flush();
@@ -184,6 +194,7 @@ class LibraryController extends AbstractController
             'newVideoIds' => $newVideoIds,
             'newPostIds' => $newPostIds,
             'newConcertIds' => $newConcertIds,
+            'concertGeo' => $concertGeo,
             'albums' => $albums,
             // Duos / trios / feat. this artist appears in, and the library artists of a collaboration credit.
             'collaborations' => $music->collaborationsOf($name, $user),

@@ -26,7 +26,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * artist page are flagged "new" in the web pages.
  */
 #[AsCommand(name: 'app:cron:artist-concerts', description: 'Fetch the upcoming concerts of the artists (public Songkick calendars, no API key)')]
-#[AsCronTask('0 4 * * *', timeout: 3600, description: 'Nightly: upcoming concerts')]
+#[AsCronTask('0 4,18 * * *', timeout: 3600, description: 'Nightly: upcoming concerts')]
 class ArtistConcertsCommand extends Command
 {
     public function __construct(

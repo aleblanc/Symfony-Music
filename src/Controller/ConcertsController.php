@@ -2,8 +2,10 @@
 
 namespace App\Controller;
 
+use App\Entity\CityGeo;
 use App\Entity\User;
 use App\Repository\ArtistProfileRepository;
+use App\Repository\CityGeoRepository;
 use App\Repository\MusicRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Clock\ClockInterface;
@@ -16,18 +18,21 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
  * Upcoming concerts of every library artist (app:cron:artist-concerts, from
  * Songkick), soonest first, optionally of one country only; "new" ones were
  * announced since the last visit of the artist's page. Viewing this list
- * marks nothing as seen.
+ * marks nothing as seen. ?view=map shows the same concerts on an OpenStreetMap
+ * map, at their city (app:cron:concert-geocode).
  */
 class ConcertsController extends AbstractController
 {
     #[Route('/concerts', name: 'app_concerts', methods: ['GET'])]
-    public function index(Request $request, #[CurrentUser] ?User $user, ArtistProfileRepository $profiles, MusicRepository $music, ClockInterface $clock): Response
+    public function index(Request $request, #[CurrentUser] ?User $user, ArtistProfileRepository $profiles, MusicRepository $music, CityGeoRepository $cities, ClockInterface $clock): Response
     {
         $now = $clock->now();
         $today = $now->format('Y-m-d');
         $onlyNew = $request->query->getBoolean('new');
         $country = strtoupper((string) $request->query->get('country', ''));
         $country = preg_match('/^[A-Z]{2}$/', $country) === 1 ? $country : null;
+        $map = $request->query->get('view') === 'map';
+        $coordinates = $map ? $cities->coordinates() : [];
         // Only the artists this viewer can see in the library.
         $visible = array_flip(array_map(static fn (array $a): string => (string) $a['artist'], $music->listArtists($user)));
 
@@ -51,7 +56,8 @@ class ConcertsController extends AbstractController
                 if (($onlyNew && !$isNew) || ($country !== null && $concert['countryCode'] !== $country)) {
                     continue;
                 }
-                $concerts[] = $concert + ['artist' => $profile->getName(), 'new' => $isNew];
+                $place = CityGeo::place($concert);
+                $concerts[] = $concert + ['artist' => $profile->getName(), 'new' => $isNew, 'geo' => $place !== null ? $coordinates[$place] ?? null : null];
             }
         }
         usort($concerts, static fn (array $a, array $b): int => strcmp($a['date'] . ($a['time'] ?? ''), $b['date'] . ($b['time'] ?? '')) ?: strcasecmp($a['artist'], $b['artist']));
@@ -63,6 +69,7 @@ class ConcertsController extends AbstractController
             'country' => $country,
             'newCount' => $newCount,
             'onlyNew' => $onlyNew,
+            'map' => $map,
         ]);
     }
 }

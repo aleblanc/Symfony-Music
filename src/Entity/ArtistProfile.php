@@ -243,6 +243,14 @@ class ArtistProfile
     public function markFound(string $mbid, ?string $wikidataId, ?string $description, ?string $imageUrl, ?string $wikipediaUrl, ?string $summary, ?string $youtubeChannelId, ?string $youtubeUrl, array $links, \DateTimeImmutable $now): void
     {
         $this->status = self::FOUND;
+        if ($this->mbid !== null && $mbid !== $this->mbid) {
+            // Another artist (a homonym was picked before): its posts and concerts are not this one's.
+            $this->posts = [];
+            $this->postsCheckedAt = null;
+            $this->songkickId = null;
+            $this->concerts = [];
+            $this->concertsCheckedAt = null;
+        }
         $this->mbid = $mbid;
         $this->wikidataId = $wikidataId;
         $this->description = $description !== null ? mb_substr($description, 0, 255) : null;
