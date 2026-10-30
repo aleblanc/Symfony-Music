@@ -78,6 +78,8 @@ class SongVersionManager
 
         copy($source, $file);
         $song->setLastModified(time());
+        // Other audio: analysed again (app:cron:spectrum).
+        $song->resetSpectrum();
     }
 
     private function versionDir(Music $song): string

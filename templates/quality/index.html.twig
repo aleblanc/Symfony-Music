@@ -30,6 +30,15 @@
         <p class="muted qs-note">
             {{ 'quality.index.bitrate_note'|trans }}
         </p>
+        {# app:cron:spectrum: files whose treble cutoff gives away a weaker source than their header says. #}
+        <p class="qs-note">
+            {% if spectrum.analysed == 0 %}
+                <span class="muted">{{ 'quality.index.spectrum_none_html'|trans|raw }}</span>
+            {% else %}
+                {{ 'quality.index.spectrum_summary'|trans({inflated: spectrum.inflated, analysed: spectrum.analysed, total: spectrum.total}) }}
+                {% if spectrum.inflated %}<a class="link" href="{{ path('app_quality_stats', {inflated: 1}) }}#tracks">{{ 'quality.index.spectrum_list'|trans }} →</a>{% endif %}
+            {% endif %}
+        </p>
     </section>
 
     <section class="qs-block">
@@ -60,7 +69,7 @@
                             {% endif %}
                         </td>
                         <td class="qs-bar-cell"><span class="qs-bar quality-{{ b.quality ?? 'unknown' }}" style="width: {{ b.pct }}%"></span></td>
-                        <td class="qs-num">{{ b.count }}</td>
+                        <td class="qs-num">{{ b.count }}{% if b.inflated %} <a class="q-inflated-note" href="{{ path('app_quality_stats', {inflated: 1}) }}#tracks" title="{{ 'quality.index.bucket_inflated_title'|trans }}">{{ 'quality.index.bucket_inflated'|trans({count: b.inflated}) }}</a>{% endif %}</td>
                         <td class="qs-num muted">{{ b.pct }} %</td>
                     </tr>
                 {% endfor %}
@@ -75,13 +84,26 @@
             <p class="muted">{{ 'quality.index.empty'|trans }}</p>
         {% else %}
             <table class="qs-tracks">
-                <thead><tr><th>{{ 'quality.index.col_bitrate'|trans }}</th><th>{{ 'quality.index.col_format'|trans }}</th><th>{{ 'quality.index.col_title'|trans }}</th><th>{{ 'quality.index.col_artist'|trans }}</th><th>{{ 'quality.index.col_album'|trans }}</th><th>{{ 'quality.index.col_spotify'|trans }}</th></tr></thead>
+                <thead><tr><th>{{ 'quality.index.col_bitrate'|trans }}</th><th title="{{ 'quality.index.col_real_title'|trans }}">{{ 'quality.index.col_real'|trans }}</th><th>{{ 'quality.index.col_format'|trans }}</th><th>{{ 'quality.index.col_title'|trans }}</th><th>{{ 'quality.index.col_artist'|trans }}</th><th>{{ 'quality.index.col_album'|trans }}</th><th>{{ 'quality.index.col_spotify'|trans }}</th></tr></thead>
                 <tbody>
                     {% for t in tracks %}
                         <tr>
                             <td class="qs-num">
                                 {% if t.bitrate %}{{ 'quality.index.kbps'|trans({value: (t.bitrate / 1000)|round}) }}{% if t.bitrateMode %} <span class="muted">{{ t.bitrateMode|upper }}</span>{% endif %}{% else %}?{% endif %}
-                                {% if t.quality %}<span class="quality-badge quality-{{ t.quality.value }}">{{ t.quality.label|trans }}</span>{% endif %}
+                                {% if t.declaredQuality %}<span class="quality-badge quality-{{ t.declaredQuality.value }}">{{ t.declaredQuality.label|trans }}</span>{% endif %}
+                            </td>
+                            {# app:cron:spectrum: an inflated file is judged on its real bitrate (treble cutoff). #}
+                            <td class="qs-num">
+                                {% if t.effectiveKbps %}
+                                    <span class="quality-badge quality-{{ t.quality.value }}">{{ t.quality.label|trans }}</span>
+                                    <div class="q-inflated-note">{{ 'quality.index.real_kbps'|trans({value: t.effectiveKbps}) }}{% if t.cutoffHz %} · ↑ {{ 'song.show.khz'|trans({value: (t.cutoffHz / 100)|round / 10}) }}{% endif %}</div>
+                                {% elseif t.cutoffHz is null %}
+                                    <span class="muted">{{ 'quality.index.not_analysed'|trans }}</span>
+                                {% elseif t.cutoffHz == 0 %}
+                                    <span class="muted">{{ 'quality.index.not_decodable'|trans }}</span>
+                                {% else %}
+                                    <span class="muted">✓ {{ 'quality.index.genuine'|trans }} · ↑ {{ 'song.show.khz'|trans({value: (t.cutoffHz / 100)|round / 10}) }}</span>
+                                {% endif %}
                             </td>
                             <td>{{ t.formatLabel }}</td>
                             <td><a class="link" href="{{ path('app_song', {id: t.id}) }}">{{ t.title ?: t.file|split('/')|last }}</a></td>

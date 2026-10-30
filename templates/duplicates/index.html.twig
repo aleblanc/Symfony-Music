@@ -34,6 +34,8 @@
                                 <td class="qs-num">
                                     {{ t.format }} {% if t.bitrate %}{{ 'quality.index.kbps'|trans({value: (t.bitrate / 1000)|round}) }}{% endif %}
                                     {% if t.quality %}<span class="quality-badge quality-{{ t.quality.value }}">{{ t.quality.label|trans }}</span>{% endif %}
+                                    {% if t.effectiveKbps %}<div class="q-inflated-note">{{ 'duplicates.index.inflated'|trans({real: t.effectiveKbps}) }}</div>{% endif %}
+                                    {% if t.cutoffHz %}<div class="muted" title="{{ 'duplicates.index.cutoff_title'|trans }}">↑ {{ 'song.show.khz'|trans({value: (t.cutoffHz / 100)|round / 10}) }}</div>{% endif %}
                                 </td>
                                 <td><a class="link" href="{{ path('app_song', {id: t.id}) }}">{{ t.title ?: t.file|split('/')|last }}</a><br><span class="muted">{{ t.artist }}</span></td>
                                 <td class="muted">{{ t.album }}{% if t.year %} ({{ t.year }}){% endif %}</td>

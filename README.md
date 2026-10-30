@@ -121,6 +121,7 @@ tracks outside `MUSIC_DIR` (files kept on disk).
 | `app:tool:enrich` | `--dry-run`, `--limit`, `--path=TEXT`, `--threshold`, `--retry`, `--all` |
 | `app:cron:artist-info` | `--artist=NAME`, `--retry` (not found before), `--refresh` (all), `--limit`; artists found before the discography existed only get it fetched (one MusicBrainz request per album for the track lists: about 1 s each the first time, cached 30 days) |
 | `app:cron:artist-videos` | `--artist=NAME`, `-v` |
+| `app:cron:spectrum` | `--parallel=4` (ffmpeg processes at once), `--limit`, `--id`, `--all` (analyse every track again), `-v` (list genuine tracks too); needs ffmpeg |
 | `app:cron:lyrics` | `-v` (list results), `--dry-run`, `--limit`, `--id`, `--retry` (tracks not found before), `--force` (also tracks with lyrics; synced ones are never replaced by plain ones), `--write-tags` (lyrics into the file too), `--delay=200` (ms between tracks) |
 | `app:tool:artist-merge` | `--dry-run`, `--artist=NAME --to=NEW_NAME` |
 
@@ -142,6 +143,7 @@ One crontab line runs them, each in its own process, never twice at once:
 | `app:cron:scan` | hourly, at :05 |
 | `app:cron:spotify-match` | every 2 hours (even hours), at :20 (not 3–5 h, while the nightly MusicBrainz jobs run) |
 | `app:cron:lyrics` | every 2 hours (even hours), at :35 |
+| `app:cron:spectrum` | every 2 hours (even hours), at :40 |
 | `app:cron:artist-videos` | every 2 hours (even hours), at :50 |
 | `app:cron:artist-info` | 03:00 |
 | `app:cron:artist-concerts` | 04:00 |
@@ -205,6 +207,14 @@ between 03:00 and 05:00 (MusicBrainz allows one request per second).
   (bitrate / format stats, worst first, the tracks worth replacing with their
   Spotify link: MP3 ≤ 192 kb/s, AAC / Vorbis / Opus ≤ 112 kb/s, which sound
   better than MP3 at the same bitrate).
+- **Inflated bitrates** — `app:cron:spectrum` measures where each track's
+  treble stops (three 8 s slices decoded by ffmpeg). A sharp cutoff too low for
+  the declared bitrate gives away a re-encoded weaker source: a "320" MP3 cut at
+  17 kHz is really a 128 one, a FLAC cut at 16 kHz an MP3 in disguise. Such a
+  track shows its real bitrate (`MP3 ≈128`, quality tier included), the song
+  page shows the cutoff, /admin/quality lists them, and /admin/duplicates
+  suggests keeping the copy whose treble goes highest. The declared bitrate and
+  the file are never changed.
 
 ## 6. Mobile apps (Subsonic API)
 

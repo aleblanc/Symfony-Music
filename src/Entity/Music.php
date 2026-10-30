@@ -138,6 +138,22 @@ class Music
     #[ORM\Column(nullable: true)]
     private ?bool $lossless = null;
 
+    /**
+     * Where the treble stops, in Hz (app:cron:spectrum, SpectrumAnalyzer); 0 when
+     * the file could not be analysed, null when not analysed yet. Reset when the
+     * audio changes (a tag edit keeps it).
+     */
+    #[ORM\Column(nullable: true)]
+    private ?int $cutoffHz = null;
+
+    /**
+     * Real bitrate (MP3-equivalent kbps) of an inflated file, e.g. 128 for a "320"
+     * MP3 made from a 128 one (its encoder lowpass gives it away); null when the
+     * file looks genuine or was not analysed. The declared $bitrate stays as is.
+     */
+    #[ORM\Column(nullable: true)]
+    private ?int $effectiveKbps = null;
+
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $lyrics = null;
 
@@ -465,9 +481,38 @@ class Music
         return $this->lossless;
     }
 
-    /** Copies every technical audio property (bitrate included) in one go. */
+    public function getCutoffHz(): ?int
+    {
+        return $this->cutoffHz;
+    }
+
+    public function getEffectiveKbps(): ?int
+    {
+        return $this->effectiveKbps;
+    }
+
+    /** True when the real bitrate is lower than the declared one (a re-encoded low-bitrate source). */
+    public function isInflated(): bool
+    {
+        return $this->effectiveKbps !== null;
+    }
+
+    /** Forgets the spectrum analysis: the file will be analysed again. */
+    public function resetSpectrum(): static
+    {
+        $this->cutoffHz = null;
+        $this->effectiveKbps = null;
+
+        return $this;
+    }
+
+    /** Copies every technical audio property (bitrate included) in one go; other audio means a new spectrum analysis. */
     public function applyAudioFormat(AudioFormat $format): static
     {
+        if ([$this->bitrate, $this->audioFormat, $this->audioCodec, $this->bitrateMode, $this->sampleRate, $this->lossless]
+            !== [$format->bitrate, $format->dataformat, $format->codec, $format->bitrateMode, $format->sampleRate, $format->lossless]) {
+            $this->resetSpectrum();
+        }
         $this->bitrate = $format->bitrate;
         $this->audioFormat = $format->dataformat;
         $this->audioCodec = $format->codec;
@@ -492,9 +537,10 @@ class Music
         };
     }
 
+    /** Quality tier; an inflated file is judged on its real bitrate. */
     public function getQuality(): ?AudioQuality
     {
-        return AudioQuality::classify($this->audioFormat, $this->lossless, $this->bitrate);
+        return AudioQuality::classify($this->audioFormat, $this->lossless, $this->bitrate, $this->effectiveKbps);
     }
 
     public function getSpotifyId(): ?string

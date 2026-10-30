@@ -129,6 +129,14 @@
                             <dt>{{ 'song.show.bitrate'|trans }}</dt>
                             <dd>{{ 'song.show.kbps'|trans({kbps: kbps}) }}{% if song.bitrateMode %} <span class="muted">{{ song.bitrateMode|upper }}</span>{% endif %}</dd>
                         {% endif %}
+                        {% if song.cutoffHz is not null %}
+                            {# app:cron:spectrum: where the treble stops; a sharp cutoff too low for the declared bitrate gives the real one. #}
+                            <dt>{{ 'song.show.cutoff'|trans }}</dt>
+                            <dd>
+                                {% if song.cutoffHz > 0 %}{{ 'song.show.khz'|trans({value: (song.cutoffHz / 100)|round / 10}) }}{% else %}<span class="muted">{{ 'song.show.cutoff_failed'|trans }}</span>{% endif %}
+                                {% if song.inflated %}<div class="q-inflated-note">{{ 'song.show.inflated'|trans({real: song.effectiveKbps}) }}</div>{% endif %}
+                            </dd>
+                        {% endif %}
                         {% if song.sampleRate %}
                             <dt>{{ 'song.show.sample_rate'|trans }}</dt>
                             <dd>{{ 'song.show.khz'|trans({value: song.sampleRate / 1000}) }}</dd>

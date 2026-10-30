@@ -15,7 +15,8 @@ use Symfony\Component\Translation\TranslatableMessage;
 /**
  * Audio quality of the whole library: tracks per quality tier, per format and
  * per bitrate range, worst first, plus the list of the worst tracks (or of
- * one format's bitrate range) to know what to replace.
+ * one format's bitrate range, or of the inflated ones: ?inflated=1) to know
+ * what to replace.
  */
 #[IsGranted('ROLE_ADMIN')]
 class QualityStatsController extends AbstractController
@@ -36,7 +37,12 @@ class QualityStatsController extends AbstractController
         $max = $request->query->has('max') ? max(0, $request->query->getInt('max')) : null;
 
         $limit = self::LIST_LIMIT;
-        if ($format !== null) {
+        $inflated = $request->query->getBoolean('inflated');
+        if ($inflated) {
+            $limit = self::LOW_LIST_LIMIT;
+            $tracks = $music->inflatedTracks($limit);
+            $listTitle = new TranslatableMessage('ui.quality.list_title.inflated');
+        } elseif ($format !== null) {
             $tracks = $music->lossyTracksByBitrate($format, $min, $max, self::LIST_LIMIT);
             // Language-neutral (format name + kb/s range); printed with |trans like the default title.
             $listTitle = QualityStats::formatLabel($format) . match (true) {
@@ -54,12 +60,16 @@ class QualityStatsController extends AbstractController
         return $this->render('quality/index.html.twig', [
             'stats' => $stats->build($music->qualityRows()),
             'tracks' => array_map(static fn(array $t) => $t + [
-                'quality' => AudioQuality::classify($t['format'], $t['lossless'], $t['bitrate']),
+                // As the header says, and the real one (an inflated file at its real bitrate).
+                'declaredQuality' => AudioQuality::classify($t['format'], $t['lossless'], $t['bitrate']),
+                'quality' => AudioQuality::classify($t['format'], $t['lossless'], $t['bitrate'], $t['effectiveKbps']),
                 'formatLabel' => QualityStats::formatLabel($t['format']),
             ], $tracks),
             'listTitle' => $listTitle,
             'listLimit' => $limit,
-            'filtered' => $format !== null,
+            'filtered' => $format !== null || $inflated,
+            // app:cron:spectrum: tracks analysed, and inflated ones (real bitrate lower than declared).
+            'spectrum' => $music->spectrumCounts() + ['total' => $music->count([])],
         ]);
     }
 }

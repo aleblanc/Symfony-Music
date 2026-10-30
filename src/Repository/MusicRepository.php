@@ -604,6 +604,42 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
+     * Tracks for app:cron:spectrum, as plain rows (no cover bytes hydrated),
+     * oldest first: by default only those never analysed; $all analyses
+     * every track again.
+     *
+     * @return list<array{id: int, file: string, duration: ?int, format: string, lossless: ?bool, bitrate: ?int}>
+     */
+    public function spectrumCandidates(bool $all = false, ?int $limit = null, ?int $id = null): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->select('m.id', 'm.file', 'm.duration', 'm.audioFormat AS format', 'm.lossless', 'm.bitrate')
+            ->andWhere('m.audioFormat IS NOT NULL')
+            ->orderBy('m.id', 'ASC');
+        if ($id !== null) {
+            $qb->andWhere('m.id = :id')->setParameter('id', $id);
+        } elseif (!$all) {
+            $qb->andWhere('m.cutoffHz IS NULL');
+        }
+        if ($limit !== null) {
+            $qb->setMaxResults($limit);
+        }
+
+        /** @var list<array{id: int, file: string, duration: ?int, format: string, lossless: ?bool, bitrate: ?int}> */
+        return $qb->getQuery()->getArrayResult();
+    }
+
+    /** Saves a spectrum analysis (cutoff 0: the file could not be analysed) without loading the track. */
+    public function saveSpectrum(int $id, int $cutoffHz, ?int $effectiveKbps): void
+    {
+        $this->createQueryBuilder('m')->update()
+            ->set('m.cutoffHz', ':cutoff')->set('m.effectiveKbps', ':effective')
+            ->where('m.id = :id')
+            ->setParameter('cutoff', $cutoffHz)->setParameter('effective', $effectiveKbps)->setParameter('id', $id)
+            ->getQuery()->execute();
+    }
+
+    /**
      * Every track as plain rows for app:tool:enrich (no cover bytes hydrated).
      * Not visibility filtered: this is a library maintenance task.
      *
@@ -1194,15 +1230,16 @@ class MusicRepository extends ServiceEntityRepository
 
     /**
      * Whole library (no visibility filter: admin stats) grouped by the
-     * fields QualityStats needs, bitrate rounded to kb/s.
+     * fields QualityStats needs, bitrate rounded to kb/s, with the real
+     * bitrate of the inflated ones (app:cron:spectrum).
      *
-     * @return list<array{format: ?string, lossless: ?bool, kbps: ?int, sampleRate: ?int, bitsPerSample: ?int, n: int}>
+     * @return list<array{format: ?string, lossless: ?bool, kbps: ?int, sampleRate: ?int, bitsPerSample: ?int, effectiveKbps: ?int, n: int}>
      */
     public function qualityRows(): array
     {
         $rows = $this->createQueryBuilder('m')
-            ->select('m.audioFormat AS format', 'm.lossless AS lossless', '((m.bitrate + 500) / 1000) AS kbps', 'm.sampleRate AS sampleRate', 'm.bitsPerSample AS bitsPerSample', 'COUNT(m.id) AS n')
-            ->groupBy('format')->addGroupBy('lossless')->addGroupBy('kbps')->addGroupBy('sampleRate')->addGroupBy('bitsPerSample')
+            ->select('m.audioFormat AS format', 'm.lossless AS lossless', '((m.bitrate + 500) / 1000) AS kbps', 'm.sampleRate AS sampleRate', 'm.bitsPerSample AS bitsPerSample', 'm.effectiveKbps AS effectiveKbps', 'COUNT(m.id) AS n')
+            ->groupBy('format')->addGroupBy('lossless')->addGroupBy('kbps')->addGroupBy('sampleRate')->addGroupBy('bitsPerSample')->addGroupBy('effectiveKbps')
             ->getQuery()
             ->getArrayResult();
 
@@ -1212,30 +1249,35 @@ class MusicRepository extends ServiceEntityRepository
             'kbps' => $r['kbps'] === null ? null : (int) $r['kbps'],
             'sampleRate' => $r['sampleRate'] === null ? null : (int) $r['sampleRate'],
             'bitsPerSample' => $r['bitsPerSample'] === null ? null : (int) $r['bitsPerSample'],
+            'effectiveKbps' => $r['effectiveKbps'] === null ? null : (int) $r['effectiveKbps'],
             'n' => (int) $r['n'],
         ], array_values($rows));
     }
 
     /**
-     * Lossy tracks, lowest bitrate first: of one format and bitrate range
+     * Lossy tracks, lowest real bitrate first: of one format and bitrate range
      * (kb/s, bounds included), or of every format under $maxKbps.
      *
-     * @return list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string}>
-     */
-    /**
      * @param ?int $maxKbpsEfficient when given, the ceiling for the formats that sound better than MP3 at the
      *                               same bitrate (AAC, Vorbis, Opus: an AAC 128 is about an MP3 160-192);
-     *                               $maxKbps then only applies to the others (MP3...)
+     *                               $maxKbps then only applies to the others (MP3...), and the inflated
+     *                               tracks (app:cron:spectrum) whose real bitrate is under $maxKbps join in
+     *
+     * @return list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string, spotifyId: ?string, effectiveKbps: ?int, cutoffHz: ?int}>
      */
     public function lossyTracksByBitrate(?string $format, ?int $minKbps, ?int $maxKbps, int $limit, ?int $maxKbpsEfficient = null): array
     {
+        $lossy = "(m.lossless IS NULL OR m.lossless = false) AND m.audioFormat NOT IN ('flac', 'alac', 'wav', 'aiff')";
         $qb = $this->createQueryBuilder('m')
-            ->select('m.id', 'm.title', 'm.artist', 'm.album', 'm.file', 'm.audioFormat AS format', 'm.lossless', 'm.bitrate', 'm.bitrateMode', 'm.spotifyId')
+            ->select('m.id', 'm.title', 'm.artist', 'm.album', 'm.file', 'm.audioFormat AS format', 'm.lossless', 'm.bitrate', 'm.bitrateMode', 'm.spotifyId', 'm.effectiveKbps', 'm.cutoffHz')
+            // Lowest real bitrate first: an inflated file (app:cron:spectrum) at its real one.
+            ->addSelect('COALESCE(m.effectiveKbps * 1000, m.bitrate) AS HIDDEN realBitrate')
             ->andWhere('m.audioFormat IS NOT NULL')
-            ->andWhere('m.lossless IS NULL OR m.lossless = false')
-            ->andWhere("m.audioFormat NOT IN ('flac', 'alac', 'wav', 'aiff')")
-            ->orderBy('m.bitrate', 'ASC')->addOrderBy('m.artist', 'ASC')->addOrderBy('m.id', 'ASC')
+            ->orderBy('realBitrate', 'ASC')->addOrderBy('m.artist', 'ASC')->addOrderBy('m.id', 'ASC')
             ->setMaxResults($limit);
+        if ($maxKbps === null || $maxKbpsEfficient === null) {
+            $qb->andWhere($lossy);
+        }
         if ($format !== null) {
             $qb->andWhere('m.audioFormat = :format')->setParameter('format', $format);
         }
@@ -1243,7 +1285,9 @@ class MusicRepository extends ServiceEntityRepository
             $qb->andWhere('(m.bitrate + 500) / 1000 >= :min')->setParameter('min', $minKbps);
         }
         if ($maxKbps !== null && $maxKbpsEfficient !== null) {
-            $qb->andWhere('(m.audioFormat IN (:efficient) AND (m.bitrate + 500) / 1000 <= :maxEfficient) OR (m.audioFormat NOT IN (:efficient) AND (m.bitrate + 500) / 1000 <= :max)')
+            // Low declared bitrates, and the inflated files (lossless ones included) whose real
+            // MP3-equivalent bitrate is that low too.
+            $qb->andWhere("({$lossy} AND ((m.audioFormat IN (:efficient) AND (m.bitrate + 500) / 1000 <= :maxEfficient) OR (m.audioFormat NOT IN (:efficient) AND (m.bitrate + 500) / 1000 <= :max))) OR m.effectiveKbps <= :max")
                 ->setParameter('efficient', self::EFFICIENT_LOSSY)
                 ->setParameter('maxEfficient', $maxKbpsEfficient)
                 ->setParameter('max', $maxKbps);
@@ -1251,7 +1295,35 @@ class MusicRepository extends ServiceEntityRepository
             $qb->andWhere('(m.bitrate + 500) / 1000 <= :max')->setParameter('max', $maxKbps);
         }
 
-        /** @var list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string, spotifyId: ?string}> */
+        /** @var list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string, spotifyId: ?string, effectiveKbps: ?int, cutoffHz: ?int}> */
         return $qb->getQuery()->getArrayResult();
+    }
+
+    /**
+     * The inflated tracks (app:cron:spectrum: real bitrate lower than the
+     * declared one), lowest real bitrate first; lossless ones included (a FLAC
+     * made from an MP3).
+     *
+     * @return list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string, spotifyId: ?string, effectiveKbps: ?int, cutoffHz: ?int}>
+     */
+    public function inflatedTracks(int $limit): array
+    {
+        /** @var list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string, spotifyId: ?string, effectiveKbps: ?int, cutoffHz: ?int}> */
+        return $this->createQueryBuilder('m')
+            ->select('m.id', 'm.title', 'm.artist', 'm.album', 'm.file', 'm.audioFormat AS format', 'm.lossless', 'm.bitrate', 'm.bitrateMode', 'm.spotifyId', 'm.effectiveKbps', 'm.cutoffHz')
+            ->andWhere('m.effectiveKbps IS NOT NULL')
+            ->orderBy('m.effectiveKbps', 'ASC')->addOrderBy('m.artist', 'ASC')->addOrderBy('m.id', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()->getArrayResult();
+    }
+
+    /** @return array{analysed: int, inflated: int} tracks analysed by app:cron:spectrum, and how many are inflated */
+    public function spectrumCounts(): array
+    {
+        $row = $this->createQueryBuilder('m')
+            ->select('SUM(CASE WHEN m.cutoffHz IS NOT NULL THEN 1 ELSE 0 END) AS analysed', 'SUM(CASE WHEN m.effectiveKbps IS NOT NULL THEN 1 ELSE 0 END) AS inflated')
+            ->getQuery()->getSingleResult();
+
+        return ['analysed' => (int) $row['analysed'], 'inflated' => (int) $row['inflated']];
     }
 }

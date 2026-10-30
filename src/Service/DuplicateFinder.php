@@ -43,7 +43,7 @@ final class DuplicateFinder
      */
     public function groups(): array
     {
-        $rows = $this->db->fetchAllAssociative('SELECT id, file, title, artist, album, year, duration, bitrate, bitrate_mode, audio_format, lossless, sample_rate, bits_per_sample, spotify_id FROM music');
+        $rows = $this->db->fetchAllAssociative('SELECT id, file, title, artist, album, year, duration, bitrate, bitrate_mode, audio_format, lossless, sample_rate, bits_per_sample, spotify_id, cutoff_hz, effective_kbps FROM music');
         $byId = [];
         $parent = [];
         $find = static function (int $id) use (&$parent): int {
@@ -231,7 +231,9 @@ final class DuplicateFinder
         $lossless = $row['lossless'] !== null ? (bool) $row['lossless'] : null;
         $bitrate = $row['bitrate'] !== null ? (int) $row['bitrate'] : null;
         $file = (string) $row['file'];
-        $quality = AudioQuality::classify($format, $lossless, $bitrate);
+        $effective = $row['effective_kbps'] !== null ? (int) $row['effective_kbps'] : null;
+        $cutoff = $row['cutoff_hz'] !== null ? (int) $row['cutoff_hz'] : null;
+        $quality = AudioQuality::classify($format, $lossless, $bitrate, $effective);
 
         return [
             'id' => (int) $row['id'],
@@ -245,15 +247,22 @@ final class DuplicateFinder
             'duration' => (int) $row['duration'],
             'bitrate' => $bitrate,
             'bitrateMode' => $row['bitrate_mode'],
+            // app:cron:spectrum: treble cutoff (Hz, 0 = not analysable) and real bitrate of an inflated file.
+            'cutoffHz' => $cutoff,
+            'effectiveKbps' => $effective,
             'format' => strtoupper($format ?? pathinfo($file, \PATHINFO_EXTENSION)),
             'quality' => $quality,
             'spotifyId' => $row['spotify_id'],
             'favorites' => $usage['favorites'] ?? 0,
             'plays' => $usage['plays'] ?? 0,
             'playlists' => $usage['playlists'] ?? 0,
-            // The suggested keeper: the best quality tier (lossless first; MP3 320 and AAC 256 are
-            // the same tier), then the higher bitrate, missing files last.
-            'score' => (is_file($file) ? 1_000_000_000 : 0) + ($quality !== null ? array_search($quality, AudioQuality::cases(), true) + 1 : 0) * 10_000_000 + ($bitrate ?? 0),
+            // The suggested keeper: the best real quality tier (lossless first; MP3 320 and AAC 256 are
+            // the same tier, an inflated file is judged on its real bitrate), then the treble that
+            // goes highest (app:cron:spectrum), then the higher bitrate; missing files last.
+            'score' => (is_file($file) ? 1_000_000_000_000 : 0)
+                + ($quality !== null ? array_search($quality, AudioQuality::cases(), true) + 1 : 0) * 10_000_000_000
+                + max(0, $cutoff ?? 0) * 100_000
+                + intdiv($bitrate ?? 0, 1000),
         ];
     }
 

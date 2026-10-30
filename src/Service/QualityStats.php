@@ -33,13 +33,13 @@ class QualityStats
     ];
 
     /**
-     * @param list<array{format: ?string, lossless: ?bool, kbps: ?int, sampleRate: ?int, bitsPerSample: ?int, n: int}> $rows
+     * @param list<array{format: ?string, lossless: ?bool, kbps: ?int, sampleRate: ?int, bitsPerSample: ?int, effectiveKbps?: ?int, n: int}> $rows
      *
      * @return array{
      *     total: int,
      *     unscanned: int,
      *     tiers: list<array{key: string, label: LabelMessage, count: int, pct: float}>,
-     *     formats: list<array{key: string, label: string, lossless: bool, count: int, pct: float, buckets: list<array{key: string, label: LabelMessage, quality: ?string, count: int, pct: float, min: ?int, max: ?int}>}>
+     *     formats: list<array{key: string, label: string, lossless: bool, count: int, pct: float, buckets: list<array{key: string, label: LabelMessage, quality: ?string, count: int, inflated: int, pct: float, min: ?int, max: ?int}>}>
      * }
      *
      * Tier and bucket labels are translatable (`|trans` in Twig) and cast to English;
@@ -51,7 +51,7 @@ class QualityStats
         $unscanned = 0;
         $tiers = array_fill_keys(array_map(static fn(AudioQuality $q) => $q->value, AudioQuality::cases()), 0);
         $unknownTier = 0;
-        /** @var array<string, array{lossless: bool, count: int, buckets: array<string, array{key: string, label: LabelMessage, quality: ?string, count: int, sort: int, min: ?int, max: ?int}>}> $formats */
+        /** @var array<string, array{lossless: bool, count: int, buckets: array<string, array{key: string, label: LabelMessage, quality: ?string, count: int, inflated: int, sort: int, min: ?int, max: ?int}>}> $formats */
         $formats = [];
 
         foreach ($rows as $row) {
@@ -63,21 +63,27 @@ class QualityStats
                 continue;
             }
 
-            $quality = AudioQuality::classify($format, $row['lossless'], $row['kbps'] !== null ? $row['kbps'] * 1000 : null);
+            $declared = AudioQuality::classify($format, $row['lossless'], $row['kbps'] !== null ? $row['kbps'] * 1000 : null);
+            // Tiers by real quality (an inflated file counts at its real bitrate); formats and ranges as declared.
+            $quality = ($row['effectiveKbps'] ?? null) !== null ? AudioQuality::classify($format, $row['lossless'], null, $row['effectiveKbps']) : $declared;
             if ($quality === null) {
                 $unknownTier += $n;
             } else {
                 $tiers[$quality->value] += $n;
             }
 
-            $lossless = $quality === AudioQuality::Lossless;
+            $lossless = $declared === AudioQuality::Lossless;
             $key = $format . ($lossless && $format === 'mp4' ? '-lossless' : '');
             $formats[$key] ??= ['lossless' => $lossless, 'count' => 0, 'buckets' => []];
             $formats[$key]['count'] += $n;
 
             $bucket = $lossless ? $this->losslessBucket($row['bitsPerSample'], $row['sampleRate']) : $this->lossyBucket($format, $row['kbps']);
-            $formats[$key]['buckets'][$bucket['key']] ??= $bucket + ['count' => 0];
+            $formats[$key]['buckets'][$bucket['key']] ??= $bucket + ['count' => 0, 'inflated' => 0];
             $formats[$key]['buckets'][$bucket['key']]['count'] += $n;
+            // Of which inflated: their real quality is lower than the range says.
+            if (($row['effectiveKbps'] ?? null) !== null) {
+                $formats[$key]['buckets'][$bucket['key']]['inflated'] += $n;
+            }
         }
 
         $pct = static fn(int $n, int $of): float => $of > 0 ? round(100 * $n / $of, 1) : 0.0;
@@ -105,6 +111,7 @@ class QualityStats
                     'label' => $b['label'],
                     'quality' => $b['quality'],
                     'count' => $b['count'],
+                    'inflated' => $b['inflated'],
                     'pct' => $pct($b['count'], $f['count']),
                     'min' => $b['min'],
                     'max' => $b['max'],

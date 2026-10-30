@@ -29,7 +29,12 @@
                 {% if q %}
                     {% set fmt = {mp3: 'MP3', mp4: 'AAC', aac: 'AAC', m4a: 'AAC', alac: 'ALAC', flac: 'FLAC', vorbis: 'OGG', ogg: 'OGG', opus: 'OPUS', wav: 'WAV', aiff: 'AIFF'}[song.audioFormat] ?? song.audioFormat|upper %}
                     {% set kbps = song.bitrate ? (song.bitrate / 1000)|round : null %}
-                    <span class="q-tag quality-{{ q.value }}" title="{{ kbps ? 'tracks.quality_title'|trans({label: q.label|trans, format: fmt, kbps: kbps}) : q.label|trans }}">{{ fmt }}{% if kbps and q.value != 'lossless' %} {{ kbps }}{% endif %}</span>
+                    {% if song.inflated %}
+                        {# Inflated (app:cron:spectrum): the real bitrate, the declared one in the tooltip. #}
+                        <span class="q-tag q-inflated quality-{{ q.value }}" title="{{ 'tracks.inflated_title'|trans({label: q.label|trans, format: fmt, kbps: kbps ?? 0, real: song.effectiveKbps, khz: (song.cutoffHz / 100)|round / 10}) }}">{{ fmt }} ≈{{ song.effectiveKbps }}</span>
+                    {% else %}
+                        <span class="q-tag quality-{{ q.value }}" title="{{ kbps ? 'tracks.quality_title'|trans({label: q.label|trans, format: fmt, kbps: kbps}) : q.label|trans }}">{{ fmt }}{% if kbps and q.value != 'lossless' %} {{ kbps }}{% endif %}</span>
+                    {% endif %}
                 {% endif %}
                 {% if song.artist %}<a href="{{ path('app_artist', {name: song.artist}) }}">{{ song.artist }}</a>{% endif %}
             </div>

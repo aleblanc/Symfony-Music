@@ -27,10 +27,15 @@ enum AudioQuality: string
     case Lossless = 'lossless';
 
     /**
-     * @param ?int $bitrate in bits per second, as stored from getID3
+     * @param ?int $bitrate       in bits per second, as stored from getID3
+     * @param ?int $effectiveKbps real MP3-equivalent bitrate of an inflated file (Music::$effectiveKbps):
+     *                            it is judged as an MP3 of that bitrate, even when it claims to be lossless
      */
-    public static function classify(?string $dataformat, ?bool $lossless, ?int $bitrate): ?self
+    public static function classify(?string $dataformat, ?bool $lossless, ?int $bitrate, ?int $effectiveKbps = null): ?self
     {
+        if ($effectiveKbps !== null) {
+            return self::classify('mp3', false, $effectiveKbps * 1000);
+        }
         if ($lossless === true || \in_array($dataformat, ['flac', 'alac', 'wav', 'aiff'], true)) {
             return self::Lossless;
         }
