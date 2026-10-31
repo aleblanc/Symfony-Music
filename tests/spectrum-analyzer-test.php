@@ -81,6 +81,10 @@ $calm = $analyzer->cutoff(pcm(22000, 1.5) . pcm(21500, 1.5, 0.002) . pcm(22000, 
 check('genuine, calm passage: not sharp', $calm !== null && !$calm['sharp'], json_encode($calm));
 // A wall missing from a loud passage is no encoder's (an encoder cuts everywhere): not a fake.
 $twoOfThree = $analyzer->cutoff(pcm(17000) . pcm(22000, 1.5) . pcm(17000), 3);
+// Each slice's own cutoff, in order: the middle one goes higher.
+$sections = array_map(static fn(?array $s) => $s['cutoffHz'] ?? null, $twoOfThree['sections'] ?? []);
+check('sections: one per slice, in order', \count($sections) === 3 && abs($sections[0] - 17000) <= 300 && $sections[1] >= 21000 && abs($sections[2] - 17000) <= 300, json_encode($twoOfThree['sections'] ?? null));
+check('sections: one for a single slice', \count($wall['sections'] ?? []) === 1);
 check('wall missing from one loud passage: not sharp', $twoOfThree !== null && !$twoOfThree['sharp'], json_encode($twoOfThree));
 
 check('silence → null',$analyzer->cutoff(str_repeat("\0\0", 44100 * 2)) === null);

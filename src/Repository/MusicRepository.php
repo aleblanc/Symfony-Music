@@ -1326,4 +1326,45 @@ class MusicRepository extends ServiceEntityRepository
 
         return ['analysed' => (int) $row['analysed'], 'inflated' => (int) $row['inflated']];
     }
+
+    /**
+     * Tracks per treble cutoff (app:cron:spectrum), in whole kHz: -2 not
+     * analysed yet, -1 not decodable.
+     *
+     * @return list<array{khz: int, n: int}>
+     */
+    public function cutoffRows(): array
+    {
+        $rows = $this->createQueryBuilder('m')
+            ->select('CASE WHEN m.cutoffHz IS NULL THEN -2 WHEN m.cutoffHz = 0 THEN -1 ELSE m.cutoffHz / 1000 END AS khz', 'COUNT(m.id) AS n')
+            ->groupBy('khz')
+            ->getQuery()->getArrayResult();
+
+        return array_values(array_map(static fn(array $r) => ['khz' => (int) $r['khz'], 'n' => (int) $r['n']], $rows));
+    }
+
+    /**
+     * Tracks whose treble stops between $fromHz and $toHz (bounds included,
+     * null: open), lowest first.
+     *
+     * @return list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string, spotifyId: ?string, effectiveKbps: ?int, cutoffHz: ?int}>
+     */
+    public function tracksByCutoff(?int $fromHz, ?int $toHz, int $limit): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->select('m.id', 'm.title', 'm.artist', 'm.album', 'm.file', 'm.audioFormat AS format', 'm.lossless', 'm.bitrate', 'm.bitrateMode', 'm.spotifyId', 'm.effectiveKbps', 'm.cutoffHz')
+            ->andWhere('m.audioFormat IS NOT NULL')
+            ->andWhere('m.cutoffHz > 0')
+            ->orderBy('m.cutoffHz', 'ASC')->addOrderBy('m.artist', 'ASC')->addOrderBy('m.id', 'ASC')
+            ->setMaxResults($limit);
+        if ($fromHz !== null) {
+            $qb->andWhere('m.cutoffHz >= :from')->setParameter('from', $fromHz);
+        }
+        if ($toHz !== null) {
+            $qb->andWhere('m.cutoffHz <= :to')->setParameter('to', $toHz);
+        }
+
+        /** @var list<array{id: int, title: ?string, artist: ?string, album: ?string, file: string, format: string, lossless: ?bool, bitrate: ?int, bitrateMode: ?string, spotifyId: ?string, effectiveKbps: ?int, cutoffHz: ?int}> */
+        return $qb->getQuery()->getArrayResult();
+    }
 }

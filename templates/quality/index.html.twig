@@ -41,6 +41,53 @@
         </p>
     </section>
 
+    {# app:cron:spectrum: where the treble really stops, whatever the header says. #}
+    {% if cutoffs.analysed %}
+        <section class="qs-block" id="spectrum">
+            <h2>{{ 'quality.index.spectrum_heading'|trans }} <span class="muted">{{ 'quality.index.spectrum_sub'|trans({count: cutoffs.analysed, failed: cutoffs.failed, pending: cutoffs.pending}) }}</span></h2>
+            <table class="qs-table">
+                {% for b in cutoffs.buckets %}
+                    <tr>
+                        <td>
+                            {% if b.count %}
+                                <a class="link" href="{{ path('app_quality_stats', {khz_min: b.min, khz_max: b.max}|filter(v => v is not null)) }}#tracks">{{ b.label|trans }}</a>
+                            {% else %}
+                                <span class="muted">{{ b.label|trans }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="qs-bar-cell"><span class="qs-bar quality-{{ b.quality }}" style="width: {{ b.pct }}%"></span></td>
+                        <td class="qs-num">{{ b.count }}</td>
+                        <td class="qs-num muted">{{ b.pct }} %</td>
+                            <td class="qs-num muted qs-transparent">{% if b.transparent %}<span title="{{ 'quality.index.transparent_title'|trans }}">{{ 'quality.index.transparent_row'|trans({pct: b.transparent}) }}</span>{% endif %}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+            <p class="muted qs-note">{{ 'quality.index.transparent_khz'|trans({p90: cutoffs.transparent[90], p99: cutoffs.transparent[99]}) }}</p>
+            <p class="muted qs-note">{{ 'quality.index.spectrum_note'|trans }}</p>
+
+            {% if stats.declared|filter(d => d.lower > 0) is not empty %}
+                <h3>{{ 'quality.index.declared_heading'|trans }}</h3>
+                <table class="qs-table">
+                    {% for d in stats.declared %}
+                        <tr>
+                            <td><span class="quality-badge quality-{{ d.key }}">{{ d.label|trans }}</span></td>
+                            <td class="qs-num">{{ d.count }}</td>
+                            <td class="qs-declared-real">
+                                {% if d.lower %}
+                                    {{ 'quality.index.declared_lower'|trans({count: d.lower, pct: (100 * d.lower / d.count)|round(1)}) }}
+                                    {% for r in d.real %}<span class="quality-badge quality-{{ r.key }}">{{ r.label|trans }} · {{ r.count }}</span>{% endfor %}
+                                {% else %}
+                                    <span class="muted">✓ {{ 'quality.index.declared_genuine'|trans }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </table>
+                <p class="muted qs-note">{{ 'quality.index.declared_note'|trans }}</p>
+            {% endif %}
+        </section>
+    {% endif %}
+
     <section class="qs-block">
         <h2>{{ 'quality.index.by_format'|trans }}</h2>
         <table class="qs-table">
@@ -71,9 +118,11 @@
                         <td class="qs-bar-cell"><span class="qs-bar quality-{{ b.quality ?? 'unknown' }}" style="width: {{ b.pct }}%"></span></td>
                         <td class="qs-num">{{ b.count }}{% if b.inflated %} <a class="q-inflated-note" href="{{ path('app_quality_stats', {inflated: 1}) }}#tracks" title="{{ 'quality.index.bucket_inflated_title'|trans }}">{{ 'quality.index.bucket_inflated'|trans({count: b.inflated}) }}</a>{% endif %}</td>
                         <td class="qs-num muted">{{ b.pct }} %</td>
+                        <td class="qs-num muted qs-transparent">{% if b.transparent %}<span title="{{ 'quality.index.transparent_title'|trans }}">{{ 'quality.index.transparent_row'|trans({pct: b.transparent}) }}</span>{% endif %}</td>
                     </tr>
                 {% endfor %}
             </table>
+            {% if f.transparent %}<p class="muted qs-note">{{ 'quality.index.transparent_kbps'|trans({p90: f.transparent[90], p99: f.transparent[99]}) }}</p>{% endif %}
         </section>
     {% endfor %}
 

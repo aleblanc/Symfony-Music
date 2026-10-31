@@ -649,12 +649,17 @@ kbd { font-family: inherit; font-size: 11px; padding: 0 5px; border: 1px solid v
 .qs-tracks td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
 .qs-tracks td.qs-num { white-space: nowrap; text-align: left; }
 .qs-tracks .quality-badge { margin-left: 6px; padding: 1px 7px; font-size: 11px; }
+.qs-block h3 { font-size: 15px; margin: 18px 0 6px; }
+.qs-table td.qs-transparent { font-size: 12px; text-align: left; }
+.qs-table td.qs-declared-real { white-space: normal; width: 100%; }
+.qs-declared-real .quality-badge { margin: 2px 0 2px 6px; padding: 1px 7px; font-size: 11px; }
 .dup-group { margin-bottom: 18px; }
 .dup-group tr.dup-best td { background: var(--bg-elev-2); }
 .dup-group .dup-file { font-size: 12px; color: var(--text-dim); word-break: break-all; }
 @media (max-width: 640px) {
     .qs-tracks th:nth-child(6), .qs-tracks td:nth-child(6) { display: none; }
     .qs-table td { padding: 6px 4px; }
+    .qs-table td.qs-transparent { display: none; }
 }
 
 /* Partial navigation in progress (nav.js): thin bar at the top. */

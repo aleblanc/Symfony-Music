@@ -13,6 +13,23 @@ use App\Translation\LabelMessage;
  */
 class QualityStats
 {
+    /** Treble cutoff ranges (kHz): everything under 13 kHz in one, everything from 21 kHz in one. */
+    private const CUTOFF_LOW = 12;
+    private const CUTOFF_HIGH = 21;
+
+    /**
+     * Rough share of listeners who hear no difference with the original (blind
+     * ABX tests, age-related hearing loss), as [share => from this]: kb/s per
+     * codec family, kHz for the treble cutoff. An order of magnitude, not a
+     * measure: trained ears on a revealing passage do better.
+     */
+    private const TRANSPARENT_KBPS = [
+        'opus' => [90 => 96, 99 => 128],
+        'efficient' => [90 => 128, 99 => 192],
+        'mp3' => [90 => 192, 99 => 256],
+    ];
+    private const TRANSPARENT_KHZ = [90 => 17, 99 => 19];
+
     /** Lower bounds (kb/s) of the bitrate ranges of lossy formats. */
     public const LOSSY_STEPS = [0, 64, 96, 128, 160, 192, 224, 256, 320];
 
@@ -39,7 +56,8 @@ class QualityStats
      *     total: int,
      *     unscanned: int,
      *     tiers: list<array{key: string, label: LabelMessage, count: int, pct: float}>,
-     *     formats: list<array{key: string, label: string, lossless: bool, count: int, pct: float, buckets: list<array{key: string, label: LabelMessage, quality: ?string, count: int, inflated: int, pct: float, min: ?int, max: ?int}>}>
+     *     formats: list<array{key: string, label: string, lossless: bool, count: int, pct: float, transparent: ?array<int, int>, buckets: list<array{key: string, label: LabelMessage, quality: ?string, count: int, inflated: int, pct: float, min: ?int, max: ?int, transparent: ?int}>}>,
+     *     declared: list<array{key: string, label: LabelMessage, count: int, lower: int, real: list<array{key: string, label: LabelMessage, count: int}>}>
      * }
      *
      * Tier and bucket labels are translatable (`|trans` in Twig) and cast to English;
@@ -51,6 +69,9 @@ class QualityStats
         $unscanned = 0;
         $tiers = array_fill_keys(array_map(static fn(AudioQuality $q) => $q->value, AudioQuality::cases()), 0);
         $unknownTier = 0;
+        // Declared tier → real tier (app:cron:spectrum: an inflated file at its real bitrate).
+        /** @var array<string, array<string, int>> $declaredToReal */
+        $declaredToReal = [];
         /** @var array<string, array{lossless: bool, count: int, buckets: array<string, array{key: string, label: LabelMessage, quality: ?string, count: int, inflated: int, sort: int, min: ?int, max: ?int}>}> $formats */
         $formats = [];
 
@@ -70,6 +91,9 @@ class QualityStats
                 $unknownTier += $n;
             } else {
                 $tiers[$quality->value] += $n;
+            }
+            if ($declared !== null && $quality !== null) {
+                $declaredToReal[$declared->value][$quality->value] = ($declaredToReal[$declared->value][$quality->value] ?? 0) + $n;
             }
 
             $lossless = $declared === AudioQuality::Lossless;
@@ -106,6 +130,8 @@ class QualityStats
                 'lossless' => $f['lossless'],
                 'count' => $f['count'],
                 'pct' => $pct($f['count'], $total),
+                // Bitrates from which ≈ 90 / 99 % hear no difference (null: lossless).
+                'transparent' => $f['lossless'] ? null : self::transparentKbps((string) $key),
                 'buckets' => array_map(static fn(array $b) => [
                     'key' => $b['key'],
                     'label' => $b['label'],
@@ -115,13 +141,117 @@ class QualityStats
                     'pct' => $pct($b['count'], $f['count']),
                     'min' => $b['min'],
                     'max' => $b['max'],
+                    'transparent' => $f['lossless'] ? null : self::transparentShare(self::transparentKbps((string) $key), $b['min']),
                 ], $buckets),
             ];
         }
         // Worst formats first: lossy before lossless, then by share of the library.
         usort($formatList, static fn(array $a, array $b) => [$a['lossless'], -$a['count']] <=> [$b['lossless'], -$b['count']]);
 
-        return ['total' => $total, 'unscanned' => $unscanned, 'tiers' => $tierList, 'formats' => $formatList];
+        $declaredList = [];
+        foreach (AudioQuality::cases() as $q) {
+            $real = $declaredToReal[$q->value] ?? [];
+            if ($real === []) {
+                continue;
+            }
+            $lower = array_sum($real) - ($real[$q->value] ?? 0);
+            $declaredList[] = [
+                'key' => $q->value,
+                'label' => $q->label(),
+                'count' => array_sum($real),
+                'lower' => $lower,
+                // Worst first, the declared tier itself left out.
+                'real' => array_values(array_map(
+                    static fn(AudioQuality $r) => ['key' => $r->value, 'label' => $r->label(), 'count' => $real[$r->value]],
+                    array_filter(AudioQuality::cases(), static fn(AudioQuality $r) => $r !== $q && isset($real[$r->value])),
+                )),
+            ];
+        }
+
+        return ['total' => $total, 'unscanned' => $unscanned, 'tiers' => $tierList, 'formats' => $formatList, 'declared' => $declaredList];
+    }
+
+    /**
+     * Tracks per treble cutoff (app:cron:spectrum), 1 kHz ranges from the
+     * lowest, coloured by the quality tier of the MP3 whose encoder cuts at
+     * the range's start (16 kHz: an MP3 112, 17 kHz: a 128; a natural
+     * roll-off of an old recording lands low too, whatever its bitrate). Fed with MusicRepository::cutoffRows().
+     *
+     * @param list<array{khz: int, n: int}> $rows
+     *
+     * @return array{analysed: int, failed: int, pending: int, buckets: list<array{label: LabelMessage, min: ?int, max: ?int, quality: string, count: int, pct: float, transparent: ?int}>, transparent: array<int, int>} quality: the tier's key; transparent: ≈ share (90, 99) of listeners who hear no difference from there, and the kHz of each share
+     */
+    public function spectrum(array $rows): array
+    {
+        $analysed = 0;
+        $failed = 0;
+        $pending = 0;
+        $counts = [];
+        foreach ($rows as ['khz' => $khz, 'n' => $n]) {
+            if ($khz === -2) {
+                $pending += $n;
+            } elseif ($khz < 0) {
+                $failed += $n;
+            } else {
+                $analysed += $n;
+                $key = max(self::CUTOFF_LOW, min(self::CUTOFF_HIGH, $khz));
+                $counts[$key] = ($counts[$key] ?? 0) + $n;
+            }
+        }
+
+        $buckets = [];
+        for ($khz = self::CUTOFF_LOW; $khz <= self::CUTOFF_HIGH; ++$khz) {
+            $count = $counts[$khz] ?? 0;
+            [$label, $min, $max] = match ($khz) {
+                self::CUTOFF_LOW => [new LabelMessage('ui.quality.cutoff.below', \sprintf('< %d kHz', $khz + 1), ['khz' => $khz + 1]), null, $khz],
+                self::CUTOFF_HIGH => [new LabelMessage('ui.quality.cutoff.at_least', \sprintf('≥ %d kHz', $khz), ['khz' => $khz]), $khz, null],
+                default => [new LabelMessage('ui.quality.cutoff.range', \sprintf('%d–%d kHz', $khz, $khz + 1), ['min' => $khz, 'max' => $khz + 1]), $khz, $khz],
+            };
+            $buckets[] = [
+                'label' => $label,
+                'min' => $min,
+                'max' => $max,
+                'quality' => (AudioQuality::classify('mp3', false, SpectrumAnalyzer::mp3EquivalentKbps($khz * 1000) * 1000) ?? AudioQuality::VeryLow)->value,
+                'count' => $count,
+                'pct' => $analysed > 0 ? round(100 * $count / $analysed, 1) : 0.0,
+                'transparent' => self::transparentShare(self::TRANSPARENT_KHZ, $min),
+            ];
+        }
+
+        return ['analysed' => $analysed, 'failed' => $failed, 'pending' => $pending, 'buckets' => $buckets, 'transparent' => self::TRANSPARENT_KHZ];
+    }
+
+    /**
+     * Bitrates (kb/s) from which ≈ 90 and 99 % of listeners hear no difference
+     * with the original, for a lossy format.
+     *
+     * @return array<int, int> [90 => kb/s, 99 => kb/s]
+     */
+    public static function transparentKbps(string $format): array
+    {
+        return self::TRANSPARENT_KBPS[match (true) {
+            $format === 'opus' => 'opus',
+            \in_array($format, ['mp4', 'aac', 'm4a', 'vorbis', 'ogg'], true) => 'efficient',
+            default => 'mp3',
+        }];
+    }
+
+    /**
+     * The share (90, 99) of listeners who hear no difference from a range
+     * starting at $from, null below the 90 % threshold.
+     *
+     * @param array<int, int> $thresholds [share => from]
+     */
+    private static function transparentShare(array $thresholds, ?int $from): ?int
+    {
+        $share = null;
+        foreach ($thresholds as $pct => $at) {
+            if ($from !== null && $from >= $at) {
+                $share = $pct;
+            }
+        }
+
+        return $share;
     }
 
     public static function formatLabel(string $format): string

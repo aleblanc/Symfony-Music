@@ -66,5 +66,44 @@ check('share inside the format', $formats['mp3']['buckets'][3]['pct'] === 52.6, 
 $flac = array_column($formats['flac']['buckets'], 'count', 'key');
 check('FLAC by resolution, hi-res last', $flac === ['16 bit / 44.1 kHz' => 6, '24 bit / 96 kHz (hi-res)' => 2], json_encode($flac, JSON_UNESCAPED_UNICODE));
 
+echo "Declared → real\n";
+// 10 MP3 320: 4 of them really 128; 3 FLAC: 1 really 112; 5 MP3 128 genuine.
+$real = (new QualityStats())->build([
+    ['format' => 'mp3', 'lossless' => false, 'kbps' => 320, 'sampleRate' => 44100, 'bitsPerSample' => null, 'effectiveKbps' => null, 'n' => 6],
+    ['format' => 'mp3', 'lossless' => false, 'kbps' => 320, 'sampleRate' => 44100, 'bitsPerSample' => null, 'effectiveKbps' => 128, 'n' => 4],
+    ['format' => 'flac', 'lossless' => true, 'kbps' => 900, 'sampleRate' => 44100, 'bitsPerSample' => 16, 'effectiveKbps' => null, 'n' => 2],
+    ['format' => 'flac', 'lossless' => true, 'kbps' => 900, 'sampleRate' => 44100, 'bitsPerSample' => 16, 'effectiveKbps' => 112, 'n' => 1],
+    ['format' => 'mp3', 'lossless' => false, 'kbps' => 128, 'sampleRate' => 44100, 'bitsPerSample' => null, 'effectiveKbps' => null, 'n' => 5],
+]);
+$declared = array_column($real['declared'], null, 'key');
+check('declared tiers present, worst first', array_keys($declared) === ['low', 'very_high', 'lossless'], json_encode(array_keys($declared)));
+check('MP3 320: 4 of 10 really low', $declared['very_high']['count'] === 10 && $declared['very_high']['lower'] === 4 && array_column($declared['very_high']['real'], 'count', 'key') === ['low' => 4], json_encode($declared['very_high']));
+check('FLAC: 1 of 3 really very low', $declared['lossless']['lower'] === 1 && array_column($declared['lossless']['real'], 'count', 'key') === ['very_low' => 1], json_encode($declared['lossless']));
+check('genuine tier: nothing lower', $declared['low']['lower'] === 0 && $declared['low']['real'] === [], json_encode($declared['low']));
+check('tiers count the real tier', array_column($real['tiers'], 'count', 'key')['low'] === 9, json_encode(array_column($real['tiers'], 'count', 'key')));
+
+echo "Real spectrum (treble cutoff)\n";
+$spectrum = (new QualityStats())->spectrum([
+    ['khz' => -2, 'n' => 7], ['khz' => -1, 'n' => 2],
+    ['khz' => 10, 'n' => 1], ['khz' => 12, 'n' => 1], ['khz' => 16, 'n' => 3], ['khz' => 17, 'n' => 5], ['khz' => 20, 'n' => 6], ['khz' => 22, 'n' => 4],
+]);
+check('counts: analysed, not decodable, pending', $spectrum['analysed'] === 20 && $spectrum['failed'] === 2 && $spectrum['pending'] === 7, json_encode(array_slice($spectrum, 0, 3)));
+$buckets = $spectrum['buckets'];
+check('1 kHz ranges from < 13 to ≥ 21 kHz', \count($buckets) === 10 && (string) $buckets[0]['label'] === '< 13 kHz' && (string) $buckets[4]['label'] === '16–17 kHz' && (string) $buckets[9]['label'] === '≥ 21 kHz', implode(', ', array_map(static fn($b) => (string) $b['label'], $buckets)));
+check('ends grouped', $buckets[0]['count'] === 2 && $buckets[9]['count'] === 4, json_encode([$buckets[0]['count'], $buckets[9]['count']]));
+check('list bounds', $buckets[0]['min'] === null && $buckets[0]['max'] === 12 && $buckets[4]['min'] === 16 && $buckets[4]['max'] === 16 && $buckets[9]['min'] === 21 && $buckets[9]['max'] === null);
+// 16–17 kHz: an MP3 112; 17–18: a 128 (LAME cuts it at 17.0); 18–19: a 160; 19–20: a 224; 20–21: a 256; ≥ 21: a 320.
+check('colour: tier of the MP3 cut at the range start', array_column($buckets, 'quality') === ['very_low', 'very_low', 'very_low', 'very_low', 'very_low', 'low', 'standard', 'standard', 'high', 'very_high'], json_encode(array_column($buckets, 'quality')));
+check('share of the analysed ones', $buckets[8]['pct'] === 30.0, (string) $buckets[8]['pct']);
+
+echo "No audible difference (≈ 90 / 99 % of listeners)\n";
+check('cutoff: from 17 kHz for 90 %, 19 kHz for 99 %', array_column($buckets, 'transparent') === [null, null, null, null, null, 90, 90, 99, 99, 99] && $spectrum['transparent'] === [90 => 17, 99 => 19], json_encode(array_column($buckets, 'transparent')));
+$mp3Ranges = array_column($formats['mp3']['buckets'], 'transparent', 'key');
+check('MP3 ranges: 128 and below never transparent, 320 for 99 %', $mp3Ranges === ['Unknown bitrate' => null, '< 64 kb/s' => null, '128–159 kb/s' => null, '≥ 320 kb/s' => 99], json_encode($mp3Ranges, JSON_UNESCAPED_UNICODE));
+check('MP3 thresholds 192 / 256', $formats['mp3']['transparent'] === [90 => 192, 99 => 256]);
+check('AAC thresholds 128 / 192, its 256 range for 99 %', $formats['mp4']['transparent'] === [90 => 128, 99 => 192] && array_column($formats['mp4']['buckets'], 'transparent', 'key')['256–319 kb/s'] === 99, json_encode($formats['mp4']));
+check('Opus thresholds 96 / 128', QualityStats::transparentKbps('opus') === [90 => 96, 99 => 128]);
+check('lossless: no threshold', $formats['flac']['transparent'] === null && array_column($formats['flac']['buckets'], 'transparent') === [null, null]);
+
 echo $failures === 0 ? "\nAll quality stats tests passed.\n" : "\n{$failures} failure(s).\n";
 exit($failures === 0 ? 0 : 1);

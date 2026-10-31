@@ -15,8 +15,8 @@ use Symfony\Component\Translation\TranslatableMessage;
 /**
  * Audio quality of the whole library: tracks per quality tier, per format and
  * per bitrate range, worst first, plus the list of the worst tracks (or of
- * one format's bitrate range, or of the inflated ones: ?inflated=1) to know
- * what to replace.
+ * one format's bitrate range, of the inflated ones: ?inflated=1, of a treble
+ * cutoff range: ?khz_min=&khz_max=) to know what to replace.
  */
 #[IsGranted('ROLE_ADMIN')]
 class QualityStatsController extends AbstractController
@@ -38,7 +38,19 @@ class QualityStatsController extends AbstractController
 
         $limit = self::LIST_LIMIT;
         $inflated = $request->query->getBoolean('inflated');
-        if ($inflated) {
+        // A treble cutoff range (kHz, bounds included), from the "Real spectrum" section.
+        $khzMin = $request->query->has('khz_min') ? max(0, $request->query->getInt('khz_min')) : null;
+        $khzMax = $request->query->has('khz_max') ? max(0, $request->query->getInt('khz_max')) : null;
+        $byCutoff = $khzMin !== null || $khzMax !== null;
+        if ($byCutoff) {
+            $tracks = $music->tracksByCutoff($khzMin !== null ? $khzMin * 1000 : null, $khzMax !== null ? $khzMax * 1000 + 999 : null, self::LIST_LIMIT);
+            // Language-neutral, printed with |trans like the default title.
+            $listTitle = '↑ ' . match (true) {
+                $khzMin !== null && $khzMax !== null => \sprintf('%d–%d kHz', $khzMin, $khzMax + 1),
+                $khzMin !== null => \sprintf('≥ %d kHz', $khzMin),
+                default => \sprintf('< %d kHz', $khzMax + 1),
+            };
+        } elseif ($inflated) {
             $limit = self::LOW_LIST_LIMIT;
             $tracks = $music->inflatedTracks($limit);
             $listTitle = new TranslatableMessage('ui.quality.list_title.inflated');
@@ -67,7 +79,8 @@ class QualityStatsController extends AbstractController
             ], $tracks),
             'listTitle' => $listTitle,
             'listLimit' => $limit,
-            'filtered' => $format !== null || $inflated,
+            'filtered' => $format !== null || $inflated || $byCutoff,
+            'cutoffs' => $stats->spectrum($music->cutoffRows()),
             // app:cron:spectrum: tracks analysed, and inflated ones (real bitrate lower than declared).
             'spectrum' => $music->spectrumCounts() + ['total' => $music->count([])],
         ]);

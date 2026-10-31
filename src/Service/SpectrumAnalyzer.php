@@ -45,7 +45,7 @@ class SpectrumAnalyzer
     ) {}
 
     /**
-     * @return ?array{cutoffHz: int, sharp: bool} null when the file cannot be decoded or is silent
+     * @return ?array{cutoffHz: int, sharp: bool, sections: list<?array{cutoffHz: int, sharp: bool}>} null when the file cannot be decoded or is silent
      *
      * @throws \RuntimeException when ffmpeg is missing
      */
@@ -88,7 +88,7 @@ class SpectrumAnalyzer
         return $process;
     }
 
-    /** @return ?array{cutoffHz: int, sharp: bool} null when the file could not be decoded or is silent */
+    /** @return ?array{cutoffHz: int, sharp: bool, sections: list<?array{cutoffHz: int, sharp: bool}>} null when the file could not be decoded or is silent */
     public function result(Process $process): ?array
     {
         $pcm = $process->getOutput();
@@ -102,9 +102,9 @@ class SpectrumAnalyzer
      * @param string $pcm    mono signed 16-bit little-endian samples at 44.1 kHz
      * @param int    $slices how many slices of equal length $pcm is made of: each one loud enough
      *                       near the wall must show it too (an encoder's wall is everywhere, a quiet
-     *                       or filtered passage is not)
+     *                       or filtered passage is not); `sections` gives each slice's own cutoff
      *
-     * @return ?array{cutoffHz: int, sharp: bool} null when too short or silent
+     * @return ?array{cutoffHz: int, sharp: bool, sections: list<?array{cutoffHz: int, sharp: bool}>} null when too short or silent
      */
     public function cutoff(string $pcm, int $slices = 1): ?array
     {
@@ -149,10 +149,36 @@ class SpectrumAnalyzer
                 $all[$k] += $p;
             }
         }
-        $smooth = self::smooth($all, $count);
+        $whole = self::edge(self::smooth($all, $count), fn(int $at): bool => $this->sliceVote($power, $frames, $at));
+        if ($whole === null) {
+            return null; // silence
+        }
+
+        // Each slice on its own (no vote), in order: where the treble stops in each passage,
+        // null for a silent one.
+        $sections = [];
+        foreach ($power as $i => $slicePower) {
+            $sections[] = $frames[$i] > 0 ? self::edge(self::smooth($slicePower, $frames[$i]), null) : null;
+        }
+
+        return $whole + ['sections' => $sections];
+    }
+
+    /**
+     * Where the treble stops in an average spectrum: a sharp wall (when $vote,
+     * if given, agrees), else how far the content goes.
+     *
+     * @param array<int, float>        $smooth
+     * @param ?\Closure(int): bool     $vote   whether the slices agree on a wall at this bin
+     *
+     * @return ?array{cutoffHz: int, sharp: bool} null when silent
+     */
+    private static function edge(array $smooth, ?\Closure $vote): ?array
+    {
+        $bins = \count($smooth);
         $reference = self::reference($smooth);
         if ($reference < -100) {
-            return null; // silence
+            return null;
         }
 
         // Sharp cutoff: the biggest fall between 300–1200 Hz below and 300–1200 Hz above.
@@ -170,7 +196,7 @@ class SpectrumAnalyzer
             }
         }
         $before = $at > 0 ? self::mean($smooth, $at - self::bin(1200), $at - self::bin(300)) : -200.0;
-        if ($best >= 25 && $before > $reference - 90 && $this->sliceVote($power, $frames, $at)) {
+        if ($best >= 25 && $before > $reference - 90 && ($vote === null || $vote($at))) {
             // The wall: first bin from 300 Hz below that is 15 dB under the level before it.
             for ($k = $at - self::bin(300); $k < $bins && $smooth[$k] > $before - 15; ++$k) {
             }
@@ -302,6 +328,13 @@ class SpectrumAnalyzer
         if ($cutoffHz >= $expected) {
             return null;
         }
+
+        return self::mp3EquivalentKbps($cutoffHz);
+    }
+
+    /** The MP3 bitrate whose LAME lowpass sits at a sharp cutoff of $cutoffHz (128 for 17 kHz). */
+    public static function mp3EquivalentKbps(int $cutoffHz): int
+    {
         foreach (self::MP3_EQUIVALENT as [$below, $kbps]) {
             if ($cutoffHz < $below) {
                 return $kbps;
