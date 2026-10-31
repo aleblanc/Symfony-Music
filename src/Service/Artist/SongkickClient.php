@@ -19,6 +19,8 @@ final class SongkickClient
     private const USER_AGENT = 'PHPMusic/1.0 (personal music library)';
     /** Songkick names that are not the English country names Intl knows. */
     private const COUNTRY_ALIASES = ['UK' => 'GB', 'US' => 'US', 'USA' => 'US', 'Czech Republic' => 'CZ', 'Russia' => 'RU', 'South Korea' => 'KR', 'Vietnam' => 'VN', 'Turkey' => 'TR'];
+    /** Calendar pages read per artist at most (50 dates each). */
+    private const MAX_PAGES = 5;
     private const STATUSES = ['EventCancelled' => 'cancelled', 'EventPostponed' => 'postponed', 'EventRescheduled' => 'rescheduled', 'EventMovedOnline' => 'online'];
 
     /** @var ?array<string, string> English country name => ISO code */
@@ -64,16 +66,51 @@ final class SongkickClient
     }
 
     /**
+     * Every page of the calendar (50 dates each), following its "next" link,
+     * $pause seconds apart.
+     *
      * @return list<array{id: string, date: string, time: ?string, title: string, venue: ?string, city: ?string, country: ?string, countryCode: ?string, festival: bool, status: string, url: string}> soonest first
+     *
+     * @throws SongkickRefusedException when Songkick refuses the request
+     * @throws \RuntimeException when a page cannot be read
+     */
+    public function upcomingConcerts(string $songkickId, int $pause = 0): array
+    {
+        $today = (new \DateTimeImmutable('today'))->format('Y-m-d');
+        // An old id (renamed artist) redirects to the current page.
+        $url = 'https://www.songkick.com/artists/' . rawurlencode($songkickId) . '/calendar';
+        $concerts = [];
+        for ($page = 1; $page <= self::MAX_PAGES && $url !== null; ++$page) {
+            if ($page > 1 && $pause > 0) {
+                sleep($pause);
+            }
+            $html = $this->page($url);
+            if ($html === null) {
+                break;
+            }
+            foreach ($this->parse($html, $today) as $concert) {
+                $concerts[$concert['id']] = $concert;
+            }
+            $url = preg_match('#<a[^>]*class="next_page"[^>]*href="([^"]+)"#', $html, $m) === 1
+                ? 'https://www.songkick.com' . html_entity_decode($m[1], \ENT_QUOTES | \ENT_HTML5)
+                : null;
+        }
+        $concerts = array_values($concerts);
+        usort($concerts, static fn (array $a, array $b): int => strcmp($a['date'] . ($a['time'] ?? ''), $b['date'] . ($b['time'] ?? '')));
+
+        return $concerts;
+    }
+
+    /**
+     * One calendar page, null when it does not exist (404).
      *
      * @throws SongkickRefusedException when Songkick refuses the request
      * @throws \RuntimeException when the page cannot be read
      */
-    public function upcomingConcerts(string $songkickId): array
+    private function page(string $url): ?string
     {
         try {
-            // An old id (renamed artist) redirects to the current page.
-            $response = $this->httpClient->request('GET', 'https://www.songkick.com/artists/' . rawurlencode($songkickId) . '/calendar', [
+            $response = $this->httpClient->request('GET', $url, [
                 'headers' => ['User-Agent' => self::USER_AGENT],
                 'timeout' => 20,
                 'max_duration' => 40,
@@ -83,17 +120,16 @@ final class SongkickClient
                 throw new SongkickRefusedException(\sprintf('Songkick refused the request (HTTP %d)', $status));
             }
             if ($status === 404) {
-                return [];
+                return null;
             }
             if ($status !== 200) {
                 throw new \RuntimeException(\sprintf('HTTP %d', $status));
             }
-            $html = $response->getContent();
+
+            return $response->getContent();
         } catch (ExceptionInterface $e) {
             throw new \RuntimeException($e->getMessage(), 0, $e);
         }
-
-        return $this->parse($html, (new \DateTimeImmutable('today'))->format('Y-m-d'));
     }
 
     /**

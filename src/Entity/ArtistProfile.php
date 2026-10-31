@@ -27,6 +27,8 @@ class ArtistProfile
     public const MAX_POSTS = 50;
     /** Upcoming concerts kept per artist: the soonest ones. */
     public const MAX_CONCERTS = 100;
+    /** Concerts are followed only for the artists with at least this many 5-star tracks. */
+    public const CONCERT_MIN_FIVE_STARS = 2;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]

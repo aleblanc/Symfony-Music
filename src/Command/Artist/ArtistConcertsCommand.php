@@ -4,6 +4,7 @@ namespace App\Command\Artist;
 
 use App\Entity\ArtistProfile;
 use App\Repository\ArtistProfileRepository;
+use App\Repository\MusicRepository;
 use App\Service\Artist\SongkickClient;
 use App\Service\Artist\SongkickRefusedException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -18,8 +19,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Reads the upcoming concerts of every artist found on MusicBrainz from its
- * public Songkick calendar (no API key): the Songkick id comes from the
+ * Reads the upcoming concerts of every artist found on MusicBrainz with at
+ * least 2 tracks rated 5 stars from its public Songkick calendar (no API key): the Songkick id comes from the
  * MusicBrainz links (looked up once), then one page per artist, slowly. The
  * artists checked longest ago go first, so a run stopped by Songkick goes on
  * where it stopped next time. Dates announced since the last visit of the
@@ -31,6 +32,7 @@ class ArtistConcertsCommand extends Command
 {
     public function __construct(
         private readonly ArtistProfileRepository $profiles,
+        private readonly MusicRepository $music,
         private readonly SongkickClient $songkick,
         private readonly EntityManagerInterface $em,
         private readonly ClockInterface $clock,
@@ -43,7 +45,7 @@ class ArtistConcertsCommand extends Command
         $this
             ->addOption('artist', null, InputOption::VALUE_REQUIRED, 'Only this artist (exact name, as in the tags)')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'At most this many artists')
-            ->addOption('pause', null, InputOption::VALUE_REQUIRED, 'Seconds between two Songkick pages', '4')
+            ->addOption('pause', null, InputOption::VALUE_REQUIRED, 'Seconds between two Songkick pages (artists and calendar pages)', '4')
             ->addOption('relookup', null, InputOption::VALUE_NONE, 'Look the Songkick id up again on MusicBrainz for the artists that had none');
     }
 
@@ -53,7 +55,9 @@ class ArtistConcertsCommand extends Command
         $io->title('Upcoming concerts');
 
         $relookup = (bool) $input->getOption('relookup');
-        $profiles = array_values(array_filter($this->profiles->findAll(), static fn (ArtistProfile $p): bool => $p->isFound() && $p->getMbid() !== null
+        // Only the artists with enough 5-star tracks.
+        $rated = array_flip($this->music->artistsWithRating(5, ArtistProfile::CONCERT_MIN_FIVE_STARS, null, true));
+        $profiles = array_values(array_filter($this->profiles->findAll(), static fn (ArtistProfile $p): bool => isset($rated[$p->getName()]) && $p->isFound() && $p->getMbid() !== null
             && ($p->getSongkickId() !== '' || $relookup)));
         $only = $input->getOption('artist');
         if (\is_string($only)) {
@@ -101,7 +105,7 @@ class ArtistConcertsCommand extends Command
             }
             $first = false;
             try {
-                $concerts = $this->songkick->upcomingConcerts((string) $profile->getSongkickId());
+                $concerts = $this->songkick->upcomingConcerts((string) $profile->getSongkickId(), $pause);
             } catch (SongkickRefusedException $e) {
                 $io->writeln(\sprintf('  <comment>!</comment> %s — %s: stopped here, the next run starts again from this artist', OutputFormatter::escape($label), OutputFormatter::escape($e->getMessage())));
                 $refused = true;

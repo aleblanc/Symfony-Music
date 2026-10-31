@@ -272,6 +272,30 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
+     * Artists with at least $minTracks tracks rated $stars: those whose
+     * concerts are followed. $viewer null with $everyone: every track counts,
+     * private ones included (the cron commands).
+     *
+     * @return list<string>
+     */
+    public function artistsWithRating(int $stars, int $minTracks, ?User $viewer, bool $everyone = false): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->select('m.artist AS artist')
+            ->andWhere('m.artist IS NOT NULL')
+            ->andWhere('m.rating = :stars')
+            ->setParameter('stars', $stars)
+            ->groupBy('m.artist')
+            ->having('COUNT(m.id) >= :min')
+            ->setParameter('min', $minTracks);
+        if (!$everyone) {
+            $this->applyVisibility($qb, $viewer);
+        }
+
+        return array_map(static fn(array $r): string => (string) $r['artist'], $qb->getQuery()->getScalarResult());
+    }
+
+    /**
      * @return Music[]
      */
     public function findByGenre(string $genre, ?User $viewer): array

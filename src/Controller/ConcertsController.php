@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\ArtistProfile;
 use App\Entity\CityGeo;
 use App\Entity\User;
 use App\Repository\ArtistProfileRepository;
@@ -15,8 +16,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 /**
- * Upcoming concerts of every library artist (app:cron:artist-concerts, from
- * Songkick), soonest first, optionally of one country only; "new" ones were
+ * Upcoming concerts of the library artists with at least 2 tracks rated 5
+ * stars (app:cron:artist-concerts, from Songkick), soonest first, optionally of one country only; "new" ones were
  * announced since the last visit of the artist's page. Viewing this list
  * marks nothing as seen. ?view=map shows the same concerts on an OpenStreetMap
  * map, at their city (app:cron:concert-geocode).
@@ -33,8 +34,8 @@ class ConcertsController extends AbstractController
         $country = preg_match('/^[A-Z]{2}$/', $country) === 1 ? $country : null;
         $map = $request->query->get('view') === 'map';
         $coordinates = $map ? $cities->coordinates() : [];
-        // Only the artists this viewer can see in the library.
-        $visible = array_flip(array_map(static fn (array $a): string => (string) $a['artist'], $music->listArtists($user)));
+        // Only the artists with enough 5-star tracks this viewer can see in the library.
+        $visible = array_flip($music->artistsWithRating(5, ArtistProfile::CONCERT_MIN_FIVE_STARS, $user));
 
         $concerts = [];
         $countries = [];
