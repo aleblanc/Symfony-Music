@@ -19,18 +19,17 @@ class QualityStats
      * codec family, kHz for the treble cutoff. An order of magnitude, not a
      * measure: trained ears on a revealing passage do better.
      *
-     * The kHz follow the kb/s: a cutoff is judged as the MP3 whose encoder
-     * cuts there (SpectrumAnalyzer::mp3EquivalentKbps), so 90 % is the LAME
-     * lowpass of a 192 (18.6 kHz) and 99 % that of a 256 (19.7 kHz), rounded.
-     * The ear alone would allow less (most adults hear nothing above 16–17 kHz),
-     * but what a low bitrate loses is not only the treble.
+     * For the treble cutoff the kHz follow the MP3 kb/s: a cutoff is judged as
+     * the MP3 whose encoder cuts there (SpectrumAnalyzer::mp3EquivalentRanges),
+     * so 90 % starts with the 192's range and 99 % with the 256's. The ear
+     * alone would allow less (most adults hear nothing above 16–17 kHz), but
+     * what a low bitrate loses is not only the treble.
      */
     private const TRANSPARENT_KBPS = [
         'opus' => [90 => 96, 99 => 128],
         'efficient' => [90 => 128, 99 => 192],
         'mp3' => [90 => 192, 99 => 256],
     ];
-    private const TRANSPARENT_KHZ = [90 => 19, 99 => 20];
 
     /** Lower bounds (kb/s) of the bitrate ranges of lossy formats. */
     public const LOSSY_STEPS = [0, 64, 96, 128, 160, 192, 224, 256, 320];
@@ -184,7 +183,7 @@ class QualityStats
      *
      * @param list<array{hz: int, sharp: ?bool, n: int}> $rows cutoff in Hz (-2 not analysed yet, -1 not decodable); sharp null when not known yet (analysed before it was recorded: counted with the walls, as it was)
      *
-     * @return array{analysed: int, failed: int, pending: int, unknown: int, buckets: list<array{label: LabelMessage, min: ?int, max: ?int, kbps: int, quality: string, count: int, sharp: int, soft: int, pct: float, pctSharp: float, pctSoft: float, transparent: ?int}>, transparent: array<int, int>} min / max: bounds in Hz, included (null: open); kbps: the MP3 cut there; quality: its tier's key; count: sharp + soft; pct*: shares of the analysed tracks; transparent: ≈ share (90, 99) of listeners who hear no difference from there, and the kHz of each share
+     * @return array{analysed: int, failed: int, pending: int, unknown: int, buckets: list<array{label: LabelMessage, min: ?int, max: ?int, kbps: int, quality: string, count: int, sharp: int, soft: int, pct: float, pctSharp: float, pctSoft: float, transparent: ?int}>, transparent: array<int, float>} min / max: bounds in Hz, included (null: open); kbps: the MP3 cut there; quality: its tier's key; count: sharp + soft; pct*: shares of the analysed tracks; transparent: ≈ share (90, 99) of listeners who hear no difference from the range's MP3 bitrate up, and the kHz each share starts at
      */
     public function spectrum(array $rows): array
     {
@@ -221,6 +220,16 @@ class QualityStats
         }
 
         $pct = static fn(int $n): float => $analysed > 0 ? round(100 * $n / $analysed, 1) : 0.0;
+        // The kHz each share starts at: the range of the first MP3 bitrate that reaches it.
+        $transparent = [];
+        foreach (self::TRANSPARENT_KBPS['mp3'] as $share => $fromKbps) {
+            foreach ($ranges as [$from, , $kbps]) {
+                if ($kbps >= $fromKbps) {
+                    $transparent[$share] = (float) ($from ?? 0) / 1000;
+                    break;
+                }
+            }
+        }
         $buckets = [];
         foreach ($ranges as $i => [$from, $below, $kbps]) {
             $min = $from;
@@ -237,11 +246,11 @@ class QualityStats
                 'pct' => $pct($walls[$i] + $softs[$i]),
                 'pctSharp' => $pct($walls[$i]),
                 'pctSoft' => $pct($softs[$i]),
-                'transparent' => self::transparentShare(self::TRANSPARENT_KHZ, $min !== null ? intdiv($min, 1000) : null),
+                'transparent' => self::transparentShare(self::TRANSPARENT_KBPS['mp3'], $kbps),
             ];
         }
 
-        return ['analysed' => $analysed, 'failed' => $failed, 'pending' => $pending, 'unknown' => $unknown, 'buckets' => $buckets, 'transparent' => self::TRANSPARENT_KHZ];
+        return ['analysed' => $analysed, 'failed' => $failed, 'pending' => $pending, 'unknown' => $unknown, 'buckets' => $buckets, 'transparent' => $transparent];
     }
 
     /**

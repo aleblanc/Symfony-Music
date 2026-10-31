@@ -866,7 +866,7 @@ quality:
         tiers_aria: "Share of each quality tier"
         tracks_sub: "· {count, plural, one {# track} other {# tracks}}, {spotify} with a Spotify link · lowest real bitrate first"
         transparent_kbps: "Listening guide: from {p90} kb/s, ≈ 90 % of listeners hear no difference with the original; ≈ 99 % from {p99} kb/s. Orders of magnitude from blind (ABX) tests: a trained ear, good headphones and a hard passage do better."
-        transparent_khz: "Listening guide: a cutoff from {p90} kHz up is the bandwidth of an MP3 192 kb/s, where ≈ 90 % of listeners hear no difference; from {p99} kHz that of a 256, ≈ 99 %. The same thresholds as the bitrates: the ear alone would allow less (most adults hear nothing above 16–17 kHz), but what a low bitrate loses is not only the treble. Orders of magnitude, not measures."
+        transparent_khz: "Listening guide: a cutoff from {p90, number} kHz up is the bandwidth of an MP3 192 kb/s, where ≈ 90 % of listeners hear no difference; from {p99, number} kHz that of a 256, ≈ 99 %. The same thresholds as the bitrates: the ear alone would allow less (most adults hear nothing above 16–17 kHz), but what a low bitrate loses is not only the treble. Orders of magnitude, not measures."
         transparent_row: "inaudible for ≈ {pct} %"
         transparent_title: "Rough share of listeners who hear no difference with the original from here up (blind tests, age-related hearing loss)"
         unscanned_html: "{count} not analysed yet: run <code>php bin/console app:cron:scan --force</code>"

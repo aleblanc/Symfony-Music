@@ -99,21 +99,20 @@ $spectrum = (new QualityStats())->spectrum([
 ]);
 check('counts: analysed, not decodable, pending, unknown', $spectrum['analysed'] === 20 && $spectrum['failed'] === 2 && $spectrum['pending'] === 7 && $spectrum['unknown'] === 1, json_encode(array_slice($spectrum, 0, 4)));
 $buckets = $spectrum['buckets'];
-// One range per LAME lowpass: < 15.5 (96), 15.5–16.5 (112), 16.5–17.3 (128), 17.3–18 (160), 18–19 (192), 19–19.6 (224), 19.6–20.3 (256), ≥ 20.3 (320).
-check('one range per MP3 bitrate, from < 15.5 to ≥ 20.3 kHz', \count($buckets) === 8 && (string) $buckets[0]['label'] === '< 15.5 kHz' && (string) $buckets[2]['label'] === '16.5–17.3 kHz' && (string) $buckets[4]['label'] === '18–19 kHz' && (string) $buckets[7]['label'] === '≥ 20.3 kHz', implode(', ', array_map(static fn($b) => (string) $b['label'], $buckets)));
-check('counts per range', array_column($buckets, 'count') === [2, 3, 5, 0, 0, 0, 6, 4], json_encode(array_column($buckets, 'count')));
-check('walls and natural roll-offs apart', array_column($buckets, 'sharp') === [1, 3, 5, 0, 0, 0, 6, 0] && array_column($buckets, 'soft') === [1, 0, 0, 0, 0, 0, 0, 4], json_encode([array_column($buckets, 'sharp'), array_column($buckets, 'soft')]));
-check('bar shares: walls and roll-offs of the analysed ones', $buckets[0]['pctSharp'] === 5.0 && $buckets[0]['pctSoft'] === 5.0 && $buckets[0]['pct'] === 10.0 && $buckets[7]['pctSharp'] === 0.0 && $buckets[7]['pctSoft'] === 20.0, json_encode($buckets[0]));
-check('the MP3 cut there', array_column($buckets, 'kbps') === [96, 112, 128, 160, 192, 224, 256, 320], json_encode(array_column($buckets, 'kbps')));
-check('list bounds in Hz', $buckets[0]['min'] === null && $buckets[0]['max'] === 15499 && $buckets[1]['min'] === 15500 && $buckets[1]['max'] === 16499 && $buckets[7]['min'] === 20300 && $buckets[7]['max'] === null);
-check('colour: that bitrate\'s tier, one per range', array_column($buckets, 'quality') === ['very_low', 'very_low', 'low', 'standard', 'standard', 'standard', 'high', 'very_high'], json_encode(array_column($buckets, 'quality')));
-check('share of the analysed ones', $buckets[6]['pct'] === 30.0, (string) $buckets[6]['pct']);
+// One range per LAME wall (tests/spectrum-calibration.php): < 15.5 (96), 15.5–16.5 (112), 16.5–17.3 (128), 17.3–18 (160), 18–19.1 (192), 19.1–19.7 (256, a 224 cuts there too), ≥ 19.7 (320).
+check('one range per MP3 bitrate, from < 15.5 to ≥ 19.7 kHz', \count($buckets) === 7 && (string) $buckets[0]['label'] === '< 15.5 kHz' && (string) $buckets[2]['label'] === '16.5–17.3 kHz' && (string) $buckets[4]['label'] === '18–19.1 kHz' && (string) $buckets[6]['label'] === '≥ 19.7 kHz', implode(', ', array_map(static fn($b) => (string) $b['label'], $buckets)));
+check('counts per range', array_column($buckets, 'count') === [2, 3, 5, 0, 0, 0, 10], json_encode(array_column($buckets, 'count')));
+check('walls and natural roll-offs apart', array_column($buckets, 'sharp') === [1, 3, 5, 0, 0, 0, 6] && array_column($buckets, 'soft') === [1, 0, 0, 0, 0, 0, 4], json_encode([array_column($buckets, 'sharp'), array_column($buckets, 'soft')]));
+check('bar shares: walls and roll-offs of the analysed ones', $buckets[0]['pctSharp'] === 5.0 && $buckets[0]['pctSoft'] === 5.0 && $buckets[0]['pct'] === 10.0 && $buckets[6]['pctSharp'] === 30.0 && $buckets[6]['pctSoft'] === 20.0 && $buckets[6]['pct'] === 50.0, json_encode($buckets[6]));
+check('the MP3 cut there', array_column($buckets, 'kbps') === [96, 112, 128, 160, 192, 256, 320], json_encode(array_column($buckets, 'kbps')));
+check('list bounds in Hz', $buckets[0]['min'] === null && $buckets[0]['max'] === 15499 && $buckets[1]['min'] === 15500 && $buckets[1]['max'] === 16499 && $buckets[6]['min'] === 19700 && $buckets[6]['max'] === null);
+check('colour: that bitrate\'s tier, one per range', array_column($buckets, 'quality') === ['very_low', 'very_low', 'low', 'standard', 'standard', 'high', 'very_high'], json_encode(array_column($buckets, 'quality')));
 check('label per locale: numbers, not text', $buckets[2]['label']->getParameters() === ['min' => 16.5, 'max' => 17.3] && $buckets[0]['label']->getParameters() === ['khz' => 15.5], json_encode($buckets[2]['label']->getParameters()));
 check('list title from the bounds', (string) QualityStats::cutoffLabel(15500, 16499) === '15.5–16.5 kHz' && (string) QualityStats::cutoffLabel(null, 15499) === '< 15.5 kHz' && (string) QualityStats::cutoffLabel(20300, null) === '≥ 20.3 kHz');
 
 echo "No audible difference (≈ 90 / 99 % of listeners)\n";
-// The kHz follow the kb/s: 19 kHz is the lowpass of an MP3 192 (90 %), 20 kHz that of a 256 (99 %).
-check('cutoff: from 19 kHz for 90 %, 20 kHz for 99 %', array_column($buckets, 'transparent') === [null, null, null, null, null, 90, 90, 99] && $spectrum['transparent'] === [90 => 19, 99 => 20], json_encode(array_column($buckets, 'transparent')));
+// The kHz follow the kb/s: the 192's range (from 18 kHz) for 90 %, the 256's (from 19.1 kHz) for 99 %.
+check('cutoff: shares of the range\'s MP3 bitrate', array_column($buckets, 'transparent') === [null, null, null, null, 90, 99, 99] && $spectrum['transparent'] === [90 => 18.0, 99 => 19.1], json_encode([array_column($buckets, 'transparent'), $spectrum['transparent']]));
 $mp3Ranges = array_column($formats['mp3']['buckets'], 'transparent', 'key');
 check('MP3 ranges: 128 and below never transparent, 320 for 99 %', $mp3Ranges === ['Unknown bitrate' => null, '< 64 kb/s' => null, '128–159 kb/s' => null, '≥ 320 kb/s' => 99], json_encode($mp3Ranges, JSON_UNESCAPED_UNICODE));
 check('MP3 thresholds 192 / 256', $formats['mp3']['transparent'] === [90 => 192, 99 => 256]);

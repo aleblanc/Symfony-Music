@@ -22,19 +22,27 @@ class SpectrumAnalyzer
     private const FRAMES = 120;
     private const SLICE = 8;
 
-    /** MP3-equivalent bitrate of a sharp cutoff, LAME's lowpass per bitrate: [below this Hz, kbps]. */
-    private const MP3_EQUIVALENT = [[15500, 96], [16500, 112], [17300, 128], [18000, 160], [19000, 192], [19600, 224], [20300, 256]];
+    /**
+     * MP3-equivalent bitrate of a sharp cutoff, LAME's lowpass per bitrate: [below this Hz, kbps].
+     * LAME zeroes whole polyphase subbands (689 Hz each), so its walls sit on their edges: measured
+     * with tests/spectrum-calibration.php (LAME 3.100), 128 → 16.7 kHz, 192 → 18.8, 224 and 256 → 19.4
+     * (the same subband: told apart by nothing, both read as 256), 320 → 20.1. Each bound is halfway
+     * between two measured walls; 96, 112 and 160 follow LAME's nominal table (15.1, 15.6, 17.5 kHz).
+     */
+    private const MP3_EQUIVALENT = [[15500, 96], [16500, 112], [17300, 128], [18000, 160], [19100, 192], [19700, 256]];
 
     /**
      * The lowest sharp cutoff a genuine encode has, per declared bitrate: [at least this kbps, Hz].
      * Not below 224 kb/s for MP3: old encoders (FhG, Xing) cut a genuine 128–192 at 15–16 kHz. And
      * never above 19 kHz: older LAME cut a genuine 320 a little under 20 kHz, and nobody hears the
-     * difference up there. AAC / Vorbis / Opus: only from 256 kb/s until their encoders' lowpass is
-     * measured (tests/spectrum-calibration.php): FDK-AAC and friends may cut a genuine 192 lower than
-     * LAME does, and a genuine file must never be called inflated.
+     * difference up there. AAC / Vorbis / Opus (tests/spectrum-calibration.php and the library's own
+     * files): ffmpeg's AAC cuts a genuine 192 at 19.3 kHz, Opus never below 20, and the commonest AAC
+     * 192 in the library (Apple's) at 17.5–18 kHz, with nothing genuine between 16.5 and 17.5: the floor
+     * is 17 kHz, 500 Hz under that wall. Below 192 kb/s AAC 128 cuts at 15.5 kHz, too low to judge.
+     * A genuine file must never be called inflated: measure again before lowering a floor.
      */
     private const EXPECTED_MP3 = [[256, 19000], [224, 18600]];
-    private const EXPECTED_EFFICIENT = [[256, 19000]];
+    private const EXPECTED_EFFICIENT = [[256, 19000], [192, 17000]];
     private const EXPECTED_LOSSLESS = 19000;
 
     private ?string $ffmpeg = null;

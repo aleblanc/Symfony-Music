@@ -866,7 +866,7 @@ quality:
         tiers_aria: "Part de chaque niveau de qualité"
         tracks_sub: "· {count, plural, one {# titre} other {# titres}}, {spotify} avec un lien Spotify · débit réel le plus faible d’abord"
         transparent_kbps: "Repères d’écoute : à partir de {p90} kb/s, ≈ 90 % des auditeurs n’entendent pas de différence avec l’original ; ≈ 99 % à partir de {p99} kb/s. Ordres de grandeur issus de tests à l’aveugle (ABX) : une oreille entraînée, un bon casque et un passage difficile font mieux."
-        transparent_khz: "Repères d’écoute : une coupure à partir de {p90} kHz est la bande passante d’un MP3 192 kb/s, où ≈ 90 % des auditeurs n’entendent pas de différence ; à partir de {p99} kHz celle d’un 256, ≈ 99 %. Mêmes seuils que les débits : l’oreille seule tolérerait moins (la plupart des adultes n’entendent rien au-dessus de 16–17 kHz), mais un bas débit ne perd pas que les aigus. Ordres de grandeur, pas des mesures."
+        transparent_khz: "Repères d’écoute : une coupure à partir de {p90, number} kHz est la bande passante d’un MP3 192 kb/s, où ≈ 90 % des auditeurs n’entendent pas de différence ; à partir de {p99, number} kHz celle d’un 256, ≈ 99 %. Mêmes seuils que les débits : l’oreille seule tolérerait moins (la plupart des adultes n’entendent rien au-dessus de 16–17 kHz), mais un bas débit ne perd pas que les aigus. Ordres de grandeur, pas des mesures."
         transparent_row: "inaudible pour ≈ {pct} %"
         transparent_title: "Part approximative des auditeurs qui n’entendent pas de différence avec l’original à partir d’ici (tests à l’aveugle, perte auditive liée à l’âge)"
         unscanned_html: "{count, plural, one {# non analysé} other {# non analysés}} : lance <code>php bin/console app:cron:scan --force</code>"
