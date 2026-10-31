@@ -113,18 +113,18 @@ class SpectrumCommand extends Command
     {
         $label = \sprintf('#%d %s', $row['id'], OutputFormatter::escape(basename($row['file'])));
         if ($result === null) {
-            $this->music->saveSpectrum($row['id'], 0, null);
+            $this->music->saveSpectrum($row['id'], 0, null, null);
             ++$stats['failed'];
             $this->line($io, '<fg=red>!</> ' . $label . ' — could not be decoded');
 
             return;
         }
         $effective = SpectrumAnalyzer::effectiveKbps($row['format'], $row['lossless'], $row['bitrate'], $result['cutoffHz'], $result['sharp']);
-        $this->music->saveSpectrum($row['id'], $result['cutoffHz'], $effective);
+        $this->music->saveSpectrum($row['id'], $result['cutoffHz'], $result['sharp'], $effective);
         $declared = $row['lossless'] === true || \in_array($row['format'], ['flac', 'alac', 'wav', 'aiff'], true) ? 'lossless' : round(($row['bitrate'] ?? 0) / 1000) . ' kb/s';
         if ($effective !== null) {
             ++$stats['inflated'];
-            $this->line($io, \sprintf('<comment>▼</comment> %s — %s declared, cut at %.1f kHz: really ≈ %d kb/s', $label, $declared, $result['cutoffHz'] / 1000, $effective));
+            $this->line($io, \sprintf('<comment>▼</comment> %s — %s declared, cut at %.1f kHz: the bandwidth of an MP3 %d kb/s', $label, $declared, $result['cutoffHz'] / 1000, $effective));
         } else {
             ++$stats['genuine'];
             if ($output->isVerbose()) {

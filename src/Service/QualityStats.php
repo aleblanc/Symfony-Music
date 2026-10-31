@@ -13,22 +13,24 @@ use App\Translation\LabelMessage;
  */
 class QualityStats
 {
-    /** Treble cutoff ranges (kHz): everything under 13 kHz in one, everything from 21 kHz in one. */
-    private const CUTOFF_LOW = 12;
-    private const CUTOFF_HIGH = 21;
-
     /**
      * Rough share of listeners who hear no difference with the original (blind
      * ABX tests, age-related hearing loss), as [share => from this]: kb/s per
      * codec family, kHz for the treble cutoff. An order of magnitude, not a
      * measure: trained ears on a revealing passage do better.
+     *
+     * The kHz follow the kb/s: a cutoff is judged as the MP3 whose encoder
+     * cuts there (SpectrumAnalyzer::mp3EquivalentKbps), so 90 % is the LAME
+     * lowpass of a 192 (18.6 kHz) and 99 % that of a 256 (19.7 kHz), rounded.
+     * The ear alone would allow less (most adults hear nothing above 16–17 kHz),
+     * but what a low bitrate loses is not only the treble.
      */
     private const TRANSPARENT_KBPS = [
         'opus' => [90 => 96, 99 => 128],
         'efficient' => [90 => 128, 99 => 192],
         'mp3' => [90 => 192, 99 => 256],
     ];
-    private const TRANSPARENT_KHZ = [90 => 17, 99 => 19];
+    private const TRANSPARENT_KHZ = [90 => 19, 99 => 20];
 
     /** Lower bounds (kb/s) of the bitrate ranges of lossy formats. */
     public const LOSSY_STEPS = [0, 64, 96, 128, 160, 192, 224, 256, 320];
@@ -104,8 +106,9 @@ class QualityStats
             $bucket = $lossless ? $this->losslessBucket($row['bitsPerSample'], $row['sampleRate']) : $this->lossyBucket($format, $row['kbps']);
             $formats[$key]['buckets'][$bucket['key']] ??= $bucket + ['count' => 0, 'inflated' => 0];
             $formats[$key]['buckets'][$bucket['key']]['count'] += $n;
-            // Of which inflated: their real quality is lower than the range says.
-            if (($row['effectiveKbps'] ?? null) !== null) {
+            // Of which inflated: their real tier is lower than the declared one (same rule as
+            // the declared → real table; a cutoff that keeps the tier is not counted).
+            if ($quality !== null && $declared !== null && $quality !== $declared) {
                 $formats[$key]['buckets'][$bucket['key']]['inflated'] += $n;
             }
         }
@@ -172,53 +175,90 @@ class QualityStats
     }
 
     /**
-     * Tracks per treble cutoff (app:cron:spectrum), 1 kHz ranges from the
-     * lowest, coloured by the quality tier of the MP3 whose encoder cuts at
-     * the range's start (16 kHz: an MP3 112, 17 kHz: a 128; a natural
-     * roll-off of an old recording lands low too, whatever its bitrate). Fed with MusicRepository::cutoffRows().
+     * Tracks per treble cutoff (app:cron:spectrum), one range per MP3 bitrate
+     * whose LAME encoder cuts there (SpectrumAnalyzer::mp3EquivalentRanges():
+     * 15.5–16.5 kHz is a 112, 16.5–17.3 a 128, ≥ 20.3 a 320), lowest first,
+     * each coloured by that bitrate's tier. Only an encoder's wall (a sharp
+     * cutoff) means that bitrate: a natural roll-off (old recording, solo
+     * piano) is counted apart, in `soft`, and drawn grey. Fed with MusicRepository::cutoffRows().
      *
-     * @param list<array{khz: int, n: int}> $rows
+     * @param list<array{hz: int, sharp: ?bool, n: int}> $rows cutoff in Hz (-2 not analysed yet, -1 not decodable); sharp null when not known yet (analysed before it was recorded: counted with the walls, as it was)
      *
-     * @return array{analysed: int, failed: int, pending: int, buckets: list<array{label: LabelMessage, min: ?int, max: ?int, quality: string, count: int, pct: float, transparent: ?int}>, transparent: array<int, int>} quality: the tier's key; transparent: ≈ share (90, 99) of listeners who hear no difference from there, and the kHz of each share
+     * @return array{analysed: int, failed: int, pending: int, unknown: int, buckets: list<array{label: LabelMessage, min: ?int, max: ?int, kbps: int, quality: string, count: int, sharp: int, soft: int, pct: float, pctSharp: float, pctSoft: float, transparent: ?int}>, transparent: array<int, int>} min / max: bounds in Hz, included (null: open); kbps: the MP3 cut there; quality: its tier's key; count: sharp + soft; pct*: shares of the analysed tracks; transparent: ≈ share (90, 99) of listeners who hear no difference from there, and the kHz of each share
      */
     public function spectrum(array $rows): array
     {
         $analysed = 0;
         $failed = 0;
         $pending = 0;
-        $counts = [];
-        foreach ($rows as ['khz' => $khz, 'n' => $n]) {
-            if ($khz === -2) {
+        $unknown = 0;
+        $ranges = SpectrumAnalyzer::mp3EquivalentRanges();
+        $walls = array_fill(0, \count($ranges), 0);
+        $softs = array_fill(0, \count($ranges), 0);
+        foreach ($rows as $row) {
+            ['hz' => $hz, 'n' => $n] = $row;
+            $sharp = $row['sharp'] ?? null;
+            if ($hz === -2) {
                 $pending += $n;
-            } elseif ($khz < 0) {
+            } elseif ($hz < 0) {
                 $failed += $n;
             } else {
                 $analysed += $n;
-                $key = max(self::CUTOFF_LOW, min(self::CUTOFF_HIGH, $khz));
-                $counts[$key] = ($counts[$key] ?? 0) + $n;
+                if ($sharp === null) {
+                    $unknown += $n;
+                }
+                foreach ($ranges as $i => [, $below]) {
+                    if ($below === null || $hz < $below) {
+                        if ($sharp === false) {
+                            $softs[$i] += $n;
+                        } else {
+                            $walls[$i] += $n;
+                        }
+                        break;
+                    }
+                }
             }
         }
 
+        $pct = static fn(int $n): float => $analysed > 0 ? round(100 * $n / $analysed, 1) : 0.0;
         $buckets = [];
-        for ($khz = self::CUTOFF_LOW; $khz <= self::CUTOFF_HIGH; ++$khz) {
-            $count = $counts[$khz] ?? 0;
-            [$label, $min, $max] = match ($khz) {
-                self::CUTOFF_LOW => [new LabelMessage('ui.quality.cutoff.below', \sprintf('< %d kHz', $khz + 1), ['khz' => $khz + 1]), null, $khz],
-                self::CUTOFF_HIGH => [new LabelMessage('ui.quality.cutoff.at_least', \sprintf('≥ %d kHz', $khz), ['khz' => $khz]), $khz, null],
-                default => [new LabelMessage('ui.quality.cutoff.range', \sprintf('%d–%d kHz', $khz, $khz + 1), ['min' => $khz, 'max' => $khz + 1]), $khz, $khz],
-            };
+        foreach ($ranges as $i => [$from, $below, $kbps]) {
+            $min = $from;
+            $max = $below !== null ? $below - 1 : null;
             $buckets[] = [
-                'label' => $label,
+                'label' => self::cutoffLabel($min, $max),
                 'min' => $min,
                 'max' => $max,
-                'quality' => (AudioQuality::classify('mp3', false, SpectrumAnalyzer::mp3EquivalentKbps($khz * 1000) * 1000) ?? AudioQuality::VeryLow)->value,
-                'count' => $count,
-                'pct' => $analysed > 0 ? round(100 * $count / $analysed, 1) : 0.0,
-                'transparent' => self::transparentShare(self::TRANSPARENT_KHZ, $min),
+                'kbps' => $kbps,
+                'quality' => (AudioQuality::classify('mp3', false, $kbps * 1000) ?? AudioQuality::VeryLow)->value,
+                'count' => $walls[$i] + $softs[$i],
+                'sharp' => $walls[$i],
+                'soft' => $softs[$i],
+                'pct' => $pct($walls[$i] + $softs[$i]),
+                'pctSharp' => $pct($walls[$i]),
+                'pctSoft' => $pct($softs[$i]),
+                'transparent' => self::transparentShare(self::TRANSPARENT_KHZ, $min !== null ? intdiv($min, 1000) : null),
             ];
         }
 
-        return ['analysed' => $analysed, 'failed' => $failed, 'pending' => $pending, 'buckets' => $buckets, 'transparent' => self::TRANSPARENT_KHZ];
+        return ['analysed' => $analysed, 'failed' => $failed, 'pending' => $pending, 'unknown' => $unknown, 'buckets' => $buckets, 'transparent' => self::TRANSPARENT_KHZ];
+    }
+
+    /**
+     * Label of a treble cutoff range, bounds in Hz included (null: open):
+     * "< 15.5 kHz", "15.5–16.5 kHz", "≥ 20.3 kHz". The kHz are numbers, ICU
+     * formats them per locale (15.5 / 15,5).
+     */
+    public static function cutoffLabel(?int $minHz, ?int $maxHz): LabelMessage
+    {
+        $khz = static fn(int $hz): float => $hz / 1000;
+        $text = static fn(float $k): string => rtrim(rtrim(number_format($k, 1, '.', ''), '0'), '.');
+
+        return match (true) {
+            $maxHz === null => new LabelMessage('ui.quality.cutoff.at_least', \sprintf('≥ %s kHz', $text($khz($minHz ?? 0))), ['khz' => $khz($minHz ?? 0)]),
+            $minHz === null => new LabelMessage('ui.quality.cutoff.below', \sprintf('< %s kHz', $text($khz($maxHz + 1))), ['khz' => $khz($maxHz + 1)]),
+            default => new LabelMessage('ui.quality.cutoff.range', \sprintf('%s–%s kHz', $text($khz($minHz)), $text($khz($maxHz + 1))), ['min' => $khz($minHz), 'max' => $khz($maxHz + 1)]),
+        };
     }
 
     /**

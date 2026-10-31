@@ -27,12 +27,14 @@ class SpectrumAnalyzer
 
     /**
      * The lowest sharp cutoff a genuine encode has, per declared bitrate: [at least this kbps, Hz].
-     * Not below 224 kb/s for MP3, 192 for AAC / Vorbis / Opus: old encoders (FhG, Xing) cut a genuine
-     * 128–192 at 15–16 kHz. And never above 19 kHz: older LAME cut a genuine 320 a little under 20 kHz,
-     * and nobody hears the difference up there.
+     * Not below 224 kb/s for MP3: old encoders (FhG, Xing) cut a genuine 128–192 at 15–16 kHz. And
+     * never above 19 kHz: older LAME cut a genuine 320 a little under 20 kHz, and nobody hears the
+     * difference up there. AAC / Vorbis / Opus: only from 256 kb/s until their encoders' lowpass is
+     * measured (tests/spectrum-calibration.php): FDK-AAC and friends may cut a genuine 192 lower than
+     * LAME does, and a genuine file must never be called inflated.
      */
     private const EXPECTED_MP3 = [[256, 19000], [224, 18600]];
-    private const EXPECTED_EFFICIENT = [[256, 19000], [192, 17500]];
+    private const EXPECTED_EFFICIENT = [[256, 19000]];
     private const EXPECTED_LOSSLESS = 19000;
 
     private ?string $ffmpeg = null;
@@ -342,6 +344,25 @@ class SpectrumAnalyzer
         }
 
         return 320;
+    }
+
+    /**
+     * The cutoff ranges of mp3EquivalentKbps(), lowest first: [from Hz (null:
+     * open), up to but not including Hz (null: open), MP3 kbps].
+     *
+     * @return list<array{0: ?int, 1: ?int, 2: int}>
+     */
+    public static function mp3EquivalentRanges(): array
+    {
+        $ranges = [];
+        $from = null;
+        foreach (self::MP3_EQUIVALENT as [$below, $kbps]) {
+            $ranges[] = [$from, $below, $kbps];
+            $from = $below;
+        }
+        $ranges[] = [$from, null, 320];
+
+        return $ranges;
     }
 
     /**

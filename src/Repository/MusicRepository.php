@@ -629,7 +629,8 @@ class MusicRepository extends ServiceEntityRepository
 
     /**
      * Tracks for app:cron:spectrum, as plain rows (no cover bytes hydrated),
-     * oldest first: by default only those never analysed; $all analyses
+     * oldest first: by default only those never analysed, plus those analysed
+     * before the wall / roll-off distinction was recorded; $all analyses
      * every track again.
      *
      * @return list<array{id: int, file: string, duration: ?int, format: string, lossless: ?bool, bitrate: ?int}>
@@ -643,7 +644,7 @@ class MusicRepository extends ServiceEntityRepository
         if ($id !== null) {
             $qb->andWhere('m.id = :id')->setParameter('id', $id);
         } elseif (!$all) {
-            $qb->andWhere('m.cutoffHz IS NULL');
+            $qb->andWhere('m.cutoffHz IS NULL OR (m.cutoffHz > 0 AND m.cutoffSharp IS NULL)');
         }
         if ($limit !== null) {
             $qb->setMaxResults($limit);
@@ -653,13 +654,17 @@ class MusicRepository extends ServiceEntityRepository
         return $qb->getQuery()->getArrayResult();
     }
 
-    /** Saves a spectrum analysis (cutoff 0: the file could not be analysed) without loading the track. */
-    public function saveSpectrum(int $id, int $cutoffHz, ?int $effectiveKbps): void
+    /**
+     * Saves a spectrum analysis without loading the track: cutoff 0 (and $sharp
+     * null) when the file could not be analysed; $sharp true for an encoder's
+     * wall, false for a natural roll-off.
+     */
+    public function saveSpectrum(int $id, int $cutoffHz, ?bool $sharp, ?int $effectiveKbps): void
     {
         $this->createQueryBuilder('m')->update()
-            ->set('m.cutoffHz', ':cutoff')->set('m.effectiveKbps', ':effective')
+            ->set('m.cutoffHz', ':cutoff')->set('m.cutoffSharp', ':sharp')->set('m.effectiveKbps', ':effective')
             ->where('m.id = :id')
-            ->setParameter('cutoff', $cutoffHz)->setParameter('effective', $effectiveKbps)->setParameter('id', $id)
+            ->setParameter('cutoff', $cutoffHz)->setParameter('sharp', $sharp)->setParameter('effective', $effectiveKbps)->setParameter('id', $id)
             ->getQuery()->execute();
     }
 
@@ -1352,19 +1357,21 @@ class MusicRepository extends ServiceEntityRepository
     }
 
     /**
-     * Tracks per treble cutoff (app:cron:spectrum), in whole kHz: -2 not
-     * analysed yet, -1 not decodable.
+     * Tracks per treble cutoff (app:cron:spectrum), in Hz rounded down to
+     * 100: -2 not analysed yet, -1 not decodable. `sharp`: an encoder's wall
+     * (true), a natural roll-off (false), or not known yet (null: analysed
+     * before it was recorded).
      *
-     * @return list<array{khz: int, n: int}>
+     * @return list<array{hz: int, sharp: ?bool, n: int}>
      */
     public function cutoffRows(): array
     {
         $rows = $this->createQueryBuilder('m')
-            ->select('CASE WHEN m.cutoffHz IS NULL THEN -2 WHEN m.cutoffHz = 0 THEN -1 ELSE m.cutoffHz / 1000 END AS khz', 'COUNT(m.id) AS n')
-            ->groupBy('khz')
+            ->select('CASE WHEN m.cutoffHz IS NULL THEN -2 WHEN m.cutoffHz = 0 THEN -1 ELSE (m.cutoffHz / 100) * 100 END AS hz', 'm.cutoffSharp AS sharp', 'COUNT(m.id) AS n')
+            ->groupBy('hz')->addGroupBy('sharp')
             ->getQuery()->getArrayResult();
 
-        return array_values(array_map(static fn(array $r) => ['khz' => (int) $r['khz'], 'n' => (int) $r['n']], $rows));
+        return array_values(array_map(static fn(array $r) => ['hz' => (int) $r['hz'], 'sharp' => $r['sharp'] === null ? null : (bool) $r['sharp'], 'n' => (int) $r['n']], $rows));
     }
 
     /**

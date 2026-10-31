@@ -147,6 +147,15 @@ class Music
     private ?int $cutoffHz = null;
 
     /**
+     * Whether $cutoffHz is an encoder's wall (a sharp cutoff, the lowpass of a
+     * lossy encode) or a natural roll-off (old recording, solo piano: never a
+     * sign of a lower bitrate); null when not analysed, or analysed before this
+     * was recorded (app:cron:spectrum analyses those again).
+     */
+    #[ORM\Column(nullable: true)]
+    private ?bool $cutoffSharp = null;
+
+    /**
      * Real bitrate (MP3-equivalent kbps) of an inflated file, e.g. 128 for a "320"
      * MP3 made from a 128 one (its encoder lowpass gives it away); null when the
      * file looks genuine or was not analysed. The declared $bitrate stays as is.
@@ -486,6 +495,11 @@ class Music
         return $this->cutoffHz;
     }
 
+    public function isCutoffSharp(): ?bool
+    {
+        return $this->cutoffSharp;
+    }
+
     public function getEffectiveKbps(): ?int
     {
         return $this->effectiveKbps;
@@ -501,6 +515,7 @@ class Music
     public function resetSpectrum(): static
     {
         $this->cutoffHz = null;
+        $this->cutoffSharp = null;
         $this->effectiveKbps = null;
 
         return $this;

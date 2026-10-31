@@ -38,18 +38,14 @@ class QualityStatsController extends AbstractController
 
         $limit = self::LIST_LIMIT;
         $inflated = $request->query->getBoolean('inflated');
-        // A treble cutoff range (kHz, bounds included), from the "Real spectrum" section.
-        $khzMin = $request->query->has('khz_min') ? max(0, $request->query->getInt('khz_min')) : null;
-        $khzMax = $request->query->has('khz_max') ? max(0, $request->query->getInt('khz_max')) : null;
-        $byCutoff = $khzMin !== null || $khzMax !== null;
+        // A treble cutoff range (Hz, bounds included), from the "Real spectrum" section.
+        $hzMin = $request->query->has('hz_min') ? max(0, $request->query->getInt('hz_min')) : null;
+        $hzMax = $request->query->has('hz_max') ? max(0, $request->query->getInt('hz_max')) : null;
+        $byCutoff = $hzMin !== null || $hzMax !== null;
         if ($byCutoff) {
-            $tracks = $music->tracksByCutoff($khzMin !== null ? $khzMin * 1000 : null, $khzMax !== null ? $khzMax * 1000 + 999 : null, self::LIST_LIMIT);
-            // Language-neutral, printed with |trans like the default title.
-            $listTitle = '↑ ' . match (true) {
-                $khzMin !== null && $khzMax !== null => \sprintf('%d–%d kHz', $khzMin, $khzMax + 1),
-                $khzMin !== null => \sprintf('≥ %d kHz', $khzMin),
-                default => \sprintf('< %d kHz', $khzMax + 1),
-            };
+            $tracks = $music->tracksByCutoff($hzMin, $hzMax, self::LIST_LIMIT);
+            // The range's label ("15.5–16.5 kHz"), printed with |trans like the default title.
+            $listTitle = QualityStats::cutoffLabel($hzMin, $hzMax);
         } elseif ($inflated) {
             $limit = self::LOW_LIST_LIMIT;
             $tracks = $music->inflatedTracks($limit);

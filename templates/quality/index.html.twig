@@ -50,18 +50,22 @@
                     <tr>
                         <td>
                             {% if b.count %}
-                                <a class="link" href="{{ path('app_quality_stats', {khz_min: b.min, khz_max: b.max}|filter(v => v is not null)) }}#tracks">{{ b.label|trans }}</a>
+                                <a class="link" href="{{ path('app_quality_stats', {hz_min: b.min, hz_max: b.max}|filter(v => v is not null)) }}#tracks">{{ b.label|trans }}</a>
                             {% else %}
                                 <span class="muted">{{ b.label|trans }}</span>
                             {% endif %}
+                            {# The MP3 whose encoder cuts there: what the colour means. #}
+                            <span class="muted qs-cutoff-mp3">{{ 'ui.quality.cutoff.mp3'|trans({kbps: b.kbps}) }}</span>
                         </td>
-                        <td class="qs-bar-cell"><span class="qs-bar quality-{{ b.quality }}" style="width: {{ b.pct }}%"></span></td>
-                        <td class="qs-num">{{ b.count }}</td>
+                        {# Colour: encoder walls (that bitrate); grey: natural roll-offs, never a lower bitrate. #}
+                        <td class="qs-bar-cell"><span class="qs-bars"><span class="qs-bar quality-{{ b.quality }}" style="width: {{ b.pctSharp }}%"></span>{% if b.soft %}<span class="qs-bar qs-bar-soft" style="width: {{ b.pctSoft }}%" title="{{ 'quality.index.cutoff_soft'|trans({count: b.soft}) }}"></span>{% endif %}</span></td>
+                        <td class="qs-num">{{ b.count }}{% if b.soft %} <span class="muted qs-cutoff-soft">· {{ 'quality.index.cutoff_soft'|trans({count: b.soft}) }}</span>{% endif %}</td>
                         <td class="qs-num muted">{{ b.pct }} %</td>
                             <td class="qs-num muted qs-transparent">{% if b.transparent %}<span title="{{ 'quality.index.transparent_title'|trans }}">{{ 'quality.index.transparent_row'|trans({pct: b.transparent}) }}</span>{% endif %}</td>
                     </tr>
                 {% endfor %}
             </table>
+            <p class="muted qs-note">{{ 'quality.index.spectrum_legend'|trans({unknown: cutoffs.unknown}) }}</p>
             <p class="muted qs-note">{{ 'quality.index.transparent_khz'|trans({p90: cutoffs.transparent[90], p99: cutoffs.transparent[99]}) }}</p>
             <p class="muted qs-note">{{ 'quality.index.spectrum_note'|trans }}</p>
 

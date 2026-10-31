@@ -104,6 +104,9 @@ check('MP3 320 with a soft roll-off → genuine', SpectrumAnalyzer::effectiveKbp
 check('AAC 256 cut at 16 kHz → 112', SpectrumAnalyzer::effectiveKbps('mp4', false, 256000, 16000, true) === 112);
 check('AAC 128 cut at 16 kHz → genuine (AAC 128 cuts there)', SpectrumAnalyzer::effectiveKbps('mp4', false, 128000, 16000, true) === null);
 check('AAC 256 cut at 20 kHz → genuine', SpectrumAnalyzer::effectiveKbps('mp4', false, 256000, 20000, true) === null);
+// Below 256 kb/s the efficient codecs are not judged until their encoders' lowpass is measured (tests/spectrum-calibration.php).
+check('AAC 192 cut at 17 kHz → genuine (not judged until calibrated)', SpectrumAnalyzer::effectiveKbps('mp4', false, 192000, 17000, true) === null);
+check('Opus 192 cut at 16 kHz → genuine (not judged until calibrated)', SpectrumAnalyzer::effectiveKbps('opus', false, 192000, 16000, true) === null);
 check('AAC 318 cut at 17.3 kHz → 160', SpectrumAnalyzer::effectiveKbps('mp4', false, 318000, 17300, true) === 160);
 check('FLAC cut at 16 kHz → 112 (an MP3 in disguise)', SpectrumAnalyzer::effectiveKbps('flac', true, 900000, 16000, true) === 112);
 check('FLAC cut at 19.5 kHz → genuine', SpectrumAnalyzer::effectiveKbps('flac', true, 900000, 19500, true) === null);

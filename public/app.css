@@ -642,6 +642,11 @@ kbd { font-family: inherit; font-size: 11px; padding: 0 5px; border: 1px solid v
 .qs-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .qs-bar-cell { width: 100%; }
 .qs-bar { display: block; height: 10px; min-width: 2px; border-radius: 999px; background: var(--q, var(--accent)); }
+.qs-bars { display: flex; gap: 2px; }
+.qs-bars .qs-bar { min-width: 0; }
+.qs-bars .qs-bar[style*="width: 0%"] { display: none; }
+.qs-bar-soft { background: var(--text-dim); opacity: .45; }
+.qs-cutoff-soft { font-size: 12px; white-space: nowrap; }
 .qs-num { text-align: right; font-variant-numeric: tabular-nums; }
 .qs-note { font-size: 13px; margin-top: 10px; max-width: 720px; }
 .qs-tracks { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -651,6 +656,7 @@ kbd { font-family: inherit; font-size: 11px; padding: 0 5px; border: 1px solid v
 .qs-tracks .quality-badge { margin-left: 6px; padding: 1px 7px; font-size: 11px; }
 .qs-block h3 { font-size: 15px; margin: 18px 0 6px; }
 .qs-table td.qs-transparent { font-size: 12px; text-align: left; }
+.qs-table .qs-cutoff-mp3 { font-size: 12px; margin-left: 6px; white-space: nowrap; }
 .qs-table td.qs-declared-real { white-space: normal; width: 100%; }
 .qs-declared-real .quality-badge { margin: 2px 0 2px 6px; padding: 1px 7px; font-size: 11px; }
 .dup-group { margin-bottom: 18px; }

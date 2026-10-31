@@ -209,12 +209,13 @@ between 03:00 and 05:00 (MusicBrainz allows one request per second).
   better than MP3 at the same bitrate).
 - **Inflated bitrates** — `app:cron:spectrum` measures where each track's
   treble stops (three 8 s slices decoded by ffmpeg). A sharp cutoff too low for
-  the declared bitrate gives away a re-encoded weaker source: a "320" MP3 cut at
-  17 kHz is really a 128 one, a FLAC cut at 16 kHz an MP3 in disguise. Such a
-  track shows its real bitrate (`MP3 ≈128`, quality tier included), the song
-  page shows the cutoff, /admin/quality lists them, and /admin/duplicates
-  suggests keeping the copy whose treble goes highest. The declared bitrate and
-  the file are never changed.
+  the declared bitrate gives away a re-encoded weaker source (or a narrow-band
+  one): a "320" MP3 cut at 17 kHz has the bandwidth of a 128 one, a FLAC cut at
+  16 kHz that of an MP3 112. Such a track is judged as the MP3 whose bandwidth
+  it has (`MP3 ≈128`, quality tier included), the song page shows the cutoff,
+  /admin/quality lists them with a histogram of cutoffs (one range per MP3
+  bitrate's encoder lowpass), and /admin/duplicates suggests keeping the copy
+  whose treble goes highest. The declared bitrate and the file are never changed.
 
 ## 6. Mobile apps (Subsonic API)
 
