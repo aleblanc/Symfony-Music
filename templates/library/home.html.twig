@@ -41,10 +41,10 @@
                          data-track-artist-url="{{ song.artist ? path('app_artist', {name: song.artist}) }}"
                          data-track-album-url="{{ song.album ? path('app_album', {name: song.album}) }}"
                          data-track-stream="{{ path('app_stream', {id: song.id}) }}"
-                         data-track-cover="{{ path('app_cover', {id: song.id}) }}">
+                         data-track-cover="{{ cover_url(song) }}">
                         <div class="card-art">
                             <a href="{{ path('app_song', {id: song.id}) }}" tabindex="-1">
-                                <img src="{{ path('app_cover', {id: song.id}) }}" alt="" loading="lazy">
+                                <img src="{{ cover_url(song) }}" alt="" loading="lazy">
                             </a>
                             <button class="card-play" data-play title="{{ 'common.play'|trans }}" aria-label="{{ 'library.home.play_aria'|trans({title: song.displayTitle}) }}">{{ icons.icon('play') }}</button>
                             {% if loop.index <= 3 %}<span class="card-flag">{{ 'library.home.new_flag'|trans }}</span>{% endif %}

@@ -18,7 +18,7 @@
          data-track-artist-url="{{ song.artist ? path('app_artist', {name: song.artist}) }}"
          data-track-album-url="{{ song.album ? path('app_album', {name: song.album}) }}"
          data-track-stream="{{ path('app_stream', {id: song.id}) }}"
-         data-track-cover="{{ path('app_cover', {id: song.id}) }}"
+         data-track-cover="{{ cover_url(song) }}"
          {% if app.user %}
          data-settings-get-url="{{ path('app_song_settings_get', {id: song.id}) }}"
          data-settings-save-url="{{ path('app_song_settings_save', {id: song.id}) }}"
@@ -27,7 +27,7 @@
          {% endif %}>
 
         <header class="song-hero">
-            <img class="song-cover" src="{{ path('app_cover', {id: song.id}) }}" alt="" width="232" height="232">
+            <img class="song-cover" src="{{ cover_url(song) }}" alt="" width="232" height="232">
             <div class="song-hero-info">
                 <span class="eyebrow">{{ 'song.show.eyebrow'|trans }}</span>
                 <h1 class="song-title">{{ song.displayTitle }}</h1>

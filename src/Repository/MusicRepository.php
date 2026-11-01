@@ -382,7 +382,7 @@ class MusicRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('m')
             ->select("m.{$field} AS grp", 'MIN(m.id) AS id')
             ->andWhere("m.{$field} IS NOT NULL")
-            ->andWhere('m.image IS NOT NULL')
+            ->andWhere('m.coverHash IS NOT NULL')
             ->groupBy("m.{$field}")->addGroupBy('m.album')
             ->orderBy("m.{$field}", 'ASC')->addOrderBy('MIN(m.year)', 'DESC')->addOrderBy('m.album', 'ASC');
         $this->applyVisibility($qb, $viewer);
@@ -542,7 +542,7 @@ class MusicRepository extends ServiceEntityRepository
     public function albumsOfArtist(string $artist, ?User $viewer): array
     {
         $qb = $this->createQueryBuilder('m')
-            ->select('m.album AS album', 'MAX(m.year) AS year', 'COUNT(m.id) AS cnt', 'MIN(CASE WHEN m.image IS NOT NULL THEN m.id ELSE :none END) AS coverId')
+            ->select('m.album AS album', 'MAX(m.year) AS year', 'COUNT(m.id) AS cnt', 'MIN(CASE WHEN m.coverHash IS NOT NULL THEN m.id ELSE :none END) AS coverId')
             ->setParameter('none', \PHP_INT_MAX)
             ->andWhere('m.artist = :artist')->setParameter('artist', $artist)
             ->andWhere("m.album IS NOT NULL AND m.album != ''")
@@ -678,7 +678,7 @@ class MusicRepository extends ServiceEntityRepository
     {
         $rows = $this->createQueryBuilder('m')
             ->select('m.id, m.file, m.title, m.artist, m.album, m.genre, m.duration, m.trackNumber, m.year, m.albumKey, m.enrichedAt')
-            ->addSelect('CASE WHEN m.image IS NULL THEN 0 ELSE 1 END AS hasImage')
+            ->addSelect('CASE WHEN m.coverHash IS NULL THEN 0 ELSE 1 END AS hasImage')
             ->orderBy('m.file', 'ASC')
             ->getQuery()
             ->getArrayResult();
@@ -1113,7 +1113,7 @@ class MusicRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder('m')
             ->select('m.id')
-            ->andWhere('m.image IS NOT NULL')
+            ->andWhere('m.coverHash IS NOT NULL')
             ->setMaxResults(20);
 
         match ($type) {

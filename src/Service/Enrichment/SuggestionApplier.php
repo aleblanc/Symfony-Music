@@ -7,6 +7,7 @@ namespace App\Service\Enrichment;
 use App\Entity\MetadataSuggestion;
 use App\Entity\Music;
 use App\Enum\SuggestionStatus;
+use App\Service\CoverCache;
 use App\Service\CoverImageProcessor;
 use App\Service\MetadataWriter;
 
@@ -19,12 +20,16 @@ use App\Service\MetadataWriter;
  */
 class SuggestionApplier
 {
-    /** Formats getID3 can write tags into (MP4 and WAV are database-only). */
-    private const WRITABLE_EXTENSIONS = ['mp3', 'flac', 'ogg'];
+    /**
+     * Formats MetadataWriter can write tags into (MP4 through AtomicParsley).
+     * WAV is database-only: its cover lives in the cover cache alone.
+     */
+    private const WRITABLE_EXTENSIONS = ['mp3', 'flac', 'ogg', 'm4a', 'mp4', 'm4b'];
 
     public function __construct(
         private readonly MetadataWriter $writer,
         private readonly CoverImageProcessor $images,
+        private readonly CoverCache $covers,
     ) {}
 
     public function apply(MetadataSuggestion $suggestion): bool
@@ -34,17 +39,18 @@ class SuggestionApplier
         $cover = $suggestion->getCover();
 
         $previous = $this->snapshot($music);
-        $previousCover = $cover !== null ? $this->imageBytes($music) : null;
+        $previousCover = $cover !== null ? $this->covers->extract((string) $music->getFile()) : null;
+        $jpeg = $cover !== null ? ($this->images->toJpeg($cover) ?? $cover) : null;
 
-        if (!$this->writeFile($music, $fields, $cover !== null ? ($this->images->toJpeg($cover) ?? $cover) : null)) {
+        if (!$this->writeFile($music, $fields, $jpeg)) {
             $suggestion->markFailed(\sprintf('Could not write tags to "%s".', $music->getFile()));
 
             return false;
         }
 
         $this->applyToEntity($music, $fields);
-        if ($cover !== null) {
-            $music->setImage($this->images->toWebp($cover) ?? $cover);
+        if ($cover !== null && $jpeg !== null) {
+            $this->setCover($music, $jpeg);
         }
         $this->touch($music);
         $suggestion->markApplied($previous, $previousCover);
@@ -75,7 +81,12 @@ class SuggestionApplier
 
         $this->applyToEntity($music, $previous);
         if ($suggestion->hasCover()) {
-            $music->setImage($suggestion->getPreviousCover());
+            $previousCover = $suggestion->getPreviousCover();
+            if ($previousCover !== null) {
+                $this->setCover($music, $previousCover);
+            } else {
+                $music->setCoverHash(null);
+            }
         }
         $this->touch($music);
         $suggestion->markReverted();
@@ -140,6 +151,14 @@ class SuggestionApplier
         ];
     }
 
+    /** New cover: new hash (so a new cache file and URL), written to the cache now. */
+    private function setCover(Music $music, string $bytes): void
+    {
+        $hash = CoverCache::hash($bytes);
+        $this->covers->store($hash, $bytes);
+        $music->setCoverHash($hash);
+    }
+
     /** The file changed on purpose: record its mtime so `app:cron:scan` doesn't re-read it. */
     private function touch(Music $music): void
     {
@@ -150,16 +169,5 @@ class SuggestionApplier
             $music->setLastModified($mtime);
         }
         $music->setEnrichedAt(new \DateTimeImmutable());
-    }
-
-    private function imageBytes(Music $music): ?string
-    {
-        $image = $music->getImage();
-        if (\is_resource($image)) {
-            rewind($image);
-            $image = stream_get_contents($image);
-        }
-
-        return \is_string($image) && $image !== '' ? $image : null;
     }
 }

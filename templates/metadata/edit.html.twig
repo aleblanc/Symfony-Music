@@ -9,7 +9,7 @@
     </p>
 
     <div style="display:flex;gap:24px;align-items:flex-start;">
-        <img src="{{ path('app_cover', {id: song.id}) }}" alt="" width="140" height="140" style="border-radius:8px;">
+        <img src="{{ cover_url(song) }}" alt="" width="140" height="140" style="border-radius:8px;">
 
         <form method="post" action="{{ path('app_metadata_save', {id: song.id}) }}" enctype="multipart/form-data" style="flex:1;">
             <input type="hidden" name="_token" value="{{ csrf_token('metadata_edit_' ~ song.id) }}">

@@ -26,7 +26,7 @@ final class LibraryQuery
         m.track_number, m.disc_number, m.duration, m.bitrate, m.sample_rate, m.bits_per_sample, m.channels,
         m.rating, m.album_key, m.artist_key, m.added_at, m.updated_at, m.bpm,
         m.replay_gain_track, m.replay_gain_track_peak, m.replay_gain_album, m.replay_gain_album_peak,
-        (m.image IS NOT NULL) AS has_image';
+        (m.cover_hash IS NOT NULL) AS has_image';
 
     public function __construct(private readonly Connection $db) {}
 
@@ -103,7 +103,7 @@ final class LibraryQuery
                     MAX(m.genre) AS genre,
                     MIN(m.added_at) AS created,
                     AVG(NULLIF(m.rating, 0)) AS rating,
-                    COALESCE(MIN(CASE WHEN m.image IS NOT NULL THEN m.id END), MIN(m.id)) AS cover_song
+                    COALESCE(MIN(CASE WHEN m.cover_hash IS NOT NULL THEN m.id END), MIN(m.id)) AS cover_song
              FROM music m {$join}
              WHERE m.album_key IS NOT NULL AND ({$where}) AND {$visibility}
              GROUP BY m.album_key

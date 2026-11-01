@@ -21,6 +21,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'music_album_key_idx', columns: ['album_key', 'disc_number', 'track_number'])]
 #[ORM\Index(name: 'music_artist_key_idx', columns: ['artist_key'])]
 #[ORM\Index(name: 'music_updated_at_idx', columns: ['updated_at'])]
+#[ORM\Index(name: 'music_cover_hash_idx', columns: ['cover_hash'])]
 class Music
 {
     #[ORM\Id]
@@ -89,15 +90,12 @@ class Music
     private ?string $beatGridJson = null;
 
     /**
-     * Cover art bytes, extracted from tags at scan time. The legacy schema has
-     * no mime column (art is normalised to WebP), so the type is sniffed from
-     * the bytes when served. Doctrine hydrates a `blob` column as a stream
-     * resource on read, while writes assign a raw byte string.
-     *
-     * @var resource|string|null
+     * sha1 of the cover bytes found in the tags (or the folder's cover.jpg),
+     * null when the track has none. Names the file of
+     * public/images/cover_cache/, written on first view by CoverCache.
      */
-    #[ORM\Column(type: 'blob', nullable: true)]
-    private $image = null;
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $coverHash = null;
 
     #[ORM\Column(nullable: true)]
     private ?int $lastModified = null;
@@ -395,27 +393,21 @@ class Music
         return $this;
     }
 
-    /**
-     * @return resource|string|null
-     */
-    public function getImage()
-    {
-        return $this->image;
-    }
-
-    /**
-     * @param resource|string|null $image
-     */
-    public function setImage($image): static
-    {
-        $this->image = $image;
-
-        return $this;
-    }
-
     public function hasImage(): bool
     {
-        return $this->image !== null;
+        return $this->coverHash !== null;
+    }
+
+    public function getCoverHash(): ?string
+    {
+        return $this->coverHash;
+    }
+
+    public function setCoverHash(?string $coverHash): static
+    {
+        $this->coverHash = $coverHash;
+
+        return $this;
     }
 
     public function getLastModified(): ?int

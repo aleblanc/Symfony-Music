@@ -16,7 +16,7 @@ use Symfony\Component\Process\Process;
 /**
  * Backs up the SQLite database with `sqlite3 … ".backup"` (a consistent copy
  * even while the app is running) into var/backup/, checks the copy with
- * `PRAGMA quick_check`, then prunes old backups on a GFS retention: keep the
+ * `PRAGMA quick_check`, gzips it (restore: `gunzip -k backup-….sqlite.gz`), then prunes old backups on a GFS retention: keep the
  * newest plus the oldest one of each age band (0–12h, 12–24h, 24–48h, 48h–7d,
  * 7–14d), so a kept backup ages through its band into the next one.
  */
@@ -39,7 +39,8 @@ class BackupCommand extends Command
     {
         $this
             ->addOption('prune-only', null, InputOption::VALUE_NONE, 'Skip the backup, only apply the retention pruning')
-            ->addOption('no-check', null, InputOption::VALUE_NONE, 'Skip the integrity check of the copy');
+            ->addOption('no-check', null, InputOption::VALUE_NONE, 'Skip the integrity check of the copy')
+            ->addOption('no-compress', null, InputOption::VALUE_NONE, 'Keep the copy as a plain .sqlite file (no gzip)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -117,7 +118,24 @@ class BackupCommand extends Command
                 @unlink($dest . $suffix);
             }
 
-            $io->text(\sprintf('Backup written: %s (%s, %.1fs)', basename($dest), $this->size((int) filesize($dest)), microtime(true) - $started));
+            $raw = (int) filesize($dest);
+            if (!$input->getOption('no-compress')) {
+                try {
+                    $dest = $this->gzip($dest);
+                } catch (\Throwable $e) {
+                    // The plain copy is kept: an uncompressed backup beats none.
+                    $io->warning(\sprintf('Compression failed, the backup stays uncompressed: %s', $e->getMessage()));
+                }
+            }
+
+            $size = (int) filesize($dest);
+            $io->text(\sprintf(
+                'Backup written: %s (%s%s, %.1fs)',
+                basename($dest),
+                $this->size($size),
+                $size !== $raw ? \sprintf(' from %s', $this->size($raw)) : '',
+                microtime(true) - $started,
+            ));
         }
 
         $this->prune($dir, $io);
@@ -135,7 +153,7 @@ class BackupCommand extends Command
      */
     private function prune(string $dir, SymfonyStyle $io): void
     {
-        $files = glob($dir . '/backup-*.sqlite') ?: [];
+        $files = array_merge(glob($dir . '/backup-*.sqlite') ?: [], glob($dir . '/backup-*.sqlite.gz') ?: []);
         if ($files === []) {
             $io->text('No backup to prune.');
 
@@ -181,6 +199,44 @@ class BackupCommand extends Command
             }
         }
         $io->success(\sprintf('%d backup(s) kept, %d pruned.', \count($keep), $deleted));
+    }
+
+    /**
+     * Compresses $file into $file.gz (written as .tmp then renamed, so the pruning
+     * never sees a partial archive), deletes $file and returns the .gz path.
+     */
+    private function gzip(string $file): string
+    {
+        $gz = $file . '.gz';
+        $tmp = $gz . '.tmp';
+        $in = fopen($file, 'rb');
+        $out = gzopen($tmp, 'wb6');
+        if ($in === false || $out === false) {
+            throw new \RuntimeException('cannot open ' . ($in === false ? $file : $tmp));
+        }
+        try {
+            while (!feof($in)) {
+                $chunk = fread($in, 1048576);
+                if ($chunk === false || ($chunk !== '' && gzwrite($out, $chunk) === false)) {
+                    throw new \RuntimeException('write error');
+                }
+            }
+        } catch (\Throwable $e) {
+            fclose($in);
+            gzclose($out);
+            @unlink($tmp);
+
+            throw $e;
+        }
+        fclose($in);
+        if (!gzclose($out) || !rename($tmp, $gz)) {
+            @unlink($tmp);
+
+            throw new \RuntimeException('cannot finalize ' . basename($gz));
+        }
+        unlink($file);
+
+        return $gz;
     }
 
     /** Deletes a failed copy and the -wal / -shm files SQLite may have left beside it. */

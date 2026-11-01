@@ -21,3 +21,6 @@ phpstan.neon
 
 # local-only planning doc
 /docs/PLAN_APP_ANDROID.md
+
+# Cover art cache (CoverCache): rebuilt from the audio files on first view
+/public/images/cover_cache/

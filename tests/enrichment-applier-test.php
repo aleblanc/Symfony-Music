@@ -16,9 +16,13 @@ require __DIR__ . '/../vendor/autoload.php';
 use App\Entity\MetadataSuggestion;
 use App\Entity\Music;
 use App\Enum\SuggestionStatus;
+use App\Service\CoverCache;
 use App\Service\CoverImageProcessor;
 use App\Service\Enrichment\SuggestionApplier;
 use App\Service\MetadataWriter;
+use Symfony\Component\Routing\Generator\UrlGenerator;
+use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\Routing\RouteCollection;
 
 $failures = 0;
 
@@ -53,7 +57,9 @@ $writer = new MetadataWriter(__DIR__ . '/../lib/getid3');
 $writer->writeTags($file, ['title' => 'Track 7', 'artist' => 'Unknown Artist', 'genre' => 'Rock']);
 
 $music = (new Music())->setFile($file)->setTitle('Track 7')->setArtist('Unknown Artist')->setAlbum('Unknown Album')->setGenre('Rock');
-$applier = new SuggestionApplier($writer, new CoverImageProcessor());
+$coverDir = sys_get_temp_dir() . '/applier-test-covers-' . bin2hex(random_bytes(4));
+$covers = new CoverCache(new CoverImageProcessor(), new UrlGenerator(new RouteCollection(), new RequestContext()), $coverDir);
+$applier = new SuggestionApplier($writer, new CoverImageProcessor(), $covers);
 
 $s = new MetadataSuggestion($music, 'album-match', 0.93, [
     'title' => 'Fitter Happier', 'artist' => 'Radiohead', 'album' => 'OK Computer', 'albumArtist' => 'Radiohead',
@@ -68,6 +74,7 @@ try {
         && $music->getAlbumArtist() === 'Radiohead' && $music->getTrackNumber() === 7 && $music->getDiscNumber() === 1 && $music->getYear() === 1997);
     check('entity genre untouched (not proposed)', $music->getGenre() === 'Rock');
     check('entity cover set', $music->hasImage());
+    check('cover cached', $music->getCoverHash() !== null && is_file($covers->path($music->getCoverHash())));
     check('enrichedAt set', $music->getEnrichedAt() !== null);
     check('lastModified refreshed', $music->getLastModified() === filemtime($file));
     $info = readTags($file);
@@ -94,6 +101,7 @@ try {
     check('suggestion stays pending with error', $g->getStatus() === SuggestionStatus::Pending && $g->getError() !== null);
 } finally {
     @unlink($file);
+    array_map('unlink', glob($coverDir . '/public/images/cover_cache/*') ?: []);
 }
 
 echo $failures === 0 ? "\nAll applier tests passed.\n" : "\n{$failures} failure(s).\n";

@@ -23,7 +23,6 @@ class MusicScanner
 {
     private const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'flac', 'ogg', 'wav'];
     private const EXCLUDED_DIRS = ['.git', 'getid3', '.drive_trash_bin', '.drive_thumbnails', '.file_version', '.tmp_db', 'covers', '_backup_redl', '_banned', '_duplicates'];
-    private const COVER_CANDIDATES = ['cover.jpg', 'cover.png', 'folder.jpg', 'folder.png', 'artwork.jpg'];
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -207,7 +206,7 @@ class MusicScanner
             'year' => (int) ($comments['year'][0] ?? 0),
             'duration' => (int) ($info['playtime_seconds'] ?? 0),
             'format' => AudioFormat::fromGetId3($info, strtolower(pathinfo($filePath, \PATHINFO_EXTENSION))),
-            'image' => $this->extractCover($comments, $filePath),
+            'image' => CoverCache::fromTags($comments, $filePath),
             // Cover bytes carry no mime column in the legacy schema; the type is
             // sniffed from the bytes when served, so none is recorded at scan time.
             'imageType' => null,
@@ -240,37 +239,11 @@ class MusicScanner
         if ($meta['lyrics'] !== null) {
             $music->setLyrics($meta['lyrics']);
         }
-        // Only overwrite artwork when we actually found some.
+        // Only overwrite artwork when we actually found some. The bytes are not
+        // stored: CoverCache writes the file on first view, named by this hash.
         if ($meta['image'] !== null) {
-            $music->setImage($meta['image']);
+            $music->setCoverHash(CoverCache::hash($meta['image']));
         }
-    }
-
-    /**
-     * @param array<string, mixed> $comments
-     *
-     * @return ?string cover art bytes, or null when none found
-     */
-    private function extractCover(array $comments, string $filePath): ?string
-    {
-        $raw = $comments['picture'][0]['data'] ?? null;
-
-        if ($raw === null) {
-            $dir = pathinfo($filePath, \PATHINFO_DIRNAME);
-            $base = pathinfo($filePath, \PATHINFO_FILENAME);
-            $candidates = array_merge([$base . '.jpg', $base . '.png'], self::COVER_CANDIDATES);
-            foreach ($candidates as $candidate) {
-                $coverPath = $dir . '/' . $candidate;
-                if (is_file($coverPath)) {
-                    $raw = @file_get_contents($coverPath) ?: null;
-                    if ($raw !== null) {
-                        break;
-                    }
-                }
-            }
-        }
-
-        return $raw;
     }
 
     /**

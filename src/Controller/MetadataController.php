@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Music;
 use App\Entity\User;
 use App\Repository\MusicRepository;
+use App\Service\CoverCache;
 use App\Service\CoverImageProcessor;
 use App\Service\MetadataDumper;
 use App\Service\MetadataWriter;
@@ -61,6 +62,7 @@ class MetadataController extends AbstractController
         MusicRepository $musicRepository,
         MetadataWriter $writer,
         CoverImageProcessor $images,
+        CoverCache $covers,
         EntityManagerInterface $em,
     ): Response {
         $song = $this->findEditableSong($id, $user, $musicRepository);
@@ -117,10 +119,12 @@ class MetadataController extends AbstractController
                 return $this->redirectToRoute('app_metadata_edit', ['id' => $song->getId()]);
             }
 
-            $webp = $images->toWebp($raw);
             $jpegCover = $images->toJpeg($raw);
-            if ($webp !== null) {
-                $song->setImage($webp);
+            if ($jpegCover !== null) {
+                // New hash, new cache file and URL; written now from the upload.
+                $hash = CoverCache::hash($jpegCover);
+                $covers->store($hash, $raw);
+                $song->setCoverHash($hash);
             }
         }
 

@@ -6,6 +6,7 @@ use App\Entity\Music;
 use App\Entity\User;
 use App\Repository\ArtistProfileRepository;
 use App\Repository\MusicRepository;
+use App\Service\CoverCache;
 use App\Service\CoverImageProcessor;
 use App\Service\MediaResponder;
 use App\Subsonic\IdCodec;
@@ -13,7 +14,6 @@ use App\Subsonic\LibraryQuery;
 use App\Subsonic\SubsonicException;
 use App\Subsonic\SubsonicHandler;
 use App\Subsonic\SubsonicRequest;
-use Doctrine\DBAL\Connection;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,7 +33,7 @@ final class MediaHandler implements SubsonicHandler
         private readonly ArtistProfileRepository $profiles,
         private readonly MediaResponder $media,
         private readonly CoverImageProcessor $covers,
-        private readonly Connection $db,
+        private readonly CoverCache $coverCache,
         #[Autowire('%kernel.cache_dir%/subsonic-covers')] private readonly string $coverCacheDir,
     ) {}
 
@@ -91,16 +91,19 @@ final class MediaHandler implements SubsonicHandler
             return $songId;
         }
 
-        $bytes = $songId !== null ? $this->db->fetchOne('SELECT image FROM music WHERE id = ?', [$songId]) : null;
-        if (!\is_string($bytes) || $bytes === '') {
+        $song = $songId !== null ? $this->music->find($songId) : null;
+        $path = $song !== null ? $this->coverCache->file($song) : null;
+        if ($song === null || $path === null) {
             return $this->media->placeholderCover();
         }
+        $hash = (string) $song->getCoverHash();
 
-        if ($size > 0) {
-            $bytes = $this->resized($id, $size, $bytes);
+        // The cached cover is 640 px: smaller sizes are resized from it, larger ones get it as is.
+        if ($size > 0 && $size < 640) {
+            return $this->media->image($this->resized($hash, $size, (string) file_get_contents($path)), $request->httpRequest(), 604800);
         }
 
-        return $this->media->image($bytes, $request->httpRequest(), 604800);
+        return $this->media->coverFile($path, $hash, $request->httpRequest(), 604800);
     }
 
     /** Artist picture: the profile image if known, else its latest album's cover song. */
@@ -121,12 +124,12 @@ final class MediaHandler implements SubsonicHandler
     }
 
     /**
-     * Resized JPEG, cached on disk per (id, size). Without GD the original
+     * Resized JPEG, cached on disk per (cover hash, size). Without GD the original
      * bytes are returned unchanged.
      */
-    private function resized(string $id, int $size, string $bytes): string
+    private function resized(string $hash, int $size, string $bytes): string
     {
-        $file = \sprintf('%s/%s-%d.jpg', $this->coverCacheDir, preg_replace('/[^a-z0-9-]/i', '', $id), $size);
+        $file = \sprintf('%s/%s-%d.jpg', $this->coverCacheDir, preg_replace('/[^a-f0-9]/', '', $hash), $size);
         if (is_file($file)) {
             return (string) file_get_contents($file);
         }

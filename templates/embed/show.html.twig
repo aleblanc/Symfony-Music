@@ -50,7 +50,7 @@
       left: -50%;
       width: 200%;
       height: 200%;
-      background-image: url('{{ path('app_cover', {id: song.id}) }}');
+      background-image: url('{{ cover_url(song) }}');
       background-size: cover;
       background-position: center;
       filter: blur(35px) brightness(0.3);
@@ -293,7 +293,7 @@
     <div class="bg-blur"></div>
     <a href="{{ path('app_home') }}" target="_blank" class="brand">PHP MUSIC</a>
     <div class="content">
-      <img src="{{ path('app_cover', {id: song.id}) }}" class="cover-art" alt="{{ 'embed.cover_alt'|trans }}">
+      <img src="{{ cover_url(song) }}" class="cover-art" alt="{{ 'embed.cover_alt'|trans }}">
       <div class="info-pane">
         <div class="title">{{ song.displayTitle }}</div>
         <div class="artist">{{ song.artist }}</div>

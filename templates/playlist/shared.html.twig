@@ -28,12 +28,12 @@
                      data-track-artist-url="{{ song.artist ? path('app_artist', {name: song.artist}) }}"
                      data-track-album-url="{{ song.album ? path('app_album', {name: song.album}) }}"
                      data-track-stream="{{ path('app_stream', {id: song.id}) }}"
-                     data-track-cover="{{ path('app_cover', {id: song.id}) }}">
+                     data-track-cover="{{ cover_url(song) }}">
                     <div class="track-lead">
                         <span class="track-idx">{{ loop.index }}</span>
                         <button class="track-play" data-play title="{{ 'common.play'|trans }}" aria-label="{{ 'common.play'|trans }}"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
                     </div>
-                    <img class="track-art" src="{{ path('app_cover', {id: song.id}) }}" alt="" loading="lazy">
+                    <img class="track-art" src="{{ cover_url(song) }}" alt="" loading="lazy">
                     <div class="track-main">
                         <a class="track-title" href="#" data-play>{{ song.displayTitle }}</a>
                         <div class="track-sub">{{ song.artist }}</div>

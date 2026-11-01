@@ -77,6 +77,27 @@ final class MediaResponder
     }
 
     /**
+     * A cached cover file (CoverCache), its hash as ETag. `$immutable` for URLs
+     * that name the hash: they never change content, so browsers keep them.
+     */
+    public function coverFile(string $path, string $hash, Request $request, int $maxAge = 86400, bool $immutable = false): Response
+    {
+        $response = new BinaryFileResponse($path, 200, [], true, null, false, false);
+        $response->setEtag($hash);
+        $response->setMaxAge($maxAge);
+        if ($immutable) {
+            $response->setImmutable();
+        }
+        if ($response->isNotModified($request)) {
+            return $response;
+        }
+        $head = (string) file_get_contents($path, false, null, 0, 16);
+        $response->headers->set('Content-Type', self::sniffImageMime($head));
+
+        return $response;
+    }
+
+    /**
      * A neutral SVG placeholder for tracks without embedded artwork.
      */
     public function placeholderCover(): Response

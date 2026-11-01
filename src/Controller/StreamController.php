@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Music;
 use App\Entity\User;
 use App\Repository\MusicRepository;
+use App\Service\CoverCache;
 use App\Service\MediaResponder;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -41,7 +42,7 @@ class StreamController extends AbstractController
     }
 
     #[Route('/cover/{id}', name: 'app_cover', requirements: ['id' => '\d+'])]
-    public function cover(int $id, Request $request, MusicRepository $music, #[CurrentUser] ?User $user): Response
+    public function cover(int $id, Request $request, MusicRepository $music, CoverCache $covers, #[CurrentUser] ?User $user): Response
     {
         $song = $music->find($id);
         if ($song === null || !$song->hasImage()) {
@@ -50,10 +51,30 @@ class StreamController extends AbstractController
 
         $this->assertVisible($song, $user);
 
-        $image = $song->getImage();
-        $bytes = \is_resource($image) ? (string) stream_get_contents($image) : (string) $image;
+        $path = $covers->file($song);
+        if ($path === null) {
+            return $this->media->placeholderCover();
+        }
 
-        return $this->media->image($bytes, $request);
+        return $this->media->coverFile($path, (string) $song->getCoverHash(), $request);
+    }
+
+    /**
+     * First view of a cached cover: the web server serves the files of
+     * public/images/cover_cache/ itself and only a missing one reaches this
+     * route (same path), which writes it from the audio file. The hash cannot
+     * be guessed, so private tracks need no check here.
+     */
+    #[Route('/images/cover_cache/{hash}.webp', name: 'app_cover_cache', requirements: ['hash' => '[0-9a-f]{40}'])]
+    public function cachedCover(string $hash, Request $request, MusicRepository $music, CoverCache $covers): Response
+    {
+        $song = $music->findOneBy(['coverHash' => $hash]);
+        $path = $song !== null ? $covers->file($song) : null;
+        if ($path === null) {
+            return $this->media->placeholderCover();
+        }
+
+        return $this->media->coverFile($path, $hash, $request, 31536000, true);
     }
 
     private function assertVisible(Music $song, ?User $user): void

@@ -7,6 +7,7 @@ use App\Entity\User;
 use App\Repository\MusicRepository;
 use App\Repository\UserRepository;
 use App\Service\AudioFormat;
+use App\Service\CoverCache;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -203,7 +204,7 @@ class UploadController extends AbstractController
             $song->setLyrics($lyrics);
         }
         if ($rawImage !== null) {
-            $song->setImage($rawImage);
+            $song->setCoverHash(CoverCache::hash($rawImage));
         }
 
         $musicRepository->save($song, false);
