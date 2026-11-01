@@ -108,6 +108,24 @@ class CoverCache
     }
 
     /**
+     * The track's audio file was replaced behind the scan's back (its mtime
+     * recorded so app:cron:scan skips it): read its cover again, so the hash,
+     * and with it the cached file and URL, follow the new file.
+     */
+    public function refresh(Music $song): void
+    {
+        $raw = $this->extract((string) $song->getFile());
+        if ($raw === null) {
+            $song->setCoverHash(null);
+
+            return;
+        }
+        $hash = self::hash($raw);
+        $this->store($hash, $raw);
+        $song->setCoverHash($hash);
+    }
+
+    /**
      * Writes $raw as the cached file of $hash (square WebP, 640 px), unless it
      * is already there. Written as .tmp then renamed: the web server never
      * serves a partial image. Returns the path, or null if it cannot be written.

@@ -19,7 +19,10 @@ use App\Exception\UserFacingException;
  */
 class SongVersionManager
 {
-    public function __construct(private readonly string $musicDir) {}
+    public function __construct(
+        private readonly string $musicDir,
+        private readonly CoverCache $covers,
+    ) {}
 
     /**
      * @return list<array{name: string, mtime: int, sizeMb: float}> newest first, capped at 10 (mirrors the legacy cap)
@@ -78,6 +81,8 @@ class SongVersionManager
 
         copy($source, $file);
         $song->setLastModified(time());
+        // The restored file may carry another cover.
+        $this->covers->refresh($song);
         // Other audio: analysed again (app:cron:spectrum).
         $song->resetSpectrum();
     }
