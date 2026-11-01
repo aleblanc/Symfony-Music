@@ -83,6 +83,10 @@ if (audio && bar) {
 
     let queue = [];
     let index = -1;
+    // Shuffle bookkeeping: the queue keeps its order, these track what was
+    // played (entries of `queue`) so "next" can draw among the rest.
+    let played = new Set();
+    let history = [];
     let recorded = false;
 
     const store = {
@@ -372,11 +376,13 @@ if (audio && bar) {
     function renderQueue() {
         if (queueBtn) queueBtn.classList.toggle('has-queue', queue.length > 1);
         if (!queuePanel || !queueBody || queuePanel.hidden) return;
-        const upcoming = Math.max(0, queue.length - index - 1);
+        const upcoming = shuffle
+            ? queue.filter((t) => !played.has(t)).length
+            : Math.max(0, queue.length - index - 1);
         if (queueCount) queueCount.textContent = queue.length ? I18N.t('js.player.queue.count', { position: index + 1, total: queue.length, upcoming }) : '';
         queueBody.replaceChildren(...queue.map((t, i) => {
             const li = document.createElement('li');
-            li.className = 'queue-item' + (i === index ? ' current' : '') + (i < index ? ' played' : '');
+            li.className = 'queue-item' + (i === index ? ' current' : '') + ((shuffle ? played.has(t) && i !== index : i < index) ? ' played' : '');
             li.dataset.queueIndex = String(i);
             const img = document.createElement('img');
             img.alt = '';
@@ -478,11 +484,13 @@ if (audio && bar) {
         if (cur && cur.el) cur.el.classList.add('playing');
     }
 
-    function load(i) {
+    function load(i, back = false) {
         if (i < 0 || i >= queue.length) return;
         index = i;
         recorded = false;
         const t = queue[i];
+        played.add(t);
+        if (!back) history = [...history.slice(-499), t];
         audio.src = t.stream;
         fetchInfo(t);
         // Title → track details, artist / album → their pages (nav.js keeps
@@ -536,7 +544,8 @@ if (audio && bar) {
         queue = collectQueue();
         const id = el.dataset.trackId;
         const i = queue.findIndex((t) => t.id === id && t.el === el);
-        load(shuffled(i === -1 ? 0 : i));
+        resetShuffle();
+        load(i === -1 ? 0 : i);
     }
 
     // Queue inserts used by the context menu. When nothing is playing yet,
@@ -602,7 +611,8 @@ if (audio && bar) {
         if (tracks.length === 0) return;
         if (btn.hasAttribute('data-play-all') || index < 0) {
             queue = tracks;
-            load(shuffled(shuffle ? Math.floor(Math.random() * tracks.length) : 0));
+            resetShuffle();
+            load(shuffle ? Math.floor(Math.random() * tracks.length) : 0);
             return;
         }
         queue.push(...tracks);
@@ -611,41 +621,51 @@ if (audio && bar) {
     });
 
     // ---------------- Shuffle / repeat ----------------
-    // Shuffle reorders what comes after the playing track (the playing one moves
-    // to the front of a freshly built queue) and remembers the original order,
-    // restored when it is turned off. Repeat: off → whole queue → this track.
+    // Shuffle never reorders the queue: "next" draws a random track among those
+    // not played yet, "previous" walks back through what was played.
+    // Repeat: off → whole queue → this track.
     const shuffleBtn = document.getElementById('player-shuffle');
     const repeatBtn = document.getElementById('player-repeat');
     const REPEAT_MODES = ['off', 'all', 'one'];
     let shuffle = store.get('player.shuffle', '0') === '1';
     let repeat = REPEAT_MODES.includes(store.get('player.repeat', 'off')) ? store.get('player.repeat', 'off') : 'off';
-    let unshuffled = null;
 
-    function shuffleArray(a) {
-        for (let i = a.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [a[i], a[j]] = [a[j], a[i]];
-        }
-        return a;
-    }
-
-    // A new queue was just assigned with `start` as the track to play: when
-    // shuffling, put it first, shuffle the rest and return its new index (0).
-    function shuffled(start) {
-        unshuffled = queue.slice();
-        if (!shuffle || queue.length < 2) return start;
-        const first = queue[start];
-        queue = [first, ...shuffleArray(queue.filter((_, i) => i !== start))];
-        return 0;
+    function resetShuffle() {
+        played = new Set();
+        history = [];
     }
 
     function next() {
-        if (index + 1 < queue.length) load(index + 1);
-        else if (repeat !== 'off' && queue.length) load(0);
+        if (!queue.length) return;
+        if (!shuffle) {
+            if (index + 1 < queue.length) load(index + 1);
+            else if (repeat !== 'off') load(0);
+            return;
+        }
+        const cur = queue[index];
+        let left = queue.filter((t) => !played.has(t));
+        if (!left.length) {
+            if (repeat === 'off') return;
+            // Whole queue heard: start a new round, not with the same track.
+            played = new Set([cur]);
+            left = queue.filter((t) => t !== cur);
+            if (!left.length) left = [cur];
+        }
+        load(queue.indexOf(left[Math.floor(Math.random() * left.length)]));
     }
     function prev() {
         // Past the first seconds, "previous" restarts the track.
-        if (audio.currentTime > 3 || (index <= 0 && repeat === 'off')) { audio.currentTime = 0; return; }
+        if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+        if (shuffle) {
+            // Back to the track played before, which leaves the skipped one in the draw.
+            const target = history.length > 1 ? history[history.length - 2] : null;
+            if (!target || !queue.includes(target)) { audio.currentTime = 0; return; }
+            played.delete(queue[index]);
+            history.pop();
+            load(queue.indexOf(target), true);
+            return;
+        }
+        if (index <= 0 && repeat === 'off') { audio.currentTime = 0; return; }
         load(index > 0 ? index - 1 : queue.length - 1);
     }
 
@@ -666,16 +686,8 @@ if (audio && bar) {
     function toggleShuffle() {
         shuffle = !shuffle;
         store.set('player.shuffle', shuffle ? '1' : '0');
-        const cur = queue[index];
-        if (shuffle && cur) {
-            unshuffled = queue.slice();
-            queue = [...queue.slice(0, index + 1), ...shuffleArray(queue.slice(index + 1))];
-        } else if (!shuffle && cur && unshuffled) {
-            // Back to the original order, keeping removals and later additions.
-            const kept = unshuffled.filter((t) => queue.includes(t));
-            queue = [...kept, ...queue.filter((t) => !kept.includes(t))];
-            index = queue.indexOf(cur);
-        }
+        // A new random round over the whole queue, minus the playing track.
+        played = new Set(queue[index] ? [queue[index]] : []);
         renderModeButtons();
         renderQueue();
         toast(I18N.t(shuffle ? 'js.player.shuffle.toast_on' : 'js.player.shuffle.toast_off'));
