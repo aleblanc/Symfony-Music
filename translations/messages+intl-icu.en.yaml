@@ -402,12 +402,24 @@ js:
             remove_title: "Remove from the queue"
         rating:
             stars: "{count, plural, one {# star} other {# stars}}"
+        repeat:
+            title_all: "Repeat: whole queue. Click: this track"
+            title_off: "Repeat: off. Click: whole queue"
+            title_one: "Repeat: this track. Click: off"
+            toast_all: "Repeating the whole queue"
+            toast_off: "Repeat off"
+            toast_one: "Repeating the current track"
         rg:
             title_album: "Volume normalization: album (ReplayGain). Click: off"
             title_off: "Volume normalization: off. Click: track"
             title_track: "Volume normalization: track (ReplayGain). Click: album"
             toast_mode: "Normalization: {mode, select, album {album} other {track}}"
             toast_off: "Normalization off"
+        shuffle:
+            title_off: "Shuffle: off"
+            title_on: "Shuffle: on"
+            toast_off: "Shuffle off"
+            toast_on: "Shuffle on"
         tracks_added_to_queue: "{count, plural, one {# track added to queue} other {# tracks added to queue}}"
     rhythm:
         anticheat:
@@ -700,7 +712,9 @@ player:
     play_pause: "Play/Pause"
     queue: "Play queue"
     queue_title: "Play queue (Q)"
+    repeat: "Repeat (R)"
     replaygain: "Volume normalization (ReplayGain)"
+    shuffle: "Shuffle (S)"
     track_details: "Track details"
     volume: "Volume"
 playlist:

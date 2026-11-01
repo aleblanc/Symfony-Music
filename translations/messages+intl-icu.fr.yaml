@@ -402,12 +402,24 @@ js:
             remove_title: "Retirer de la file d’attente"
         rating:
             stars: "{count, plural, one {# étoile} other {# étoiles}}"
+        repeat:
+            title_all: "Répéter : toute la file. Clic : ce titre"
+            title_off: "Répéter : désactivé. Clic : toute la file"
+            title_one: "Répéter : ce titre. Clic : désactivé"
+            toast_all: "Répétition de toute la file"
+            toast_off: "Répétition désactivée"
+            toast_one: "Répétition du titre en cours"
         rg:
             title_album: "Normalisation du volume : album (ReplayGain). Clic : désactivée"
             title_off: "Normalisation du volume : désactivée. Clic : titre"
             title_track: "Normalisation du volume : titre (ReplayGain). Clic : album"
             toast_mode: "Normalisation : {mode, select, album {album} other {titre}}"
             toast_off: "Normalisation désactivée"
+        shuffle:
+            title_off: "Lecture aléatoire : désactivée"
+            title_on: "Lecture aléatoire : activée"
+            toast_off: "Lecture aléatoire désactivée"
+            toast_on: "Lecture aléatoire activée"
         tracks_added_to_queue: "{count, plural, one {# titre ajouté à la file d’attente} other {# titres ajoutés à la file d’attente}}"
     rhythm:
         anticheat:
@@ -700,7 +712,9 @@ player:
     play_pause: "Lecture/Pause"
     queue: "File d’attente"
     queue_title: "File d’attente (Q)"
+    repeat: "Répéter (R)"
     replaygain: "Normalisation du volume (ReplayGain)"
+    shuffle: "Lecture aléatoire (S)"
     track_details: "Détails du titre"
     volume: "Volume"
 playlist:

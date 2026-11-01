@@ -367,6 +367,15 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px;
 .pip-btn:hover { color: var(--text); background: var(--bg-hover); }
 .pip-btn svg { width: 20px; height: 20px; fill: currentColor; }
 .pip-btn.active { color: var(--accent); }
+.player-controls .player-mode-btn { position: relative; }
+.player-controls .player-mode-btn svg { width: 18px; height: 18px; fill: currentColor; }
+.player-controls .player-mode-btn:not(.active) { opacity: .55; }
+.player-controls .player-mode-btn.active { color: var(--accent); }
+.player-controls .player-mode-btn.active::after {
+    content: ''; position: absolute; bottom: 2px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor;
+}
+.player-mode-btn .repeat-one { display: none; }
+.player-mode-btn.one .repeat-one { display: inline; }
 .player-controls .player-lyrics-btn svg { width: 18px; height: 18px; fill: currentColor; }
 .player-controls .player-lyrics-btn:not(.has-lyrics) { opacity: .55; }
 .player-controls .player-lyrics-btn.active { color: var(--accent); opacity: 1; }

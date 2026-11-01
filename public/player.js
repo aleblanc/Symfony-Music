@@ -527,8 +527,8 @@ if (audio && bar) {
         };
         set('play', () => audio.play());
         set('pause', () => audio.pause());
-        set('previoustrack', () => load(index - 1));
-        set('nexttrack', () => load(index + 1));
+        set('previoustrack', () => prev());
+        set('nexttrack', () => next());
         set('seekto', (e) => { if (e.seekTime != null && isFinite(e.seekTime)) audio.currentTime = e.seekTime; });
     }
 
@@ -536,7 +536,7 @@ if (audio && bar) {
         queue = collectQueue();
         const id = el.dataset.trackId;
         const i = queue.findIndex((t) => t.id === id && t.el === el);
-        load(i === -1 ? 0 : i);
+        load(shuffled(i === -1 ? 0 : i));
     }
 
     // Queue inserts used by the context menu. When nothing is playing yet,
@@ -602,7 +602,7 @@ if (audio && bar) {
         if (tracks.length === 0) return;
         if (btn.hasAttribute('data-play-all') || index < 0) {
             queue = tracks;
-            load(0);
+            load(shuffled(shuffle ? Math.floor(Math.random() * tracks.length) : 0));
             return;
         }
         queue.push(...tracks);
@@ -610,9 +610,91 @@ if (audio && bar) {
         toast(I18N.t('js.player.tracks_added_to_queue', { count: tracks.length }));
     });
 
+    // ---------------- Shuffle / repeat ----------------
+    // Shuffle reorders what comes after the playing track (the playing one moves
+    // to the front of a freshly built queue) and remembers the original order,
+    // restored when it is turned off. Repeat: off → whole queue → this track.
+    const shuffleBtn = document.getElementById('player-shuffle');
+    const repeatBtn = document.getElementById('player-repeat');
+    const REPEAT_MODES = ['off', 'all', 'one'];
+    let shuffle = store.get('player.shuffle', '0') === '1';
+    let repeat = REPEAT_MODES.includes(store.get('player.repeat', 'off')) ? store.get('player.repeat', 'off') : 'off';
+    let unshuffled = null;
+
+    function shuffleArray(a) {
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    // A new queue was just assigned with `start` as the track to play: when
+    // shuffling, put it first, shuffle the rest and return its new index (0).
+    function shuffled(start) {
+        unshuffled = queue.slice();
+        if (!shuffle || queue.length < 2) return start;
+        const first = queue[start];
+        queue = [first, ...shuffleArray(queue.filter((_, i) => i !== start))];
+        return 0;
+    }
+
+    function next() {
+        if (index + 1 < queue.length) load(index + 1);
+        else if (repeat !== 'off' && queue.length) load(0);
+    }
+    function prev() {
+        // Past the first seconds, "previous" restarts the track.
+        if (audio.currentTime > 3 || (index <= 0 && repeat === 'off')) { audio.currentTime = 0; return; }
+        load(index > 0 ? index - 1 : queue.length - 1);
+    }
+
+    function renderModeButtons() {
+        if (shuffleBtn) {
+            const label = I18N.t(shuffle ? 'js.player.shuffle.title_on' : 'js.player.shuffle.title_off');
+            shuffleBtn.classList.toggle('active', shuffle);
+            shuffleBtn.setAttribute('aria-pressed', String(shuffle));
+            shuffleBtn.title = label + ' (S)';
+        }
+        if (repeatBtn) {
+            repeatBtn.classList.toggle('active', repeat !== 'off');
+            repeatBtn.classList.toggle('one', repeat === 'one');
+            repeatBtn.title = I18N.t('js.player.repeat.title_' + repeat) + ' (R)';
+        }
+    }
+
+    function toggleShuffle() {
+        shuffle = !shuffle;
+        store.set('player.shuffle', shuffle ? '1' : '0');
+        const cur = queue[index];
+        if (shuffle && cur) {
+            unshuffled = queue.slice();
+            queue = [...queue.slice(0, index + 1), ...shuffleArray(queue.slice(index + 1))];
+        } else if (!shuffle && cur && unshuffled) {
+            // Back to the original order, keeping removals and later additions.
+            const kept = unshuffled.filter((t) => queue.includes(t));
+            queue = [...kept, ...queue.filter((t) => !kept.includes(t))];
+            index = queue.indexOf(cur);
+        }
+        renderModeButtons();
+        renderQueue();
+        toast(I18N.t(shuffle ? 'js.player.shuffle.toast_on' : 'js.player.shuffle.toast_off'));
+    }
+
+    function cycleRepeat() {
+        repeat = REPEAT_MODES[(REPEAT_MODES.indexOf(repeat) + 1) % REPEAT_MODES.length];
+        store.set('player.repeat', repeat);
+        renderModeButtons();
+        toast(I18N.t('js.player.repeat.toast_' + repeat));
+    }
+
+    renderModeButtons();
+    if (shuffleBtn) shuffleBtn.addEventListener('click', toggleShuffle);
+    if (repeatBtn) repeatBtn.addEventListener('click', cycleRepeat);
+
     els.toggle.addEventListener('click', () => (audio.paused ? audio.play() : audio.pause()));
-    els.prev.addEventListener('click', () => load(index - 1));
-    els.next.addEventListener('click', () => load(index + 1));
+    els.prev.addEventListener('click', () => prev());
+    els.next.addEventListener('click', () => next());
 
     const setPlaybackState = (s) => { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = s; };
     audio.addEventListener('play', () => {
@@ -621,7 +703,15 @@ if (audio && bar) {
         if (engine.ctx && engine.ctx.state !== 'running') engine.ctx.resume().catch(() => {});
     });
     audio.addEventListener('pause', () => { els.toggle.textContent = '▶'; setPlaybackState('paused'); });
-    audio.addEventListener('ended', () => load(index + 1));
+    audio.addEventListener('ended', () => {
+        if (repeat === 'one') {
+            recorded = false;
+            audio.currentTime = 0;
+            audio.play().catch(() => {});
+            return;
+        }
+        next();
+    });
     audio.addEventListener('loadedmetadata', () => { els.duration.textContent = fmt(audio.duration); });
     audio.addEventListener('timeupdate', () => {
         els.current.textContent = fmt(audio.currentTime);
@@ -651,6 +741,8 @@ if (audio && bar) {
         if (e.key === 'Escape' && lyricsPanel && !lyricsPanel.hidden) setLyricsOpen(false);
         if (e.code === 'KeyQ' && !e.metaKey && !e.ctrlKey && !e.altKey && queuePanel && !bar.hidden) setQueueOpen(queuePanel.hidden);
         if (e.key === 'Escape' && queuePanel && !queuePanel.hidden) setQueueOpen(false);
+        if (e.code === 'KeyS' && !e.metaKey && !e.ctrlKey && !e.altKey && !bar.hidden) toggleShuffle();
+        if (e.code === 'KeyR' && !e.metaKey && !e.ctrlKey && !e.altKey && !bar.hidden) cycleRepeat();
     });
 
     // ---------------- Mini player (Picture-in-Picture) ----------------
