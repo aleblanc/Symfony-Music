@@ -80,6 +80,11 @@ if (audio && bar) {
         volume: document.getElementById('player-volume'),
         pip: document.getElementById('player-pip'),
     };
+    // Waveform of the seek bar (see "Waveform" below).
+    const wave = { canvas: document.getElementById('player-wave'), data: null, hover: -1, abort: null };
+    const waveWrap = wave.canvas ? wave.canvas.parentElement : null;
+    const WAVE_COLORS = { low: [255, 45, 85], mid: [255, 176, 0], high: [63, 208, 255] };
+    const WAVE_STEP = 3; // 2 px bar + 1 px gap
 
     let queue = [];
     let index = -1;
@@ -493,6 +498,7 @@ if (audio && bar) {
         if (!back) history = [...history.slice(-499), t];
         audio.src = t.stream;
         fetchInfo(t);
+        loadWave(t);
         // Title → track details, artist / album → their pages (nav.js keeps
         // playback going while browsing there).
         const link = (a, text, href) => {
@@ -728,6 +734,7 @@ if (audio && bar) {
     audio.addEventListener('timeupdate', () => {
         els.current.textContent = fmt(audio.currentTime);
         if (audio.duration) els.seek.value = String((audio.currentTime / audio.duration) * 100);
+        drawWave();
         if (audio.currentTime >= 30) recordListen();
         syncLyrics();
         // Feed the real position to the OS/PiP scrubber.
@@ -743,7 +750,71 @@ if (audio && bar) {
     });
     els.seek.addEventListener('input', () => {
         if (audio.duration) audio.currentTime = (els.seek.value / 100) * audio.duration;
+        drawWave();
     });
+
+    // ---------------- Waveform ----------------
+    // Bars from /waveform/{id} (height + share of bass, mids, treble, 0-100)
+    // drawn under the transparent seek bar: played part bright, the part up
+    // to the mouse half bright, the rest dim. Without it (still loading,
+    // ffmpeg missing) the plain seek bar shows.
+
+    function loadWave(t) {
+        wave.data = null;
+        if (wave.abort) wave.abort.abort();
+        if (waveWrap) waveWrap.classList.remove('has-wave');
+        if (!wave.canvas || !cfg.waveformUrl || !t.id) return;
+        wave.abort = new AbortController();
+        fetch(cfg.waveformUrl.replace(/\/0$/, `/${t.id}`), { signal: wave.abort.signal })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+                if (!d || queue[index] !== t || !Array.isArray(d.peak) || !d.bars) return;
+                wave.data = d;
+                waveWrap.classList.add('has-wave');
+                drawWave();
+            })
+            .catch(() => {});
+    }
+
+    function drawWave() {
+        const d = wave.data;
+        const c = wave.canvas;
+        if (!d || !c) return;
+        const w = c.clientWidth;
+        const h = c.clientHeight;
+        if (!w || !h) return;
+        const dpr = window.devicePixelRatio || 1;
+        if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+            c.width = Math.round(w * dpr);
+            c.height = Math.round(h * dpr);
+        }
+        const ctx = c.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        const played = audio.duration ? (audio.currentTime / audio.duration) * w : 0;
+        const n = Math.max(1, Math.floor(w / WAVE_STEP));
+        for (let i = 0; i < n; i++) {
+            // The bars of the file that fall under this one.
+            const from = Math.floor((i * d.bars) / n);
+            const to = Math.max(from + 1, Math.floor(((i + 1) * d.bars) / n));
+            let peak = 0, low = 0, mid = 0, high = 0;
+            for (let j = from; j < to; j++) {
+                peak = Math.max(peak, d.peak[j] || 0);
+                low += d.low[j] || 0; mid += d.mid[j] || 0; high += d.high[j] || 0;
+            }
+            const sum = low + mid + high || 1;
+            const rgb = [0, 1, 2].map((k) => Math.round((low * WAVE_COLORS.low[k] + mid * WAVE_COLORS.mid[k] + high * WAVE_COLORS.high[k]) / sum));
+            const x = i * WAVE_STEP;
+            const alpha = x < played ? 1 : (wave.hover >= 0 && x < wave.hover ? 0.6 : 0.3);
+            const bh = Math.max(2, (peak / 100) * h);
+            ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+            ctx.fillRect(x, (h - bh) / 2, WAVE_STEP - 1, bh);
+        }
+    }
+
+    els.seek.addEventListener('pointermove', (e) => { if (wave.data) { wave.hover = e.offsetX; drawWave(); } });
+    els.seek.addEventListener('pointerleave', () => { if (wave.data) { wave.hover = -1; drawWave(); } });
+    if (wave.canvas && 'ResizeObserver' in window) new ResizeObserver(() => drawWave()).observe(wave.canvas);
     els.volume.addEventListener('input', () => { audio.volume = els.volume.value / 100; });
 
     document.addEventListener('keydown', (e) => {

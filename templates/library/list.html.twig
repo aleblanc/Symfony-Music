@@ -1,7 +1,7 @@
 {% extends 'base.html.twig' %}
 {% import 'partials/_tracks.html.twig' as tracks %}
 
-{% block title %}{{ 'library.list.title'|trans }} · PHP Music{% endblock %}
+{% block title %}{{ 'library.list.title'|trans }} · Symfony Music{% endblock %}
 
 {% block body %}
     <h1>{{ query ? 'library.list.results_for'|trans({query: query}) : 'library.list.title'|trans }}</h1>

@@ -1,4 +1,4 @@
-# PHP Music — Symfony 8.1 + Twig
+# Symfony Music — Symfony 8.1 + Twig
 
 Self-hosted music library: web player, artist pages, playlists, a
 **Subsonic-compatible API** for mobile apps, and a pipeline that identifies,

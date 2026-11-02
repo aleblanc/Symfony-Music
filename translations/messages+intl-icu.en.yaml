@@ -23,7 +23,7 @@ auth:
         title: "Sign up"
 common:
     add: "Add"
-    brand: "PHP Music"
+    brand: "Symfony Music"
     cancel: "Cancel"
     clear: "Clear"
     clear_all: "Clear all"
@@ -71,6 +71,9 @@ concerts:
         concert: "Concert"
         off: "Cancelled / postponed"
         unlocated: "{count, plural, one {# concert is not on the map yet: its city is not located (php bin/console app:cron:concert-geocode).} other {# concerts are not on the map yet: their city is not located (php bin/console app:cron:concert-geocode).}}"
+    only_rated_after: "{min, plural, one {track} other {tracks}} rated 5 ★"
+    only_rated_before: "Only artists with at least"
+    only_rated_min: "Minimum number of tracks rated 5 stars"
     new_badge: "New"
     new_count: "{count, plural, one {# new date} other {# new dates}}"
     show_all: "show all concerts"
@@ -546,7 +549,7 @@ js:
             reset_confirm: "Reset gameplay options to defaults?"
             reset_done: "Options reset to default."
         share:
-            score_text: "I just scored {score, number} ({combo}x Combo) on {title} [{difficulty}] in PHP Music Rhythm Game!"
+            score_text: "I just scored {score, number} ({combo}x Combo) on {title} [{difficulty}] in Symfony Music Rhythm Game!"
         share_button: "Share"
         song:
             tap_to_compile: "Tap to compile notes"
@@ -714,6 +717,7 @@ player:
     queue_title: "Play queue (Q)"
     repeat: "Repeat (R)"
     replaygain: "Volume normalization (ReplayGain)"
+    seek: "Position in the track"
     shuffle: "Shuffle (S)"
     track_details: "Track details"
     volume: "Volume"
@@ -1023,7 +1027,7 @@ rhythm:
         sfx_volume: "Hit SFX Volume"
         title: "Settings"
     share:
-        name: "PHP Music Rhythm Game"
+        name: "Symfony Music Rhythm Game"
     sort:
         album_asc: "Album (A-Z)"
         artist_asc: "Artist (A-Z)"

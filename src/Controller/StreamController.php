@@ -7,7 +7,9 @@ use App\Entity\User;
 use App\Repository\MusicRepository;
 use App\Service\CoverCache;
 use App\Service\MediaResponder;
+use App\Service\WaveformGenerator;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -75,6 +77,42 @@ class StreamController extends AbstractController
         }
 
         return $this->media->coverFile($path, $hash, $request, 31536000, true);
+    }
+
+    /**
+     * The waveform of the player's progress bar (WaveformGenerator): made by
+     * ffmpeg on the first play of the track (a second or two), then read from
+     * its cache file.
+     */
+    #[Route('/waveform/{id}', name: 'app_waveform', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function waveform(int $id, Request $request, MusicRepository $music, WaveformGenerator $waveforms, #[CurrentUser] ?User $user): Response
+    {
+        $song = $music->find($id);
+        if ($song === null) {
+            throw $this->createNotFoundException('Track not found.');
+        }
+
+        $this->assertVisible($song, $user);
+
+        // ffmpeg may take a moment: release the session lock so the audio
+        // stream, requested at the same time, does not wait for it.
+        if ($request->hasSession() && $request->getSession()->isStarted()) {
+            $request->getSession()->save();
+        }
+        try {
+            $waveform = $waveforms->forFile($id, (string) $song->getFile());
+        } catch (\RuntimeException) {
+            $waveform = null;
+        }
+        if ($waveform === null) {
+            throw $this->createNotFoundException('No waveform for this track.');
+        }
+
+        $response = new JsonResponse($waveform);
+        $response->setPrivate();
+        $response->setMaxAge(86400);
+
+        return $response;
     }
 
     private function assertVisible(Music $song, ?User $user): void

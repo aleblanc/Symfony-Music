@@ -23,7 +23,7 @@ auth:
         title: "S’inscrire"
 common:
     add: "Ajouter"
-    brand: "PHP Music"
+    brand: "Symfony Music"
     cancel: "Annuler"
     clear: "Effacer"
     clear_all: "Tout effacer"
@@ -71,6 +71,9 @@ concerts:
         concert: "Concert"
         off: "Annulé / reporté"
         unlocated: "{count, plural, one {# concert n’est pas encore sur la carte : sa ville n’est pas localisée (php bin/console app:cron:concert-geocode).} other {# concerts ne sont pas encore sur la carte : leur ville n’est pas localisée (php bin/console app:cron:concert-geocode).}}"
+    only_rated_after: "{min, plural, one {titre noté} other {titres notés}} 5 ★"
+    only_rated_before: "Seulement les artistes avec au moins"
+    only_rated_min: "Nombre minimum de titres notés 5 étoiles"
     new_badge: "Nouveau"
     new_count: "{count, plural, one {# nouvelle date} other {# nouvelles dates}}"
     show_all: "voir tous les concerts"
@@ -546,7 +549,7 @@ js:
             reset_confirm: "Réinitialiser les options de jeu par défaut ?"
             reset_done: "Options réinitialisées."
         share:
-            score_text: "Je viens de faire {score, number} points ({combo}x combo) sur {title} [{difficulty}] dans le jeu de rythme PHP Music !"
+            score_text: "Je viens de faire {score, number} points ({combo}x combo) sur {title} [{difficulty}] dans le jeu de rythme Symfony Music !"
         share_button: "Partager"
         song:
             tap_to_compile: "Touche pour générer les notes"
@@ -714,6 +717,7 @@ player:
     queue_title: "File d’attente (Q)"
     repeat: "Répéter (R)"
     replaygain: "Normalisation du volume (ReplayGain)"
+    seek: "Position dans le titre"
     shuffle: "Lecture aléatoire (S)"
     track_details: "Détails du titre"
     volume: "Volume"
@@ -1023,7 +1027,7 @@ rhythm:
         sfx_volume: "Volume des effets de frappe"
         title: "Paramètres"
     share:
-        name: "Jeu de rythme PHP Music"
+        name: "Jeu de rythme Symfony Music"
     sort:
         album_asc: "Album (A-Z)"
         artist_asc: "Artiste (A-Z)"

@@ -20,7 +20,9 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
  * stars (app:cron:artist-concerts, from Songkick), soonest first, optionally of one country only; "new" ones were
  * announced since the last visit of the artist's page. Viewing this list
  * marks nothing as seen. ?view=map shows the same concerts on an OpenStreetMap
- * map, at their city (app:cron:concert-geocode).
+ * map, at their city (app:cron:concert-geocode). ?min=N sets how many
+ * 5-star tracks are needed, ?all=1 drops that filter: every library artist
+ * whose concerts are known.
  */
 class ConcertsController extends AbstractController
 {
@@ -30,12 +32,16 @@ class ConcertsController extends AbstractController
         $now = $clock->now();
         $today = $now->format('Y-m-d');
         $onlyNew = $request->query->getBoolean('new');
+        $allArtists = $request->query->getBoolean('all');
+        $minFiveStars = max(1, $request->query->getInt('min', ArtistProfile::CONCERT_MIN_FIVE_STARS));
         $country = strtoupper((string) $request->query->get('country', ''));
         $country = preg_match('/^[A-Z]{2}$/', $country) === 1 ? $country : null;
         $map = $request->query->get('view') === 'map';
         $coordinates = $map ? $cities->coordinates() : [];
-        // Only the artists with enough 5-star tracks this viewer can see in the library.
-        $visible = array_flip($music->artistsWithRating(5, ArtistProfile::CONCERT_MIN_FIVE_STARS, $user));
+        // Only the artists this viewer can see in the library, by default those with enough 5-star tracks.
+        $visible = array_flip($allArtists
+            ? array_column($music->listArtists($user), 'artist')
+            : $music->artistsWithRating(5, $minFiveStars, $user));
 
         $concerts = [];
         $countries = [];
@@ -70,6 +76,9 @@ class ConcertsController extends AbstractController
             'country' => $country,
             'newCount' => $newCount,
             'onlyNew' => $onlyNew,
+            'allArtists' => $allArtists,
+            'minFiveStars' => $minFiveStars,
+            'defaultMinFiveStars' => ArtistProfile::CONCERT_MIN_FIVE_STARS,
             'map' => $map,
         ]);
     }

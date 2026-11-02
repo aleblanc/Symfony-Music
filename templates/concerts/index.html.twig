@@ -2,26 +2,28 @@
 {% import 'partials/_concert_row.html.twig' as concert %}
 {% import 'partials/_concert_map.html.twig' as concert_map %}
 
-{% block title %}{{ 'concerts.title'|trans }} · PHP Music{% endblock %}
+{% block title %}{{ 'concerts.title'|trans }} · Symfony Music{% endblock %}
 
 {% block body %}
     {% set view = map ? 'map' : null %}
+    {% set all = allArtists ? 1 : null %}
+    {% set min = minFiveStars != defaultMinFiveStars ? minFiveStars : null %}
     <h1>{{ 'concerts.heading'|trans }}</h1>
     <p class="section-sub">
         {{ 'concerts.count'|trans({count: concerts|length}) }}
-        {% if newCount and not onlyNew %}· <a href="{{ path('app_concerts', {new: 1, country: country, view: view}|filter(v => v)) }}"><span class="badge-new">{{ 'concerts.new_count'|trans({count: newCount}) }}</span></a>{% endif %}
-        {% if onlyNew %}· <a class="link" href="{{ path('app_concerts', {country: country, view: view}|filter(v => v)) }}">{{ 'concerts.show_all'|trans }}</a>{% endif %}
+        {% if newCount and not onlyNew %}· <a href="{{ path('app_concerts', {new: 1, country: country, view: view, all: all, min: min}|filter(v => v)) }}"><span class="badge-new">{{ 'concerts.new_count'|trans({count: newCount}) }}</span></a>{% endif %}
+        {% if onlyNew %}· <a class="link" href="{{ path('app_concerts', {country: country, view: view, all: all, min: min}|filter(v => v)) }}">{{ 'concerts.show_all'|trans }}</a>{% endif %}
     </p>
 
     <nav class="rating-tabs concert-views" aria-label="{{ 'concerts.views'|trans }}">
-        <a href="{{ path('app_concerts', {new: onlyNew ? 1 : null, country: country}|filter(v => v)) }}"{% if not map %} class="active" aria-current="page"{% endif %}>{{ 'concerts.view_list'|trans }}</a>
-        <a href="{{ path('app_concerts', {new: onlyNew ? 1 : null, country: country, view: 'map'}|filter(v => v)) }}"{% if map %} class="active" aria-current="page"{% endif %}>{{ 'concerts.view_map'|trans }}</a>
+        <a href="{{ path('app_concerts', {new: onlyNew ? 1 : null, country: country, all: all, min: min}|filter(v => v)) }}"{% if not map %} class="active" aria-current="page"{% endif %}>{{ 'concerts.view_list'|trans }}</a>
+        <a href="{{ path('app_concerts', {new: onlyNew ? 1 : null, country: country, view: 'map', all: all, min: min}|filter(v => v)) }}"{% if map %} class="active" aria-current="page"{% endif %}>{{ 'concerts.view_map'|trans }}</a>
     </nav>
 
-    {% if countries is not empty %}
-        <form class="concert-filter" method="get" action="{{ path('app_concerts') }}">
-            {% if onlyNew %}<input type="hidden" name="new" value="1">{% endif %}
-            {% if map %}<input type="hidden" name="view" value="map">{% endif %}
+    <form class="concert-filter" method="get" action="{{ path('app_concerts') }}">
+        {% if onlyNew %}<input type="hidden" name="new" value="1">{% endif %}
+        {% if map %}<input type="hidden" name="view" value="map">{% endif %}
+        {% if countries is not empty %}
             <label for="concert-country">{{ 'concerts.country'|trans }}</label>
             <select id="concert-country" name="country" onchange="this.form.requestSubmit()">
                 <option value="">{{ 'concerts.all_countries'|trans }}</option>
@@ -29,12 +31,22 @@
                     <option value="{{ code }}"{% if code == country %} selected{% endif %}>{{ code|country_name }} ({{ n }})</option>
                 {% endfor %}
             </select>
-            <noscript><button class="btn btn-sm" type="submit">{{ 'concerts.filter'|trans }}</button></noscript>
-        </form>
-    {% endif %}
+        {% elseif country %}
+            <input type="hidden" name="country" value="{{ country }}">
+        {% endif %}
+        {# Unchecked, the hidden all=1 is sent alone; checked, all=0 comes last and wins. #}
+        <input type="hidden" name="all" value="1">
+        <label class="concert-rated">
+            <input type="checkbox" name="all" value="0"{% if not allArtists %} checked{% endif %} onchange="this.form.requestSubmit()">
+            {{ 'concerts.only_rated_before'|trans }}
+        </label>
+        <input class="concert-min" type="number" name="min" value="{{ minFiveStars }}" min="1" max="99" inputmode="numeric" aria-label="{{ 'concerts.only_rated_min'|trans }}" onchange="this.form.requestSubmit()">
+        <span class="concert-rated-after">{{ 'concerts.only_rated_after'|trans({min: minFiveStars}) }}</span>
+        <noscript><button class="btn btn-sm" type="submit">{{ 'concerts.filter'|trans }}</button></noscript>
+    </form>
 
     {% if concerts is empty %}
-        <p class="muted">{{ (onlyNew or country ? 'concerts.empty_filtered' : 'concerts.empty')|trans }}</p>
+        <p class="muted">{{ (onlyNew or country or not allArtists ? 'concerts.empty_filtered' : 'concerts.empty')|trans }}</p>
     {% elseif map %}
         {{ concert_map.map(concerts) }}
     {% else %}
