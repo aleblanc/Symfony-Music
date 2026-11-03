@@ -127,6 +127,14 @@ class ArtistConcertsCommand extends Command
                 $next = $concerts[0];
                 $io->writeln(\sprintf('  <info>♪</info> %s — %d concert(s)%s, next: %s %s, %s', OutputFormatter::escape($label), \count($concerts), $new > 0 ? \sprintf(' (<info>%d new</info>)', $new) : '',
                     $next['date'], OutputFormatter::escape($next['title']), OutputFormatter::escape((string) ($next['city'] ?? ''))));
+                // The dates announced since the previous check, city by city.
+                $added = array_filter($profile->getConcerts(), static fn (array $c): bool => $c['added'] === $now->format(\DATE_ATOM));
+                foreach ($added as $c) {
+                    $place = implode(', ', array_filter([$c['city'] ?? null, $c['country'] ?? null]));
+                    $venue = (string) ($c['venue'] ?? '');
+                    $io->writeln(\sprintf('      <info>+</info> %s  <options=bold>%s</>%s', $c['date'], OutputFormatter::escape($place !== '' ? $place : $c['title']),
+                        $venue !== '' ? ' <fg=gray>— ' . OutputFormatter::escape($venue) . '</>' : ''));
+                }
             } elseif ($output->isVerbose()) {
                 $io->writeln(\sprintf('  <fg=gray>· %s — no upcoming concert</>', OutputFormatter::escape($label)));
             }
