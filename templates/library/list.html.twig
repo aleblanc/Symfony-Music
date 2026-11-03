@@ -33,7 +33,18 @@
            class="{{ sort starts with 'added' ? 'active' }}" title="{{ 'library.list.sort_added_title'|trans }}">{{ 'library.list.sort_added'|trans }} {{ sort == 'added_asc' ? '↑' : '↓' }}</a>
     </nav>
 
-    {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
+    {% if songs is not empty %}
+        {# The whole list (every page), fetched by player.js from app_library_queue. #}
+        {% set queueUrl = path('app_library_queue', {q: query, sort: sort}) %}
+        <div class="play-all-bar">
+            <button class="btn" type="button" data-play-all="#page-tracks" data-queue-url="{{ queueUrl }}">{{ 'common.play_all'|trans }}</button>
+            <button class="btn btn-ghost" type="button" data-queue-all="#page-tracks" data-queue-url="{{ queueUrl }}" title="{{ 'play_all.queue_all_title'|trans }}">+ {{ 'play_all.queue_all'|trans }}</button>
+        </div>
+    {% endif %}
+
+    <div id="page-tracks">
+        {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
+    </div>
 
     {% if pages > 1 %}
         <div class="pagination">

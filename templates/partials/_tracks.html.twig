@@ -6,6 +6,8 @@
     {% set isFav = song.id in favoriteIds %}
     {% set canEdit = app.user and ((song.owner and app.user.id == song.owner.id) or is_granted('ROLE_ADMIN')) %}
     <div class="track" data-track
+         data-sort-idx="{{ i }}"
+         data-sort-dur="{{ song.duration ?? 0 }}"
          data-track-id="{{ song.id }}"
          data-track-title="{{ song.displayTitle }}"
          data-track-artist="{{ song.artist }}"
@@ -71,12 +73,28 @@
     </div>
 {% endmacro %}
 
-{% macro track_list(songs, favoriteIds, listenLaterIds = [], offlineIds = []) %}
+{#
+ # sortable: a header row whose columns sort the list in the page
+ # (public/track-sort.js); the queue follows the order shown.
+ #}
+{% macro track_list(songs, favoriteIds, listenLaterIds = [], offlineIds = [], sortable = false) %}
     {% import _self as self %}
     {% if songs is empty %}
         <p class="muted">{{ 'tracks.empty'|trans }}</p>
     {% else %}
-        <div class="track-list">
+        <div class="track-list{{ sortable ? ' track-list--sortable' }}">
+            {% if sortable %}
+                <div class="track track-head" title="{{ 'tracks.sort.hint'|trans }}">
+                    <button type="button" class="track-sort" data-sort-key="idx" aria-label="{{ 'tracks.sort.order'|trans }}" aria-sort="ascending">#</button>
+                    <span></span>
+                    <button type="button" class="track-sort" data-sort-key="title">{{ 'tracks.sort.title'|trans }}</button>
+                    <button type="button" class="track-sort track-album" data-sort-key="album">{{ 'tracks.sort.album'|trans }}</button>
+                    <button type="button" class="track-sort track-dur" data-sort-key="dur">{{ 'tracks.sort.duration'|trans }}</button>
+                    <div class="track-actions">
+                        {% if app.user %}<button type="button" class="track-sort" data-sort-key="rating">{{ 'tracks.sort.rating'|trans }}</button>{% endif %}
+                    </div>
+                </div>
+            {% endif %}
             {% for song in songs %}
                 {{ self.track_row(song, loop.index, favoriteIds, listenLaterIds, offlineIds) }}
             {% endfor %}

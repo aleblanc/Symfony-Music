@@ -1128,6 +1128,13 @@ tracks:
     inflated_title: "{label} · {format} declared {kbps} kb/s, the bandwidth of an MP3 {real} kb/s (treble cut at {khz, number} kHz: re-encoded from a weaker source, or a narrow-band source)"
     more_options: "More options"
     quality_title: "{label} · {format} {kbps} kb/s"
+    sort:
+        album: "Album"
+        duration: "Duration"
+        hint: "Sort (click again to reverse)"
+        order: "Original order"
+        rating: "Rating"
+        title: "Title"
 ui:
     discover:
         shelf:

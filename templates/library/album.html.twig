@@ -10,6 +10,6 @@
     <p class="section-sub">{{ 'common.track_count'|trans({count: songs|length}) }}</p>
     {{ playAll.bar('album', album) }}
     <div id="page-tracks">
-        {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds) }}
+        {{ tracks.track_list(songs, favoriteIds, listenLaterIds, offlineIds, true) }}
     </div>
 {% endblock %}

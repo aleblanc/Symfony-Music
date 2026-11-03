@@ -11,6 +11,8 @@
         {% block stylesheets %}{% endblock %}
     </head>
     <body>
+        {# Ambient background: the playing track's cover, blurred and veiled (player.js) #}
+        <div class="ambient" id="ambient" aria-hidden="true"><canvas width="192" height="192"></canvas><canvas width="192" height="192"></canvas></div>
         <div class="app-shell">
             {% import 'partials/_icons.html.twig' as icons %}
             {% set route = app.request.attributes.get('_route') %}
@@ -235,6 +237,7 @@
         <script src="/player.js" defer></script>
         <script src="/nav.js" defer></script>
         <script src="/video-lightbox.js" defer></script>
+        <script src="/track-sort.js" defer></script>
         {% block javascripts %}{% endblock %}
     </body>
 </html>

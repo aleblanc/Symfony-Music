@@ -60,6 +60,30 @@ class MusicRepository extends ServiceEntityRepository
      */
     public function paginateLibrary(?User $viewer, ?string $query, int $page = 1, int $perPage = 60, string $sort = self::DEFAULT_SORT): Paginator
     {
+        $qb = $this->libraryQuery($viewer, $query, $sort);
+        $qb->setFirstResult(($page - 1) * $perPage)->setMaxResults($perPage);
+
+        return new Paginator($qb->getQuery(), fetchJoinCollection: false);
+    }
+
+    /**
+     * The whole library list (same search and order as paginateLibrary), for
+     * "Play all": only what the player needs, at most $limit tracks.
+     *
+     * @return list<array{id: int, title: ?string, artist: ?string, album: ?string, file: ?string, coverHash: ?string}>
+     */
+    public function libraryQueue(?User $viewer, ?string $query, string $sort, int $limit): array
+    {
+        /** @var list<array{id: int, title: ?string, artist: ?string, album: ?string, file: ?string, coverHash: ?string}> */
+        return $this->libraryQuery($viewer, $query, $sort)
+            ->select('m.id, m.title, m.artist, m.album, m.file, m.coverHash')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getArrayResult();
+    }
+
+    private function libraryQuery(?User $viewer, ?string $query, string $sort): \Doctrine\ORM\QueryBuilder
+    {
         $qb = $this->createQueryBuilder('m');
         $this->applySort($qb, $sort);
 
@@ -70,9 +94,7 @@ class MusicRepository extends ServiceEntityRepository
                 ->setParameter('q', '%' . trim($query) . '%');
         }
 
-        $qb->setFirstResult(($page - 1) * $perPage)->setMaxResults($perPage);
-
-        return new Paginator($qb->getQuery(), fetchJoinCollection: false);
+        return $qb;
     }
 
     /**

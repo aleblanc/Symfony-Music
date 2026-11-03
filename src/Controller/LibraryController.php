@@ -17,6 +17,8 @@ use App\Service\Artist\DiscographyView;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use App\Twig\CoverExtension;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -25,6 +27,9 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class LibraryController extends AbstractController
 {
+    /** Tracks queued at most by the library's "Play all". */
+    private const QUEUE_MAX = 5000;
+
     public function __construct(
         private readonly FavoriteRepository $favorites,
         private readonly ListenLaterRepository $listenLater,
@@ -83,6 +88,39 @@ class LibraryController extends AbstractController
             'listenLaterIds' => $this->listenLaterIds($user),
             'offlineIds' => $this->offlineIds($user),
         ]);
+    }
+
+    /**
+     * "Play all" of the library page: every track of the list (same search
+     * and order, not only the page shown), in the shape player.js queues.
+     */
+    #[Route('/library/queue', name: 'app_library_queue', methods: ['GET'])]
+    public function libraryQueue(
+        Request $request,
+        #[CurrentUser]
+        ?User $user,
+        MusicRepository $music,
+        CoverExtension $covers,
+    ): JsonResponse {
+        $query = trim((string) $request->query->get('q', ''));
+        $sort = (string) $request->query->get('sort', MusicRepository::DEFAULT_SORT);
+        if (!\in_array($sort, MusicRepository::SORT_KEYS, true)) {
+            $sort = MusicRepository::DEFAULT_SORT;
+        }
+
+        $tracks = array_map(fn (array $t): array => [
+            'id' => (string) $t['id'],
+            'title' => $t['title'] !== null && trim($t['title']) !== '' ? $t['title'] : ($t['file'] ? pathinfo($t['file'], \PATHINFO_FILENAME) : ''),
+            'artist' => (string) $t['artist'],
+            'album' => (string) $t['album'],
+            'url' => $this->generateUrl('app_song', ['id' => $t['id']]),
+            'artistUrl' => $t['artist'] ? $this->generateUrl('app_artist', ['name' => $t['artist']]) : '',
+            'albumUrl' => $t['album'] ? $this->generateUrl('app_album', ['name' => $t['album']]) : '',
+            'stream' => $this->generateUrl('app_stream', ['id' => $t['id']]),
+            'cover' => $covers->coverUrl($t),
+        ], $music->libraryQueue($user, $query ?: null, $sort, self::QUEUE_MAX));
+
+        return new JsonResponse($tracks);
     }
 
     #[Route('/genres', name: 'app_genres')]

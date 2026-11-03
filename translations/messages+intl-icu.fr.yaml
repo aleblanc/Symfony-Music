@@ -1128,6 +1128,13 @@ tracks:
     inflated_title: "{label} · {format} annoncé {kbps} kb/s, bande passante d’un MP3 {real} kb/s (aigus coupés à {khz, number} kHz : réencodé depuis une source plus faible, ou source à bande étroite)"
     more_options: "Plus d’options"
     quality_title: "{label} · {format} {kbps} kb/s"
+    sort:
+        album: "Album"
+        duration: "Durée"
+        hint: "Trier (cliquer encore pour inverser)"
+        order: "Ordre d’origine"
+        rating: "Note"
+        title: "Titre"
 ui:
     discover:
         shelf:

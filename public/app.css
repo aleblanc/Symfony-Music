@@ -94,6 +94,30 @@ a { color: inherit; text-decoration: none; }
 .link { color: var(--text-dim); font-weight: 500; }
 .link:hover { color: var(--text); text-decoration: underline; }
 
+/* Ambient background (player.js): the playing cover, blurred and veiled */
+.ambient { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.ambient canvas {
+    position: absolute; inset: -8px; width: calc(100% + 16px); height: calc(100% + 16px); object-fit: cover;
+    filter: blur(4px) saturate(1.2); opacity: 0; transition: opacity 1.5s ease;
+}
+.ambient canvas.on { opacity: 1; }
+.ambient::after {
+    --ambient-veil: 15, 15, 15;
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(var(--ambient-veil), .72) 0%, rgba(var(--ambient-veil), .86) 45%, rgba(var(--ambient-veil), .93) 100%);
+}
+body.has-ambient { background: transparent; }
+/* Menu, header and player let the cover through (frosted, for the text). */
+body.has-ambient .sidebar { background: rgba(0, 0, 0, .25); border-right-color: rgba(255, 255, 255, .06); }
+body.has-ambient .topbar { background: rgba(0, 0, 0, .25); }
+body.has-ambient .player {
+    background: rgba(0, 0, 0, .45); border-top-color: rgba(255, 255, 255, .06);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+}
+@media (prefers-reduced-motion: reduce) {
+    .ambient canvas { transition: none; }
+}
+
 /* Top bar + global search (inside <main>, sticky) */
 .topbar {
     position: sticky; top: 0; z-index: 40; margin: 0 -36px 24px; padding: 14px 36px;
@@ -264,6 +288,27 @@ h2 { font-size: 20px; margin: 30px 0 14px; font-weight: 700; }
 
 /* Playlist rows carry extra owner controls (move up/down, remove) so the
    action column auto-sizes instead of the default fixed kebab width. */
+/* Sortable header (public/track-sort.js). The rows share the list's grid
+   (subgrid): the actions column is as wide as its widest row, so the titles
+   of the header sit over their columns. */
+.track-list--sortable {
+    display: grid; grid-template-columns: 30px 42px minmax(0, 2fr) minmax(0, 1.4fr) 54px auto; column-gap: 14px;
+}
+.track-list--sortable > .track { grid-column: 1 / -1; grid-template-columns: subgrid; }
+.track-head .track-actions { justify-content: flex-start; }
+.track-head { padding-top: 0; padding-bottom: 6px; border-bottom: 1px solid var(--border); border-radius: 0; margin-bottom: 4px; }
+.track-head:hover { background: none; }
+.track-sort {
+    background: none; border: none; padding: 0; font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--text-faint); cursor: pointer; text-align: left; white-space: nowrap;
+}
+.track-head .track-sort[data-sort-key="idx"] { text-align: center; }
+.track-head .track-dur { text-align: right; }
+.track-sort:hover { color: var(--text); }
+.track-sort[aria-sort] { color: var(--text); }
+.track-sort[aria-sort="ascending"]::after { content: " ▲"; font-size: 9px; }
+.track-sort[aria-sort="descending"]::after { content: " ▼"; font-size: 9px; }
+.track-head .track-sort[data-sort-key="idx"][aria-sort]::after { content: none; }
 .track--playlist { grid-template-columns: 30px 42px minmax(0, 2fr) minmax(0, 1.4fr) 54px auto; }
 .track--playlist .track-actions { gap: 4px; }
 .track--playlist .icon-btn[disabled] { opacity: .3; cursor: default; }
@@ -441,6 +486,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px;
     .home-hero h1 { font-size: 26px; }
     .track { grid-template-columns: 28px 40px minmax(0, 1fr) 44px auto; gap: 10px; }
     .track-album { display: none; }
+    .track-list--sortable { grid-template-columns: 28px 40px minmax(0, 1fr) 44px auto; column-gap: 10px; }
     .player { grid-template-columns: 1fr auto; gap: 10px; }
     .player-volume { display: none; }
     /* Too narrow for one row: the buttons, then the waveform under them. */

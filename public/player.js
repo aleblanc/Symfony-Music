@@ -218,6 +218,38 @@ if (audio && bar) {
         engine.bands.forEach((band, i) => band.gain.setTargetAtTime(eq[i], now, 0.05));
     }
 
+    // Ambient background: the cover drawn small (192 px) on one of two canvases,
+    // stretched over the page by CSS (light blur) and cross-faded with the
+    // other one; the CSS veil keeps the text readable.
+    const ambient = (() => {
+        const root = document.getElementById('ambient');
+        const layers = root ? Array.from(root.querySelectorAll('canvas')) : [];
+        let front = 0;
+        let src = '';
+        const img = new Image(); // same-origin (/cover/{id}): readable canvas
+        img.onload = () => {
+            const next = layers[1 - front];
+            const ctx = next.getContext('2d');
+            ctx.clearRect(0, 0, next.width, next.height);
+            // Centre-crop to a square, as the cover is shown everywhere.
+            const side = Math.min(img.naturalWidth, img.naturalHeight);
+            ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, next.width, next.height);
+            layers[front].classList.remove('on');
+            next.classList.add('on');
+            front = 1 - front;
+        };
+
+        return {
+            show(cover) {
+                if (!layers.length || cover === src) return;
+                src = cover || '';
+                if (src) img.src = src;
+                else layers.forEach((c) => c.classList.remove('on'));
+                document.body.classList.toggle('has-ambient', src !== '');
+            },
+        };
+    })();
+
     const rgBtn = document.getElementById('player-rg');
     const RG_TITLE = {
         track: 'js.player.rg.title_track',
@@ -514,6 +546,7 @@ if (audio && bar) {
         }
         if (t.cover) { els.cover.src = t.cover; els.cover.style.visibility = 'visible'; }
         else { els.cover.removeAttribute('src'); }
+        ambient.show(t.cover);
         if (playerRate) fillStars(playerRate, t);
         bar.hidden = false;
         audio.play().catch(() => {});
@@ -607,13 +640,28 @@ if (audio && bar) {
     });
 
     // "Play all" / "Add all to queue" buttons: data-play-all or
-    // data-queue-all holds a CSS selector of the block whose tracks they take.
-    document.addEventListener('click', (e) => {
+    // data-queue-all holds a CSS selector of the block whose tracks they take;
+    // with data-queue-url (the paginated library) the whole list comes from
+    // the server instead, the rows of the page standing in for theirs.
+    document.addEventListener('click', async (e) => {
         const btn = e.target.closest('[data-play-all], [data-queue-all]');
         if (!btn) return;
         e.preventDefault();
         const scope = document.querySelector(btn.dataset.playAll || btn.dataset.queueAll || 'main') || document;
-        const tracks = Array.from(scope.querySelectorAll('[data-track]')).map(trackData);
+        let tracks = Array.from(scope.querySelectorAll('[data-track]')).map(trackData);
+        if (btn.dataset.queueUrl) {
+            btn.disabled = true;
+            try {
+                const res = await fetch(btn.dataset.queueUrl, { headers: { 'X-Requested-With': 'fetch', Accept: 'application/json' } });
+                if (!res.ok) throw new Error(String(res.status));
+                const rows = new Map(tracks.map((t) => [t.id, t.el]));
+                tracks = (await res.json()).map((t) => ({ ...t, title: t.title || I18N.t('js.common.unknown'), el: rows.get(t.id) || null }));
+            } catch {
+                // Offline or refused: the tracks of the page at least.
+            } finally {
+                btn.disabled = false;
+            }
+        }
         if (tracks.length === 0) return;
         if (btn.hasAttribute('data-play-all') || index < 0) {
             queue = tracks;
