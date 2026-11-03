@@ -1,0 +1,1216 @@
+admin_nav:
+    aria_label: Admin
+    audio_quality: 'Calidad de audio'
+    audio_quality_title: 'Pistas por calidad y tasa de bits'
+    duplicates: Duplicados
+    duplicates_title: 'Las pistas que la biblioteca tiene dos veces'
+    import_queue: 'Cola de importación'
+    import_queue_title: 'Archivos app:import:files no estaba seguro acerca de'
+auth:
+    email: Correo electrónico
+    login:
+        no_account: '¿Sin cuenta?'
+        remember_me: '¿Me recuerda'
+        sign_up_link: ¡Regístrate
+        title: 'Iniciar sesión'
+    password: Contraseña
+    register:
+        already: '¿Ya está registrado?'
+        artist: 'Artista / nombre de la pantalla'
+        log_in_link: 'Iniciar sesión'
+        submit: 'Crear cuenta'
+        title: ¡Regístrate
+common:
+    add: Añadir
+    brand: 'Música Symfony'
+    cancel: Cancela
+    clear: Claro
+    clear_all: 'Despeja todo'
+    close: Cerrar
+    close_esc: 'Cerrar (Esc)'
+    copy: Copia
+    count:
+        albums: '{count, plural, one {# álbum} other {# álbumes}}'
+        artists: '{count, plural, one {# artista} other {# artistas}}'
+        genres: '{count, plural, one {# género} other {# géneros}}'
+        mixes: '{count, plural, one {# mix} other {# mixes}}'
+        results: '{count, plural, one {# resultado} other {# resultados}}'
+        years: '{count, plural, one {# año} other {# años}}'
+    delete: Borrar
+    more: Más
+    next: Siguiente
+    none: Ninguno.
+    pagination:
+        next: 'Siguiente →'
+        prev: '← Prev'
+    play: 'Reproducir'
+    play_all: '▶ Juega todo'
+    previous: Anterior
+    rating: Valoración
+    remove: Quitar
+    reset: Restablecer
+    save: ¡Ahorra
+    search: Búsqueda
+    see_all_arrow: 'Ver todo →'
+    share: Compartir
+    sort: Ordenar
+    sort_by: 'Ordenar por'
+    track_count: '{count, plural, one {# canción} other {# canciones}}'
+    upload: Subir
+concerts:
+    all_countries: 'Todos los países'
+    count: '{count, plural, =0 {ningún concierto próximo} one {# concierto próximo} other {# conciertos próximos}}'
+    country: País
+    empty: 'Aún no hay próximo concierto: run php bin/console app:cron:artist-concerts.'
+    empty_filtered: 'Ningún concierto coincide con este filtro.'
+    festival: Fiesta
+    filter: Filtro
+    heading: 'Próximos conciertos'
+    map:
+        concert: Concierto
+        'off': 'Cancelado / pospuesto'
+        unlocated: '{count, plural, one {# concierto aún no está en el mapa: su ciudad no está localizada (php bin/console app:cron:concert-geocode).} other {# conciertos aún no están en el mapa: sus ciudades no están localizadas (php bin/console app:cron:concert-geocode).}}'
+    only_rated_after: '{min, plural, one {canción valorada} other {canciones valoradas}} con 5 ★'
+    only_rated_before: 'Solo artistas con al menos'
+    only_rated_min: 'Número mínimo de pistas con una potencia nominal de 5 estrellas'
+    new_badge: Nuevo
+    new_count: '{count, plural, one {# fecha nueva} other {# fechas nuevas}}'
+    show_all: 'Mostrar todos los conciertos'
+    status:
+        cancelled: Cancelado
+        online: 'En línea'
+        postponed: Aplazado
+        rescheduled: Reprogramado
+    tickets: Entradas
+    tickets_title: 'Detalles y entradas en Songkick'
+    title: Conciertos
+    view_list: Lista
+    view_map: Mapa
+    views: Pantalla
+disco:
+    essential: '★ Esencial'
+    essential_title: 'Entre los álbumes más escuchados del artista (ListenBrainz)'
+    favorite_aria: 'Favorito: {title}'
+    favorite_title: 'Escuchar (Discografía favorita)'
+    in_library: 'En la biblioteca'
+    not_in_library_title: 'No en la biblioteca — abierto en MusicBrainz'
+    popularity_title: '{listeners, plural, one {# oyente} other {# oyentes}} · {listens, plural, one {# escucha} other {# escuchas}} en ListenBrainz'
+    star_title: 'Una de las canciones más escuchadas del álbum'
+    track_listeners_title: '{count, plural, one {# oyente en ListenBrainz} other {# oyentes en ListenBrainz}}'
+    tracklist_aria: 'Lista de seguimiento de {title}'
+    tracklist_in_library: '{count} en la biblioteca'
+    tracklist_title: 'Lista de pistas'
+    type:
+        broadcast: Transmisión
+        ep: EP
+        live: 'En vivo'
+        other: Otros
+        single: Soltero
+        soundtrack: 'Banda sonora'
+discovery:
+    albums:
+        empty_html: 'Nada todavía: correr <code>php bin/console app:cron:artist-info </code>Para obtener las discografías.'
+        heading: 'Álbumes para descubrir de tus artistas'
+        intro: '{count, plural, one {# álbum} other {# álbumes}} que aún no están en la biblioteca, de los artistas de los que tienes al menos 11 canciones: primero el más escuchado de cada artista (ListenBrainz), luego los siguientes.'
+        title: 'Álbumes para descubrir'
+    hub:
+        empty: 'Nada por descubrir todavía: escanea algo de música en la biblioteca primero.'
+        login_hint_html: '<a href="{login_url}">Iniciar sesión </a>Para obtener recomendaciones basadas en su propio historial de escucha.'
+        mixes: Mezclas
+        personal_reco: 'Vea sus recomendaciones personales'
+        title: Descubre
+        trending: Tendencia
+    latest:
+        intro: 'Los últimos lanzamientos en la discografía de todos sus artistas (MusicBrainz), en la biblioteca o no, la más reciente primero.'
+        no_more: 'No más liberaciones.'
+        page: 'Página {page}'
+        title: 'Últimos lanzamientos'
+    mix:
+        meta: '{count, plural, one {# canción} other {# canciones}} · por {creator}'
+    mixes:
+        count_for: '{count, plural, one {# mix} other {# mixes}} para «{query}»'
+        empty: 'Aún no hay mezclas: escanea algo de música en la biblioteca primero.'
+        search_placeholder: 'Mezclas de búsqueda...'
+        sort_name: Nombre
+        sort_newest: 'Lo más nuevo'
+        sort_oldest: 'Más antiguo'
+        title: Mezclas
+    recommendations:
+        empty_html: 'Escucha unas cuantas canciones y empezaremos a recomendarte cosas; mientras tanto, echa un vistazo a <a href="{discover_url}">Descubrir</a>.'
+        subtitle: 'Recomendaciones basadas en su historial de escucha.'
+        title: 'Para Ti'
+    shelf:
+        discography_sub: 'Todavía no está en la biblioteca, de los artistas tiene al menos 11 canciones de, la mayoría escuchadas (ListenBrainz) primero.'
+        latest_releases_sub: 'Los últimos lanzamientos en la discografía de todos sus artistas (MusicBrainz), en la biblioteca o no, la más reciente primero.'
+        registered_artist: 'Artista registrado'
+    trending:
+        page: 'Página {page}'
+        subtitle: 'La mayoría son las pistas reproducidas en toda la biblioteca.'
+        title: Tendencia
+duplicates:
+    index:
+        col_album: Álbum
+        col_file: Archivo
+        col_length: Longitud
+        col_quality: Calidad
+        col_title: Título
+        col_used: Utilizado
+        confirm_keep: '¿Conservar esta y eliminar {count, plural, one {la otra} other {las # otras}}?'
+        cutoff_title: 'Corte de agudos: cuanto más alto, más completo es el archivo (php bin/console app:cron:spectrum)'
+        explain_html: '“Keep this one” elimina a los demás de su grupo: sus corazones, reproducciones y entradas de lista de reproducción se mueven hacia el guardado, sus archivos van a <code>{trash}/ </code>En la carpeta de música (el mismo camino, no se pierde nada).'
+        file_missing: 'Archivo que falta'
+        groups: '· {count, plural, one {# grupo} other {# grupos}}'
+        heading: Duplicados
+        inflated: 'ancho de banda de un MP3 de {real} kb/s (tasa de bits inflada)'
+        keep: 'Quédate con este'
+        suggested_title: 'Sugerido: mejor calidad'
+        summary: '{count, plural, one {# canción encontrada} other {# canciones encontradas}} más de una vez.'
+    kind:
+        other_album:
+            hint: 'El mismo artista y título, duraciones dentro de 3 s, en varios álbumes (mejor de, compilación): tal vez a propósito'
+            label: 'Diferentes álbumes'
+        same_album:
+            hint: 'El mismo artista, título y álbum, duración dentro de 3 s'
+            label: 'El mismo álbum'
+        same_file:
+            hint: 'El mismo nombre con otra extensión al lado (un antiguo MP3 dejado al lado de su reemplazo)'
+            label: 'El mismo archivo, otro formato'
+embed:
+    cover_alt: 'Arte de la cubierta'
+    play_pause_aria: Juego/Pausa
+error:
+    album_not_in_discography: 'Álbum no encontrado en la discografía de este artista'
+    ban:
+        empty_fingerprint: 'Huella digital vacía: {file}'
+        file_not_found: 'Archivo no encontrado: {file}'
+    csrf_invalid: 'Token CSRF no válido'
+    csrf_invalid_retry: 'Token CSRF no válido, inténtalo de nuevo.'
+    duplicates:
+        not_duplicates: 'Estas pistas no son duplicadas entre sí (ya más): recargar la página.'
+    invalid_json: 'Cuerpo JSON no válido'
+    profile:
+        background_invalid_type: 'Tipo de archivo no válido.'
+        backup_key_expired: 'Clave de copia de seguridad no válida o caducada.'
+        backup_key_format: 'Formato de clave no válido.'
+        backup_key_invalid: 'Clave de copia de seguridad no válida.'
+        picture_invalid_type: 'Tipo de archivo no válido. Solo se permite JPG, PNG, GIF.'
+        restore_invalid_input: 'Datos de entrada no válidos.'
+        restore_taken: 'Correo electrónico o artista ya tomado.'
+    rating:
+        out_of_range: 'La valoración debe estar entre 0 (ninguna) y 5 estrellas'
+    rhythm:
+        cheat_banned: 'Tercera infracción por trampas: {reason}. Tu cuenta ha sido bloqueada de forma permanente.'
+        cheat_strike: 'Trampa detectada (infracción {strike}/3): {reason}. Estás bloqueado en el juego de ritmo.'
+        invalid_body: 'Cuerpo inválido'
+        invalid_difficulty: 'Dificultad inválida'
+        missing_artist: 'Nombre de artista desaparecido'
+        song_not_found: 'Canción no encontrada'
+        too_few_onsets: 'Muy pocos inicios de banda'
+    scan:
+        getid3_missing: 'La biblioteca getID3 no está disponible (consulte la carga automática lib/getid3).'
+        music_dir_missing: 'Directorio de música "{dir}" no existe.'
+    song:
+        audio_missing: 'Archivo de audio en vivo que falta en el disco.'
+        version_not_found: 'Versión no encontrada.'
+    track_not_found: 'Pista no encontrada'
+    upload:
+        no_file: 'No hay archivos subidos.'
+        process_failed: 'No se ha podido procesar la imagen.'
+        read_failed: 'No se leyó el archivo cargado.'
+favorite:
+    albums:
+        count: '{count, plural, one {# álbum por escuchar} other {# álbumes por escuchar}}'
+        empty: 'Aún no hay álbum.'
+        hint_html: 'Corazón un álbum en el <em>Discografía </em>De una página de artista para añadirlo aquí.'
+        owned: '{count} ya en la biblioteca'
+        sort: 'Ordenar:'
+        sort_added: 'Últimas de corazón'
+        sort_hint: '— bares: los oyentes en ListenBrainz (personas que lo tocaron), escucha en el cursor'
+        sort_popularity: 'Los más escuchados'
+        title: 'Discografía favorita'
+    title: Favoritos
+flash:
+    artist:
+        info_updated: 'Información del artista actualizada.'
+        musicbrainz_error: 'Error de MusicBrainz: {error}'
+        not_found_musicbrainz: 'Artista no encontrado en MusicBrainz.'
+        youtube_unreachable: 'Los videos no se actualizan de YouTube, no se actualizan.'
+    ban:
+        banned_removed: '{track} bloqueada y retirada de la biblioteca: esta grabación no se volverá a descargar para ella.'
+        banned_restored: '{track} bloqueada: vuelve la versión anterior (app:cron:scan para actualizar sus datos).'
+        failed: 'No se pudo bloquear: {error}'
+    common:
+        error: 'Error: {error}'
+    duplicates:
+        removed: '{count, plural, one {# duplicado eliminado} other {# duplicados eliminados}}{moved, plural, =0 {} one {, archivo movido a {dirs}} other {, archivos movidos a {dirs}}}.'
+    import:
+        duplicate_in_folder: '{file} ya estaba en {folder}: movido a la carpeta de duplicados.'
+        duplicate_in_library: '{file} ya estaba en la biblioteca: movido a la carpeta de duplicados.'
+        filed: 'Presentado: {file}'
+        kept_as_is: 'Se mantiene tal como está: {path}'
+        not_filed: 'No presentado: {error}'
+        unavailable_candidate: 'Este archivo o candidato ya no está disponible.'
+        unavailable_file: 'Este archivo ya no está disponible.'
+    library:
+        rescan_done: 'Reescaneo completo: {added} añadidas, {updated} actualizadas, {removed} eliminadas, {unchanged} sin cambios.'
+    listen_later:
+        cleared: 'Todas las pistas de Listen Later eliminadas.'
+    metadata:
+        cover_invalid_type: 'Tipo de imagen de cubierta no válida. Solo se permiten JPG, PNG, WEBP y GIF.'
+        cover_unreadable: 'No se pudo leer la imagen de portada subida.'
+        song_deleted: 'Canción borrada.'
+        spotify_link_invalid: 'El enlace de Spotify no está reconocido: pega un enlace https://open.spotify.com/track/...'
+        updated: 'Metadatos actualizados con éxito.'
+    offline:
+        cleared: 'Todas las canciones sin conexión eliminadas.'
+    playlist:
+        already_own: 'Ya eres dueño de esta lista de reproducción.'
+        already_owner: 'Ya eres el dueño.'
+        bulk_added: '{added, plural, one {# canción añadida} other {# canciones añadidas}} a «{playlist}»{skipped, plural, =0 {} other { (# ya estaban)}}.'
+        cannot_copy_own: 'No se puede copiar su propia lista de reproducción.'
+        collab_identifier_required: 'Ingrese una dirección de correo electrónico o un nombre de visualización.'
+        collaborator_added: 'Colaborador añadido con éxito.'
+        collaborator_removed: 'Colaborador eliminado.'
+        copied: 'Lista de reproducción copiada correctamente.'
+        import_invalid_json: 'Archivo JSON no válido o mal formado.'
+        import_no_file: 'Por favor, elija un archivo JSON para importar.'
+        imported: 'Lista «{name}» importada con {count, plural, one {# canción} other {# canciones}}.'
+        invite_created: 'Enlace de invitación creado: {url}'
+        invite_invalid: 'Enlace de invitación inválido o caducado.'
+        joined: '¡Se unió a la lista de reproducción con éxito!'
+        left: 'Han dejado la colaboración.'
+        mix_added: '{count, plural, one {Se añadió # canción del mix.} other {Se añadieron # canciones del mix.}}'
+        mix_not_found: 'Mezcla no encontrada.'
+        name_empty: 'El nombre de la lista de reproducción no puede estar vacío.'
+        name_required: 'Se requiere el nombre de la lista de reproducción.'
+        no_track_to_add: 'No hay pista para añadir.'
+        not_collaborative: 'Esta lista de reproducción no está abierta para la colaboración.'
+        not_found: 'Lista de reproducción no encontrada.'
+        now_collaborative: 'La lista de reproducción ahora es colaborativa.'
+        now_private: 'La lista de reproducción ahora es privada. Colaboradores eliminados.'
+        track_added: 'Pista añadida a la lista de reproducción.'
+        track_already_in: 'Pista ya en la lista de reproducción.'
+        track_not_found: 'Pista no encontrada.'
+        updated: 'Lista de reproducción actualizada.'
+        user_not_found: 'Usuario no encontrado.'
+    profile:
+        account_deleted: 'Cuenta eliminada.'
+        account_restored: 'Cuenta restaurada con éxito.'
+        account_soft_deleted: 'Cuenta suaviada. Guarde la clave de copia de seguridad para restaurarla más tarde.'
+        background_updated: 'Antecedentes actualizados.'
+        name_empty: 'El nombre no puede estar vacío.'
+        name_taken: 'Mostrar el nombre ya tomado.'
+        password_changed: 'La contraseña ha cambiado con éxito.'
+        picture_updated: 'Imagen de perfil actualizada.'
+        updated: 'Perfil actualizado con éxito.'
+    song:
+        version_restored: 'Versión restaurada con éxito.'
+    suggestion:
+        applied: 'Aplicado: {title}.'
+        cannot_apply: 'Esta sugerencia ya no se puede aplicar.'
+        release_applied: '{applied, plural, one {# canción aplicada} other {# canciones aplicadas}}{failed, plural, =0 {} other {, # fallidas}}.'
+        revert_failed: '¿No se pudieron restaurar los metadatos anteriores (¿falta o no se puede escribir?).'
+        reverted: 'Metadatos anteriores restaurados.'
+    upload:
+        daily_limit: 'Se alcanzó el límite diario de subida de {limit, plural, one {# canción} other {# canciones}}.'
+        error: 'Error de carga: {error}'
+        extension_mismatch: 'Error de seguridad: el contenido del archivo no coincide con su extensión.'
+        getid3_missing: 'La biblioteca getID3 ha desaparecido.'
+        invalid_format: 'Formato de archivo no válido. Solo se permiten MP3, FLAC, M4A, OGG y WAV.'
+        mkdir_failed: 'No se pudo crear el directorio de carga.'
+        move_failed: 'No se pudo mover el archivo cargado.'
+        no_file: 'No hay archivos subidos.'
+        not_audio: 'Error de seguridad: el archivo no se puede analizar como audio.'
+        not_verified: 'Tu cuenta no está verificada para subir archivos.'
+        success: '{title}"" subido con éxito.'
+        too_large: 'Archivo demasiado grande (máx. {max} MB).'
+import:
+    queue:
+        candidates: Candidatos
+        choose_title: 'Elige este partido ({index})'
+        count_failed: '{count} con error (se reintentarán en el próximo app:import:files)'
+        count_imported: '{count} archivadas'
+        count_skipped: '{count} omitidas'
+        count_unmatched: '{count} sin identificar'
+        count_waiting: '{count} en espera'
+        destination_title: 'Destino en la biblioteca'
+        empty_help_html: '¡Corre <code>php bin/console app:import:files </code>Para procesar la carpeta de importación.'
+        empty_title: 'Nada esperando.'
+        file_missing: 'El archivo ya no está en la carpeta de importación.'
+        folder_root: '(importar la raíz de la carpeta)'
+        heading: 'Cola de importación'
+        intro_html: 'Archivos <code>app:import:files </code>No estaba seguro de. Escucha, luego elige la coincidencia correcta: se etiqueta y se archiva en la biblioteca.'
+        last_failed: 'El último intento falló: {error}'
+        next_title: 'Siguiente archivo (N)'
+        no_album: 'Sin álbum (single)'
+        no_candidate: 'Ningún candidato almacenado para este archivo.'
+        skip: ¡Salta
+        skip_title: 'Dejar de lado (S)'
+        tag_album: Álbum
+        tag_artist: Artista
+        tag_length: Longitud
+        tag_title: Título
+        unclassified: 'No clasificado'
+        unclassified_title: 'Mantenlo como está, en la carpeta _unclassified (U) de la biblioteca'
+js:
+    common:
+        download: Descargar
+        loading: Cargando...
+        play: 'Reproducir'
+        unknown: Desconocido
+    player:
+        added_to_queue: 'Añadido a la cola: {title}'
+        audio_settings:
+            reset_done: 'Restablecer a default.'
+            reset_failed: 'No se restableció.'
+            save_failed: 'No se ha salvado.'
+            saved: Salvado.
+        ban:
+            confirm: "¿Bloquear «{title}»?\n\nSu audio no es esta canción: sale de la biblioteca y esta grabación no se volverá a descargar nunca para ella."
+            done: Bloqueada
+            error: Error
+            failed: 'No se pudo bloquear: {error}'
+            this_track: 'Esta pista'
+        listen_later:
+            added: 'Añadido para escuchar más tarde'
+            removed: 'Eliminado de Escuchar más tarde'
+        lyrics:
+            none: 'No hay letra de esta canción.'
+            nothing_playing: 'Nada jugando.'
+        menu:
+            add_favorite: 'Añadir a favoritos'
+            add_listen_later: 'Añadir a escuchar más tarde'
+            add_to_queue: 'Añadir a la cola'
+            ban: 'No esta canción (ban)'
+            edit_metadata: 'Editar metadatos'
+            go_to_album: 'Ir al álbum'
+            go_to_artist: 'Ir al artista'
+            play_next: 'Juega a continuación'
+            remove_favorite: 'Eliminar de los favoritos'
+            remove_listen_later: 'Eliminar de Escuchar Más tarde'
+            remove_offline: 'Eliminar copia sin conexión'
+            save_offline: 'Guardar sin conexión'
+            track_fallback: Pista
+            view_metadata: 'Ver metadatos'
+        not_playing: 'No jugar'
+        offline:
+            removed: 'Eliminado de offline'
+            saved: 'Guardado sin conexión'
+        playing_next: 'Jugando siguiente: {title}'
+        queue:
+            count: '· {position}/{total}{upcoming, plural, =0 {} other {, # siguientes}}'
+            rating: Valoración
+            remove_aria: 'Quitar {title} de la cola'
+            remove_title: 'Retirar de la cola'
+        rating:
+            stars: '{count, plural, one {# estrella} other {# estrellas}}'
+        repeat:
+            title_all: 'Repetir: cola entera. Haz clic: esta pista'
+            title_off: 'Repetir: apagado. Haz clic: cola entera'
+            title_one: 'Repetir: esta pista. Haz clic: desactivado'
+            toast_all: 'Repetir toda la cola'
+            toast_off: Repita
+            toast_one: 'Repetición de la pista actual'
+        rg:
+            title_album: 'Normalización de volumen: álbum (ReplayGain). Haz clic: desactivado'
+            title_off: 'Normalización de volumen: apagado. Haz clic: pista'
+            title_track: 'Normalización de volumen: pista (ReplayGain). Haz clic en: álbum'
+            toast_mode: 'Normalización: {mode, select, album {álbum} other {pista}}'
+            toast_off: 'Normalización apagada'
+        shuffle:
+            title_off: 'Shuffle: apagado'
+            title_on: 'Shuffle: en'
+            toast_off: ¡Apague
+            toast_on: '¡Shuffle en'
+        tracks_added_to_queue: '{count, plural, one {# canción añadida a la cola} other {# canciones añadidas a la cola}}'
+    rhythm:
+        anticheat:
+            blocked: 'Truco bloqueado. Su sesión se termina.'
+            prompt: 'Automatización detectada! Ingrese la contraseña del Súper Administrador para permitir la reproducción automática:'
+        artist:
+            favorites_registered_only: 'Solo los usuarios registrados pueden tener favoritos.'
+            following_empty: 'No seguir a nadie.'
+            following_registered_only: 'Solo los usuarios registrados pueden seguir a otros.'
+            guest: 'Artista invitado'
+            history_empty: 'Este usuario no ha tocado ninguna pista todavía.'
+            history_registered_only: 'Solo las cuentas de usuario de artistas registrados tienen un historial de reproducción activo.'
+            played_times_html: 'Jugado: <b class="text-white">{count}</b> {count, plural, one {vez} other {veces}}'
+            playlists_empty: 'No se encontraron listas de reproducción.'
+        artist_card:
+            plays_html: 'Jugadas: <b class="text-white">{count, number}</b>'
+            score_html: 'Puntuación: <b class="text-white">{score, number}</b>'
+        artists_modal:
+            title: Artistas
+        badge:
+            bot_suspected: 'Juego perfecto / Bot sospechoso'
+            sus: SUS
+            suspicious: 'Actividad sospechosa'
+        calibration:
+            early: 'TEMPRANO ({offset}ms)'
+            late: 'TARDE ({offset}ms)'
+            perfect: 'PERFECTO ({offset}ms)'
+            start: 'Prueba de inicio'
+            stop: 'Detener la prueba'
+            tap_prompt: 'Toca la pantalla o las teclas para calibrar'
+        chart:
+            compiling: 'Compilando mapa...'
+            failed: 'No se ha podido generar un gráfico.'
+            network_error: 'Error fuera de línea o de red.'
+            none_to_download: 'No hay ninguna tabla disponible para descargar.'
+        dialog:
+            demon_landscape: '¡La dificultad del demonio requiere orientación del paisaje o ancho de pantalla de escritorio!'
+            favorite: Favorito
+            offline_warning_html: '<strong>Modo Offline: </strong>La información/puntuaciones de la canción reproducidas <strong>NO </strong>Se almacena en la base de datos, incluso después de volver a estar en línea. Solo se guardan las jugadas online.'
+            unfavorite: Desfavorito
+        diff_abbr:
+            demon: DM
+            easy: EZ
+            expert: EX
+            hard: HD
+            master: MS
+            medium: ND
+            unknown: ONU
+        difficulty:
+            demon: Demonio
+            easy: Fácil
+            expert: Experto
+            hard: Duro
+            master: Maestro
+            medium: Normal
+        difficulty_level_title: 'Nivel {difficulty}'
+        empty:
+            artists: 'No se encontraron artistas.'
+            favorite_tracks: 'No se han encontrado pistas favoritas.'
+            favorites: 'Aún no hay canciones favoritas. ¡Añade un poco!'
+            songs: 'No se han encontrado canciones.'
+            tracks: 'No se han encontrado huellas.'
+        error:
+            db_connection: 'Error al establecer la conexión de la base de datos.'
+        game:
+            fps: '{fps} FPS'
+            go: ¡VE!
+        judgement:
+            bad: ¿Malo
+            good: ¿Bueno
+            great: Genial
+            miss: ¿Señorita
+            perfect: Perfecto
+        key:
+            space: SPC
+        leaderboard:
+            empty: 'No se han registrado resultados. ¡Sé el primero en jugar!'
+            loading_scores: 'Cargando puntuaciones...'
+            plays: '({count, plural, one {# partida} other {# partidas}})'
+            total_score: 'Puntuación Total: {score, number}'
+        level_badge: 'LV.{level}'
+        level_short: 'Lv.{level}'
+        link_copied: 'Enlace copiado: {title}'
+        loading:
+            analyzing: 'Analizando los ritmos...'
+            chart: 'Carta de notas de carga...'
+            chart_failed: 'La generación de gráficos de notas falló en el servidor.'
+            checking_storage: 'Comprobación del almacenamiento local...'
+            connecting: 'Conectando a stream...'
+            engine_failed: 'No se pudo procesar el motor de audio. El formato de pista puede no estar soportado.'
+            from_memory: 'Cargando desde la memoria...'
+            not_offline: 'La canción no está disponible sin conexión.'
+            preparing: 'Preparación de audio... {percent}%'
+            progress: 'Cargando... {percent}%'
+        login_to_view_profile: 'Por favor, inicie sesión para ver su perfil.'
+        offline:
+            empty: 'No se han encontrado pistas fuera de línea.'
+            go_to_tab: 'Ir a la pestaña Offline'
+            hint: 'Reproduce tus canciones en caché en la pestaña Offline.'
+            load_failed: 'No se ha podido cargar las pistas sin conexión.'
+            no_match: 'No se encontró ninguna búsqueda de coincidencia de pistas sin conexión.'
+            not_cached: 'No almacenado en caché fuera de línea'
+            title: 'Estás sin conexión'
+        player_stats:
+            empty: 'No hay un historial de reproducción registrado todavía para este usuario.'
+            load_more: 'Cargar Más Historia'
+            no_more: 'No más obras grabadas.'
+            subtitle: 'Rhythm Juego Played Tracks'
+        playlist:
+            empty: 'No hay pistas en esta lista de reproducción.'
+            load_failed: 'No se pudo cargar la lista de reproducción.'
+            search_placeholder: 'Buscar en {playlist}...'
+        rank:
+            average: 'RANGO PROMEDIO'
+            title: RANGO
+        result:
+            autoplay_unranked: 'AUTOPLAY (SIN CLASIFICAR)'
+            offline_not_saved: 'Puntuación no guardada: Jugado sin conexión. Esta puntuación NO se sincronizará con la base de datos.'
+            stage_cleared: 'Etapa despeje'
+            stage_failed: 'Etapa Fallida'
+        search:
+            tracks: 'Pistas de búsqueda...'
+        settings:
+            reset_confirm: '¿Restablecer las opciones de juego a los valores predeterminados?'
+            reset_done: 'Opciones restablecer a predeterminada.'
+        share:
+            score_text: '¡Acabo de conseguir {score, number} puntos ({combo}x combo) en {title} [{difficulty}] en el juego de ritmo de Symfony Music!'
+        share_button: Compartir
+        song:
+            tap_to_compile: 'Toca para generar las notas'
+        song_leaderboard:
+            empty: 'No se han registrado resultados. ¡Sé el primero!'
+            load_failed: 'No se han logrado las puntuaciones de carga.'
+        stats:
+            accuracy: Precisión
+            combo: Combo
+            perfect_short: Perf
+            rank: Rango
+            score: Puntuación
+        tracks_count: '{count, plural, one {# canción} other {# canciones}}'
+        unknown_artist: 'Artista desconocido'
+library:
+    artist:
+        albums: 'Categoría: Álbumes'
+        all_concerts_link: 'Todos los conciertos de artistas'
+        all_posts_link: 'Todos los posts de los artistas'
+        all_videos_link: 'Todos los videos de los artistas'
+        collaborations: Colaboraciones
+        collaborations_sub: '{count, plural, one {# dúo, trío o feat.} other {# dúos, tríos o feats.}}'
+        discography: Discografía
+        discography_bars: 'Bares: oyentes en ListenBrainz'
+        discography_sub: '{total, plural, one {# álbum o EP} other {# álbumes y EP}}, {owned} en la biblioteca'
+        fetch_info: 'Foto de búsqueda, Wikipedia, YouTube...'
+        latest_posts: 'Últimas publicaciones de Instagram'
+        latest_videos: 'Últimos vídeos'
+        members: 'Artistas:'
+        new_concerts_badge: '{count, plural, one {# nuevo} other {# nuevos}}'
+        new_posts_badge: '{count, plural, one {# nueva} other {# nuevas}}'
+        new_videos_badge: '{count, plural, one {# nuevo} other {# nuevos}}'
+        not_found_mb: 'No se encuentra en MusicBrainz.'
+        refresh_info: 'Información de artista de actualización'
+        tracks: Pistas
+        upcoming_concerts: 'Próximos conciertos'
+        updated: 'Actualizado {date}'
+        videos_checked: 'Videos comprobados {date}'
+        wikipedia: Wikipedia
+    artists:
+        empty: 'No hay artistas todavía, ejecute un escaneo primero.'
+        new_videos_title: 'Nuevos videos de YouTube'
+        see_new_videos: 'Vea los nuevos videos'
+        title: Artistas
+        with_new_videos: '{count, plural, one {# artista con vídeos nuevos en YouTube} other {# artistas con vídeos nuevos en YouTube}}'
+    folder:
+        count_in_html: '{count, plural, one {# canción} other {# canciones}} en <code>MUSIC_DIR/{folder}</code>'
+        discover_desc: '— álbumes por descubrir, por ejemplo, de tu discografía favorita.'
+        discover_label: 'Descubre la carpeta'
+        empty_html: 'Vacíe por ahora: los archivos puestos en esta carpeta aparecen aquí después <code>php bin/consola app:cron:scan</code>.'
+        queue: Cola
+        queue_title: 'Agregue las pistas de esta carpeta a la cola de reproducción'
+        root: '(raíz de la carpeta)'
+        unclassified_desc_html: '— ficheros <code>app:import:files </code>No se pudo identificar, se mantuvo como están.'
+        unclassified_label: 'Carpeta no clasificada'
+    genres:
+        empty: 'No hay géneros todavía, ejecute un escaneo primero.'
+        title: Géneros
+    home:
+        browse_library: 'Explorar biblioteca'
+        get_started: ¡Empieza
+        get_started_text_html: 'Punto <code>MÚSICA_DIR </code>En su biblioteca y correr <code>php bin/consola app:cron:scan</code>, a continuación, navegar el <a class="link" href="{library_url}">Biblioteca</a>.'
+        guest_hint_html: 'Navegar y jugar todo como un invitado, o <a class="link" href="{login_url}">Iniciar sesión </a>Para mantener favoritos, listas de reproducción e historia.'
+        new_flag: Nuevo
+        play_aria: 'Jugar {title}'
+        recently_added: 'Recientemente añadido'
+        recently_played: 'Jugado recientemente'
+        title: Hogar
+        top_tracks: 'Tus pistas principales'
+        total_tracks: '{count, plural, one {# canción} other {# canciones}} en la biblioteca.'
+        welcome: ¡Bienvenida
+        welcome_user: 'Bienvenido, {name}'
+    list:
+        audio_quality: 'Calidad de audio'
+        clear_search: 'Limpiar la búsqueda'
+        force_rescan: 'Fuerza completa rescan'
+        import_queue: 'Cola de importación'
+        metadata_suggestions: 'Sugerencias de metadatos'
+        rescan: 'Biblioteca de rescan'
+        results_for: 'Resultados para “{query}”'
+        sort_added: 'Fecha de adición'
+        sort_added_title: 'Fecha de archivo (última modificación)'
+        sort_album: Álbum
+        sort_artist: Artista
+        sort_year: Año
+        title: Biblioteca
+    ratings:
+        empty: 'Aún no hay pista aquí.'
+        no_stars: 'Sin estrellas'
+        page_info: 'página {page} / {pages}'
+        playlist_name: 'Valorado: {label}'
+        stars: '{stars, plural, one {# estrella} other {# estrellas}}'
+        tabs_aria: Valoración
+        title: Valoraciones
+    years:
+        empty: 'Aún no hay años: ejecuta un escaneo primero.'
+        title: Años
+listen_later:
+    title: 'Escucha Más Tarde'
+lyrics:
+    close: 'Cerrar letras'
+metadata:
+    edit:
+        album_label: Álbum
+        artist_label: Artista
+        back: '← Volver a la pista'
+        confirm_delete: '¿Borrar esta canción de forma permanente? Esto no se puede deshacer.'
+        cover_label: 'Imagen de portada (opcional)'
+        danger_help: 'Elimina la entrada de la base de datos y el archivo en el disco'
+        danger_zone: 'Zona de peligro'
+        delete_song: 'Borrar la canción'
+        genre_label: Género
+        heading: 'Editar metadatos'
+        lyrics_label: 'Letra de'
+        private: 'Privado (solo visible para mí)'
+        save_changes: 'Guardar los cambios'
+        spotify_help_html: 'Llenado por <code>app:cron:spotify-match</code>; pega un enlace para corregir una coincidencia incorrecta o faltante, vacíala para eliminarla.'
+        spotify_label: 'Enlace Spotify'
+        title: 'Editar metadatos · {title}'
+        title_label: Título
+nav:
+    artists: Artistas
+    concerts: Conciertos
+    discover: Descubre
+    discover_folder: 'Descubre la carpeta'
+    favorite_discography: 'Discografía favorita'
+    favorites: Favoritos
+    genres: Géneros
+    home: Hogar
+    language: Lenguaje
+    library: Biblioteca
+    listen_later: 'Escucha Más Tarde'
+    log_in: 'Iniciar sesión'
+    log_out: '¡Cierra la sesión'
+    new_posts: 'Nuevas publicaciones'
+    new_videos: 'Nuevos videos'
+    offline: 'Fuera de línea'
+    playlists: 'Listas de reproducción'
+    ratings: Valoraciones
+    rhythm: 'Ritmo ↗'
+    rhythm_title: 'Abra el juego Rhythm en una pestaña nueva'
+    sign_up: ¡Regístrate
+    unclassified_folder: 'Carpeta no clasificada'
+    upload: Subir
+    years: Años
+    your_music: 'Tu música'
+offline:
+    count: '{count, plural, one {# canción disponible sin conexión} other {# canciones disponibles sin conexión}}'
+    title: 'Fuera de línea'
+play_all:
+    new_playlist: 'Nueva lista de reproducción “{name}”'
+    playlist_aria: 'Lista de reproducción para añadir cada pista a'
+    playlist_placeholder: 'Añadir todo a la lista de reproducción...'
+    queue_all: 'Añadir todo a la cola'
+    queue_all_title: 'Añadir cada pista a la cola de reproducción'
+player:
+    album: Álbum
+    artist: Artista
+    lyrics: 'Letra de'
+    lyrics_title: 'Letra de la letra (L)'
+    pip: 'Mini jugador'
+    pip_title: 'Mini jugador (salir)'
+    play_pause: Juego/Pausa
+    queue: 'Jugar cola'
+    queue_title: 'Play cola (Q)'
+    repeat: 'Repetición (R)'
+    replaygain: 'Normalización de volumen (ReplayGain)'
+    seek: 'Posición en la pista'
+    shuffle: 'Aleatorio (S)'
+    track_details: 'Detalles de la pista'
+    volume: Volumen
+playlist:
+    card:
+        by_owner_tracks: 'por {owner} · {count, plural, one {# canción} other {# canciones}}'
+        collaborative_suffix: '· Colaboración'
+        private_suffix: '· privado'
+        tracks: '{count, plural, one {# canción} other {# canciones}}'
+    collab:
+        empty: 'Aún no está colaborando en ninguna lista de reproducción. Pídele a un propietario un enlace de invitación.'
+        heading: 'Colaborando en'
+        my_playlists: 'Mis listas de reproducción'
+    collaborators:
+        add_heading: 'Añadir un colaborador'
+        back: 'Volver a la lista de reproducción'
+        current: 'Colaboradores actuales'
+        empty: 'Aún no hay colaboradores.'
+        expire_label: 'Expira (minutos, opcional):'
+        generate_link: 'Generar enlace'
+        invite_heading: 'Genere un enlace de invitación'
+        invite_help: 'Cualquier persona que abra el enlace puede unirse como colaborador (hasta que expire, si establece una expiración).'
+        not_collaborative: 'Esta lista de reproducción aún no es colaborativa. Activa la colaboración desde la página de la lista de reproducción antes de invitar a nadie.'
+        target_label: 'Correo electrónico o nombre de la pantalla'
+        title: 'Colaboradores · {name}'
+    common:
+        empty: 'Esta lista de reproducción está vacía.'
+        private: Privado
+    index:
+        collab_link: 'Colaborando en...'
+        copy_heading: 'Copia una lista de reproducción'
+        copy_help: 'Pegue el id de compartir (id público) de una lista de reproducción pública para copiarlo en su biblioteca.'
+        create: Crear
+        description_placeholder: 'Descripción (opcional)...'
+        empty: 'Aún no tienes listas de reproducción.'
+        heading: 'Listas de reproducción'
+        import: Importación
+        import_heading: 'Importar una lista de reproducción'
+        import_help: 'Cargue una exportación JSON (nombre + canciones) para recrearla en su biblioteca.'
+        name_placeholder: 'Nuevo nombre de lista de reproducción...'
+        public_id_placeholder: 'Lista de reproducción de id público...'
+    join:
+        accept: 'Aceptar y unirse'
+        heading: '¿Unirte a «{name}»?'
+        help: 'Creado por {owner}. Aceptar te permitirá añadir y eliminar pistas en esta lista de reproducción.'
+        title: 'Únete a la lista de reproducción'
+    shared:
+        copy_to_mine: 'Copia a mis listas de reproducción'
+    show:
+        add_by_id_label: 'Añadir pista por id:'
+        add_mix: 'Añadir la mezcla'
+        add_mix_label: 'Añada todas las canciones de una mezcla:'
+        collaborators: Colaboradores
+        confirm_delete: '¿Borrar esta lista de reproducción?'
+        confirm_leave: '¿Dejar esta colaboración?'
+        description_label: Descripción
+        edit_details: 'Editar detalles'
+        export_json: 'Exportación JSON'
+        leave: 'Dejar la colaboración'
+        make_collab: 'Hacer colaboración'
+        move_down: '¡Muévanse abajo'
+        move_up: '¡Muévanse arriba'
+        name_label: Nombre
+        plays: '· {count, plural, one {# reproducción} other {# reproducciones}}'
+        private_hint: 'Privado (activar esto elimina a todos los colaboradores)'
+        share_id: 'Compartir id:'
+        turn_off_collab: 'Desactiva la colaboración'
+post:
+    kind:
+        post: Post
+        reel: ¿Carrete
+    view_aria: 'Vista {label}'
+    view_here: 'Ver aquí'
+posts:
+    empty: 'No hay ninguna publicación todavía: run php bin/console app:cron:artist-posts.'
+    empty_new: 'No hay post nuevo desde tus últimas visitas.'
+    heading: 'Nuevas publicaciones de Instagram'
+    latest: 'Últimas publicaciones de Instagram de tus artistas, las más recientes primero'
+    new_badge: '{count} nuevas'
+    new_since_visit: '{count, plural, one {# publicación nueva desde tu última visita a cada página de artista} other {# publicaciones nuevas desde tu última visita a cada página de artista}}'
+    show_all: 'Mostrar todos los últimos posts'
+    title: 'Nuevas publicaciones'
+profile:
+    alert:
+        account_deleted_backup: 'Cuenta eliminada. Clave de copia de seguridad: {key}'
+        error: 'Error: {message}'
+        error_generic: 'Se ha producido un error.'
+        password_mismatch: 'Las contraseñas no coinciden.'
+    edit:
+        background_alt: Antecedentes
+        background_formats: 'JPG, PNG, GIF o WebP. Máx. 5MB.'
+        background_heading: 'Fondo de perfil'
+        bio_label: Bio
+        bio_max: 'Máx. {max} caracteres'
+        display_name_label: 'Nombre de la pantalla'
+        heading: 'Editar perfil'
+        picture_formats: 'JPG, PNG o GIF. Máx. 5MB.'
+        picture_heading: 'Imagen de perfil'
+        save_changes: 'Guardar cambios'
+        title: 'Editar perfil - {name}'
+        upload_background: 'Subir Fondo'
+        upload_picture: 'Subir Imagen'
+    password:
+        confirm_label: 'Confirmar contraseña'
+        match_hint: 'Debe coincidir con la contraseña de arriba'
+        min_hint: 'Mínimo {min} caracteres'
+        new_label: 'Nueva contraseña'
+        title: 'Cambiar contraseña'
+    show:
+        bio: Bio
+        change_password: 'Cambiar contraseña'
+        confirm_delete: 'Confirmar Eliminar'
+        delete_account: 'Eliminar cuenta'
+        delete_all: 'Borrar todo de forma permanente'
+        delete_keep_data: 'Conservar mis datos (eliminación suave)'
+        delete_warning: 'Esta acción no se puede deshacer. Elija una opción:'
+        edit: 'Editar perfil'
+        pending_verification: 'Verificación pendiente'
+        stat_favorites: Favoritos
+        stat_playlists: 'Listas de reproducción'
+        stat_uploads: Cargas
+        stats: Estadísticas
+        title: 'Perfil - {name}'
+        verified: 'Verificado ✓'
+quality:
+    index:
+        back: '← Volver a las pistas que vale la pena reemplazar'
+        bitrate_note: 'Las tasas de bits se comparan por códec: MP3 es “Muy bajo” bajo 128 kb/s, “Bajo” bajo 160, “Alto” de 256 y “Muy alto "a 320 kb/s (ningún oído puede decirlo de AAC 256); AAC / Vorbis son "Muy bajos" por debajo de 64, "Bajo" por debajo de 96, " Alto" de 128, "Muy alto" de 224 kb/s; FLAC / ALAC / WAV son sin pérdida.'
+        bucket_inflated: 'de las cuales {count} infladas'
+        bucket_inflated_title: 'Bitrate declarado en este rango, pero agudos cortados demasiado bajo: menor calidad real (ver la lista)'
+        by_format: 'Por formato'
+        by_quality: 'Por calidad'
+        col_album: Álbum
+        col_artist: Artista
+        col_bitrate: 'Tasa de bits'
+        col_format: Formato
+        col_real: 'Calidad real'
+        col_real_title: 'Desde el corte de agudos (php bin/console app:cron:spectrum): un archivo inflado se juzga como el MP3 cuyo ancho de banda tiene'
+        col_spotify: Spotify
+        col_title: Título
+        declared_genuine: 'Todos genuinos'
+        declared_heading: 'Declarado → real'
+        cutoff_soft: '{count, plural, one {# atenuación natural} other {# atenuaciones naturales}}'
+        declared_lower: '{count} realmente inferiores ({pct, number} %):'
+        declared_note: 'Los niveles desde el encabezado del archivo, y lo que valen los que el triple está demasiado bajo para su tasa de bits (recodificado desde una fuente más débil). La tabla “Por calidad” ya cuenta cada pista en su nivel real.'
+        empty: 'No hay pista aquí.'
+        first_n: ', primero {limit}'
+        format_heading_sub: '· {count, plural, one {# canción} other {# canciones}}, {lossless, select, true {por resolución} other {por tasa de bits}}'
+        genuine: ¿Verdad
+        heading: 'Calidad de audio'
+        kbps: '{value} kb/s'
+        not_analysed: 'No analizado'
+        not_decodable: 'No descodificable'
+        real_kbps: 'ancho de banda de un MP3 de {value} kb/s (inflada)'
+        spectrum_heading: 'El espectro real'
+        spectrum_legend: 'Color: el muro de un codificador (un corte brusco), juzgado como el MP3 que corta ahí. Gris: una atenuación natural (grabación antigua, piano solo), nunca tomada por una tasa de bits más baja.{unknown, plural, =0 {} one { # canción analizada antes de esta distinción; se clasificará en la próxima ejecución de app:cron:spectrum.} other { # canciones analizadas antes de esta distinción; se clasificarán en las próximas ejecuciones de app:cron:spectrum.}}'
+        spectrum_list: 'Ver la lista'
+        spectrum_none_html: 'Tasas de bits infladas: aún no se analiza — ejecutar <code>php bin/consola app:cron:spectrum</code>.'
+        spectrum_note: 'Donde se detiene el triplete de cada pista (php bin/console app:cron:spectrum). Un codificador corta bruscamente por velocidad de bits, cada rango es un corte de tasa de bits de MP3 (LAME: 15,6 kHz para un 112, 17 para un 128, 18.6 para un 192, 20.5 para un 320) y el color muestra el nivel de esa tasa de bits. Una grabación antigua o una fuente de banda estrecha (transmisión de 32 kHz) también baja sin ser una re-codificación. Un archivo solo cuenta como inflado cuando su corte es menor que cualquier codificación genuina a su velocidad de bits declarada: menos de 19 kHz para un 256-320, por lo que un 224 real o 256 re-codificado como 320 no es detectable, y un archivo marcado se juzga a la tasa de bits de su corte, nunca en el medio.'
+        spectrum_sub: '· corte de agudos de {count, plural, one {# canción analizada} other {# canciones analizadas}}{failed, plural, =0 {} other {, # no decodificables}}{pending, plural, =0 {} other {, # aún sin analizar}}'
+        spectrum_summary: 'Tasas de bits infladas: {inflated, plural, =0 {ninguna} one {# canción} other {# canciones}} de {analysed} analizadas ({total} en total).'
+        summary: '{count, plural, one {# canción} other {# canciones}} en la biblioteca, de la peor a la mejor.'
+        tier_tooltip: '{label}: {count} ({pct} %)'
+        tiers_aria: 'Porcentaje de cada nivel de calidad'
+        tracks_sub: '· {count, plural, one {# canción} other {# canciones}}, {spotify} con enlace de Spotify · primero la tasa de bits real más baja'
+        transparent_kbps: 'Guía de escucha: a partir de {p90} kb/s, ≈ 90 % de los oyentes no oyen diferencia con el original; ≈ 99 % a partir de {p99} kb/s. Órdenes de magnitud de pruebas a ciegas (ABX): un oído entrenado, buenos auriculares y un pasaje difícil lo hacen mejor.'
+        transparent_khz: 'Guía de escucha: un corte a partir de {p90, number} kHz es el ancho de banda de un MP3 de 192 kb/s, donde ≈ 90 % de los oyentes no oyen diferencia; a partir de {p99, number} kHz, el de uno de 256, ≈ 99 %. Los mismos umbrales que para las tasas de bits: el oído por sí solo permitiría menos (la mayoría de los adultos no oyen nada por encima de 16–17 kHz), pero lo que pierde una tasa de bits baja no son solo los agudos. Órdenes de magnitud, no medidas.'
+        transparent_row: 'inaudible para ≈ {pct} %'
+        transparent_title: 'Por cierto porcentaje de oyentes que no escuchan ninguna diferencia con el original de aquí en arra (pruebas ciegas, pérdida de audición relacionada con la edad)'
+        unscanned_html: '{count} aún sin analizar: ejecuta <code>php bin/console app:cron:scan --force</code>'
+queue:
+    clear: 'Claro próximo'
+    clear_title: 'Retire cada pista después de la actual'
+    close: 'Cierre la cola'
+rating:
+    stars: '{n, plural, one {# estrella} other {# estrellas}}'
+    stars_current: '{n, plural, one {# estrella} other {# estrellas}} (haz clic de nuevo para quitarla)'
+raw_metadata:
+    empty: Vacío.
+    no_rating_field: 'Sin campo de calificación (POPM, WM/SharedUserRating...) incrustado en este archivo.'
+    plain_text: 'Texto plano'
+    plain_text_hint: 'Para copiar y pegar'
+    subtitle: 'Todo getID3 lee del archivo · portada omitida'
+    title: 'Metadatos de archivos en bruto'
+    unreadable: 'El archivo no se puede leer en el disco (o getID3 no está disponible).'
+rhythm:
+    artist:
+        tab:
+            favorites: Favoritos
+            following: Siguientes
+            history: Historia
+            playlists: 'Listas de reproducción'
+            tracks: Pistas
+    calibration:
+        help: 'Prueba tu desfase de latencia y la velocidad de las notas en tiempo real. ¡Pulsa tus teclas asignadas cuando las líneas que caen crucen el objetivo rojo!'
+    chart:
+        download_svg: 'Descargar SVG'
+        title: 'Mapa del gráfico'
+    density:
+        dense: '1.2x (Denso)'
+        extreme: '2.0x (Extremo / 6x)'
+        label: 'MODIFICADOR DE DENSIDAD DE GRÁFICOS'
+        neutral: '1.0x (Neutral / Estándar 3x)'
+        optimize_help: 'Libera el espacio en disco eliminando los restos de los antiguos gráficos reemplazados. No elimina los datos activos.'
+        optimize_storage: 'Optimizar el almacenamiento'
+        save: 'Guardar Configuración'
+        sparse: '0.8x (escaso)'
+        title: 'Ajuste el escaneo del gráfico'
+        very_dense: '1.5x (Muy Denso)'
+        very_sparse: '0.5x (Muy Escaso - Casual)'
+    dialog:
+        artist_name_placeholder: 'Nombre del artista'
+        autoplay: 'Autoplay (Modo Bot)'
+        autoplay_help: 'Mira el bot jugar perfectamente.'
+        demon_warning: '¡El modo Demon usa 10 carriles!'
+        demon_warning_rotate: 'Gira el dispositivo a horizontal o usa un ordenador.'
+        play: Jugar
+        select_difficulty: 'Elige la dificultad'
+        song_name_placeholder: 'Nombre de la canción'
+        top_scores: 'Puntuaciones más altas'
+        view_chart: 'Ver Mapa del Gráfico'
+    game:
+        autoplay: 'Reproducción automática'
+        combo: COMBO
+        retry: Reintento
+        score: PUNTUACIÓN
+        title_placeholder: Título
+    howto:
+        accuracy: '{percent}% Prec.'
+        autoplay: 'Alterne "Autoplay" en el menú de la canción para que el bot logre una puntuación perfecta automáticamente.'
+        autoplay_label: 'Autoplay (Modo Bot):'
+        autoplay_note: 'Nota: Las puntuaciones de reproducción automática no se guardan en las tablas de clasificación.'
+        breaks_combo: 'Rompe el combo'
+        diff_demon: '¡Usa las 10 calles!'
+        diff_demon_label: 'Demonio:'
+        diff_demon_landscape: 'Requiere orientación del paisaje en dispositivos móviles.'
+        diff_easy: 'Utiliza 4 carriles (D, F, J, K). Lo mejor para principiantes.'
+        diff_easy_label: 'Fácil / Normal:'
+        diff_hard: 'Utiliza 6 carriles (S, D, F, J, K, L). Requiere tiempos de reacción más rápidos.'
+        diff_hard_label: 'Duro / Experto / Maestro:'
+        difficulty_scaling: 'Dificultad de escalado:'
+        flick_text: 'Desliza hacia arriba o haz un gesto rápido con el dedo o el ratón sobre el carril cuando la nota llegue a la línea. En el ordenador, soltar la tecla rápidamente cuenta como un deslizamiento.'
+        flick_title: 'Notas de Flick (Rosa)'
+        heading: 'Dominar el ritmo'
+        hold_flick_text: 'Una combinación de mantener y deslizar. Mantén la tecla pulsada durante el cuerpo transparente y suéltala con un deslizamiento justo cuando la cola rosa cruce la línea de juicio.'
+        hold_flick_title: 'Sostenga + Flick Notas'
+        hold_text: 'Mantén pulsada la tecla cuando la parte inferior de la nota llegue a la línea y suéltala justo cuando pase la cola superior. Soltarla demasiado pronto rompe tu combo.'
+        hold_title: 'Mantener las notas (verde)'
+        hub_navigation_html: 'Usa la barra de navegación inferior para cambiar entre <strong>Canciones</strong>, <strong>Artistas</strong>, <strong>Favoritos</strong>, <strong>Clasificaciones</strong>, tu <strong>Perfil</strong> o las canciones <strong>Sin conexión</strong>.'
+        hub_navigation_label: 'Navegación del Hub:'
+        intro: 'Aprenda la mecánica central, los tipos de notas y el sistema de puntuación para escalar las tablas de clasificación.'
+        nav_heading: 'Navegación y dificultades'
+        note_types: 'Tipos de notas'
+        scoring_heading: 'Puntuación y rangos'
+        tap_text: 'La nota estándar. Pulsa la tecla del carril correspondiente justo cuando la nota se alinee con la línea de juicio roja de abajo.'
+        tap_title: 'Notas de toque (cian)'
+        tip_anticheat: 'El servidor detecta macros inhumanas y autoclickers. No uses scripts o se te bloqueará de forma permanente.'
+        tip_anticheat_label: 'Anti-Trampa:'
+        tip_calibration: 'Si las notas no van al ritmo, usa la herramienta de calibración de la pestaña Ajustes para ajustar el desfase de audio (en milisegundos).'
+        tip_calibration_label: 'Calibración:'
+        tip_hp: 'La falta de notas drena su barra de salud verde. Si se vacía por completo, ¡fallas en el escenario!'
+        tip_hp_label: 'HP Bar:'
+        tip_speed: 'El ajuste de la velocidad de marcación en la configuración separa más las notas, haciendo que las secciones rápidas sean más fáciles de leer sin alterar el BPM de la canción.'
+        tip_speed_label: 'Velocidad de la nota:'
+        tips_heading: 'Consejos y ajustes'
+        title: 'Cómo jugar: Juego de ritmo'
+    hub:
+        title: 'Juego de ritmo'
+    loading:
+        song_title_placeholder: 'Título de la canción'
+    nav:
+        artists: Artistas
+        favorites: Favoritos
+        offline: 'Fuera de línea'
+        profile: Perfil
+        ranks: Rankings
+        settings: Configuración
+        songs: Canciones
+    pause:
+        difficulty: 'Dificultad:'
+        quit: 'Dejar de menú'
+        resume: ¿Reanudar
+        title: 'Juego de Pausados'
+    player_stats:
+        title: 'Historia del jugador'
+    result:
+        accuracy: Precisión
+        max_combo: 'Combo máximo'
+        menu: Menú
+        rank: Rango
+        share_score: 'Puntuación de Share'
+        total_score: 'Puntuación Total'
+    search:
+        artists: 'Los artistas de búsqueda...'
+        favorites: 'Buscar favoritos...'
+        following: 'Búsqueda siguiendo...'
+        offline: 'Buscar pistas offline...'
+    settings:
+        calibration: 'Herramienta de calibración'
+        gameplay_options: 'Opciones de juego'
+        how_to_play: 'Cómo jugar'
+        keybindings: 'Keybindings de carril'
+        keybindings_help: 'Toca una tecla para volver a encuadernar. Easy/Normal utiliza 4 teclas (D, F, J, K), Hard-Master utiliza 6 teclas (S, D, F, J, K, L), Demon utiliza los 10 la ¡Los negados!'
+        latency_offset: 'Desplazamiento de latencia de audio'
+        note_speed: 'Velocidad de la nota (Tick)'
+        reset_options: 'Opciones de restablecimiento'
+        sfx_volume: 'Golpear el volumen de SFX'
+        title: Configuración
+    share:
+        name: 'Juego de ritmo de música Symfony'
+    sort:
+        album_asc: 'Álbum (A-Z)'
+        artist_asc: 'Artista (A-Z)'
+        most_followers: 'La mayoría de seguidores'
+        most_ranks: 'La mayoría de los rangos'
+        most_scores: 'La mayoría de las puntuaciones'
+        most_tracks: 'La mayoría de las pistas'
+        my_order: 'Mi Orden'
+        name_asc: 'Nombre (A-Z)'
+        name_desc: 'Nombre (Z-A)'
+        newest: 'Lo más nuevo'
+        random: ¿Aleatorio
+        title_asc: 'Título (A-Z)'
+        trending: Tendencia
+    vacuum:
+        title: 'Registro de optimización de base de datos'
+search:
+    aria_label: 'Buscar en la biblioteca'
+    placeholder: 'Buscar canciones, artistas, álbumes, géneros...'
+song:
+    show:
+        audio_settings: 'Ajustes de audio'
+        audio_settings_hint: 'Guardado para ti, solo en esta pista'
+        ban: 'No esta canción'
+        ban_confirm: "¿Bloquear esta canción?\n\nSu audio no es esta canción: sale de la biblioteca y esta grabación no se volverá a descargar nunca para ella."
+        ban_title: 'El audio es otra canción: bloquear esta grabación para esta canción'
+        band_aria: 'Banda {n}'
+        bit_depth: 'Profundidad de bits'
+        bitrate: 'Tasa de bits'
+        bits: '{bits} bits'
+        channels: 'Categoría: Canales'
+        channels_count: '{count} canales'
+        codec: Codec
+        col_date: Fecha
+        col_name: Nombre
+        col_size: Tamaño
+        cutoff: 'Corte de agudos'
+        cutoff_failed: 'No se pudo analizar'
+        cutoff_sharp: 'Corte agudo (el paso bajo de un codificador)'
+        cutoff_soft: 'Roll-off natural'
+        details: Detalles
+        edit_metadata: 'Editar metadatos'
+        equalizer_aria: 'Ecualizador (dB)'
+        eyebrow: Canción
+        favorite: Favoritos
+        favorite_aria: Favoritos
+        favorited: Favoritos
+        file_versions: 'Versiones de archivos'
+        find_on_spotify: 'Buscar en Spotify'
+        format: Formato
+        inflated: 'Tasa de bits inflada: el ancho de banda de un MP3 de {real} kb/s (recodificado desde una fuente más débil, o una fuente de banda estrecha)'
+        kbps: '{kbps} kbps'
+        khz: '{value, number} kHz'
+        listen_later: 'Escucha más tarde'
+        lyrics: 'Letra de'
+        mono: Mono
+        no_lyrics: 'No hay letras incrustadas en este archivo.'
+        no_versions: 'No hay versiones de copia de seguridad en el disco para este archivo.'
+        not_in_tags: 'No en las etiquetas de archivo'
+        offline: 'Fuera de línea'
+        offline_aria: 'Disponible offline'
+        quality: Calidad
+        rating: Valoración
+        rating_title: 'Leer de la etiqueta ID3 POPM del archivo (p. ej. Estrellas de Windows Media Player)'
+        restore: Restaurar
+        sample_rate: 'Tasa de muestreo'
+        save_offline: 'Guardar sin conexión'
+        size_mb: '{size, number} MB'
+        spotify_not_found: 'No se encuentra ({date})'
+        spotify_not_matched: 'Aún no coincide'
+        spotify_search_title: 'No hay ningún enlace almacenado todavía: búsqueda Spotify'
+        stereo: Estéreo
+        volume: Volumen
+        your_plays: 'Tus obras'
+suggestion:
+    index:
+        accept: Aceptar
+        accept_album: 'Aceptar álbum ({count})'
+        col_current: Actual
+        col_file: Archivo
+        col_proposed: Propuesta
+        col_score: Puntuación
+        empty: 'Aquí nada.'
+        heading: 'Sugerencias de metadatos'
+        intro_html: 'Propuesta por <code>bin/console app:tool:enrich </code>De MusicBrainz / AcoustID. Las coincidencias seguras se aplican automáticamente; los otros esperan aquí.'
+        plus_cover: +cubierta
+        reject: Rechazar
+        revert: Revertir
+        status_nav_aria: Estado
+    status:
+        applied: Aplicado
+        pending: Pendiente
+        rejected: Rechazado
+        reverted: Revertido
+tracks:
+    empty: 'No hay pistas aquí todavía.'
+    favorite: Favorito
+    inflated_title: '{label} · {format} declarado a {kbps} kb/s, el ancho de banda de un MP3 de {real} kb/s (agudos cortados a {khz, number} kHz: recodificado desde una fuente más débil, o una fuente de banda estrecha)'
+    more_options: 'Más opciones'
+    quality_title: '{label} · {format} {kbps} kb/s'
+    sort:
+        album: Álbum
+        duration: Duración
+        hint: 'Ordenar (haz clic de nuevo para invertir)'
+        order: 'Orden original'
+        rating: Valoración
+        title: Título
+ui:
+    discover:
+        shelf:
+            albums_from_your_artists: 'Álbumes para descubrir de tus artistas'
+            discover_albums: 'Descubre álbumes'
+            discover_artists: 'Descubre Artistas'
+            discover_new_albums: 'Descubre nuevos álbumes'
+            discover_new_songs: 'Descubre nuevas canciones'
+            discover_songs: 'Descubre canciones'
+            frequently_played: 'Jugado con frecuencia'
+            genre_mix: 'Su Mezcla De Género'
+            latest_releases: 'Últimos lanzamientos'
+            more_from_artist: 'Más de {artist}'
+            recently_played: 'Jugado recientemente'
+            your_favorites: 'Tus Favoritos'
+    pwa:
+        description: 'Un reproductor de música simple y rápido con cuentas de usuario y cargas.'
+        short_name: Música
+    quality:
+        bucket:
+            at_least: '≥ {kbps} kb/s'
+            below: '< {kbps} kb/s'
+            lossless: '{bits} bits / {khz, number} kHz{hires, select, yes { (alta resolución)} other {}}'
+            lossless_unknown_rate: '{bits} bits / ? kHz'
+            range: '{min}–{max} kb/s'
+        cutoff:
+            at_least: '≥ {khz, number} kHz'
+            below: '< {khz, number} kHz'
+            mp3: '≈ MP3 {kbps} kb/s'
+            range: '{min, number}–{max, number} kHz'
+        high: 'De alta calidad'
+        list_title:
+            inflated: 'Índices de bits infladas (treble cortado demasiado bajo para la tasa de bits declarada: re-codificado desde una fuente más débil)'
+            worth_replacing: 'Canciones que vale la pena sustituir (MP3 ≤ {mp3} kb/s, AAC / Vorbis / Opus ≤ {efficient} kb/s, y las infladas cuya tasa de bits real es igual de baja)'
+        lossless: 'Sin pérdidas'
+        low: Bajo
+        standard: Estándar
+        unknown_bitrate: 'La tasa de bits desconocida'
+        very_high: 'Muy alta calidad'
+        very_low: 'Muy bajo'
+    rhythm:
+        cheat_reason:
+            data_spoofing: 'Suplantación de datos (puntúa o combinación de límites matemáticos)'
+            inhuman_precision: 'Precisión Inhumana (+ más de 5m)'
+            macro_pattern: 'Patrón macro detectado (StdDev < 1.5ms)'
+upload:
+    file: 'Archivo de audio'
+    file_help: 'MP3, FLAC, M4A, OGG o WAV. Máx. {mb} MB.'
+    genre: 'Género (opcional, usado si el archivo no tiene etiqueta)'
+    not_verified: 'Tu cuenta aún no está verificada para subir archivos. Pide a un administrador que la verifique.'
+    private: 'Privado (solo visible para mí)'
+    quota: 'Te quedan {quota} de {limit} subidas hoy.'
+    title: 'Subir una canción'
+validator:
+    artist:
+        taken: 'Este nombre artístico ya está tomado.'
+    email:
+        invalid: 'Introduce una dirección de correo electrónico válida.'
+        taken: 'Ya existe una cuenta con este correo electrónico.'
+    password:
+        too_short: 'La contraseña debe tener al menos {min} caracteres.'
+    registration:
+        all_required: 'Se requieren todos los campos.'
+video:
+    close: 'Cerrar vídeo'
+    iframe_title: 'Video de YouTube'
+    lightbox_label: 'Vídeo'
+    new_badge: Nuevo
+    play_aria: 'Jugar {title}'
+    play_here: 'Jugar aquí'
+videos:
+    empty: 'No hay vídeo todavía: ejecutar php bin/console app:cron:artist-videos.'
+    empty_new: 'No hay video nuevo desde sus últimas visitas.'
+    heading: 'Nuevos videos de YouTube'
+    latest: 'Últimos videos de tus artistas, más recientes primero'
+    latest_limit: '(los {limit} más recientes)'
+    new_badge: '{count} nuevos'
+    new_since_visit: '{count, plural, one {# vídeo nuevo desde tu última visita a cada página de artista} other {# vídeos nuevos desde tu última visita a cada página de artista}}'
+    show_all: 'Mostrar todos los últimos videos'
+    title: 'Nuevos videos'
