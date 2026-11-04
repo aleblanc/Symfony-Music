@@ -1199,6 +1199,8 @@ validator:
         all_required: 'Se requieren todos los campos.'
 video:
     close: 'Cerrar vídeo'
+    next: Siguiente
+    previous: Anterior
     iframe_title: 'Video de YouTube'
     lightbox_label: 'Vídeo'
     new_badge: Nuevo

@@ -182,6 +182,8 @@
             <div class="video-lightbox-frame">
                 <iframe src="about:blank" title="{{ 'video.iframe_title'|trans }}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
             </div>
+            <button type="button" class="video-lightbox-nav video-lightbox-prev" title="{{ 'video.previous'|trans }} (←)" aria-label="{{ 'video.previous'|trans }}">‹</button>
+            <button type="button" class="video-lightbox-nav video-lightbox-next" title="{{ 'video.next'|trans }} (→)" aria-label="{{ 'video.next'|trans }}">›</button>
         </dialog>
 
         {# Shared per-track context menu, populated + positioned by player.js #}

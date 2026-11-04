@@ -1200,6 +1200,8 @@ validator:
         all_required: "Tous les champs sont obligatoires."
 video:
     close: "Fermer la vidéo"
+    next: "Suivante"
+    previous: "Précédente"
     iframe_title: "Vidéo YouTube"
     lightbox_label: "Vidéo"
     new_badge: "Nouveau"
